@@ -6,6 +6,8 @@ use App\Services\Delivery\ChannelRegistry;
 use App\Services\Delivery\Channels\EmailChannel;
 use App\Services\Delivery\Channels\PushChannel;
 use App\Services\Delivery\Channels\SmsChannel;
+use App\Services\Delivery\Contracts\NotificationGateway;
+use App\Services\Delivery\Gateways\WebhookSiteGateway;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Support\ServiceProvider;
 
@@ -20,6 +22,8 @@ class DeliveryServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->registerChannels();
+
+        $this->app->bind(NotificationGateway::class, WebhookSiteGateway::class);
     }
 
     /**

@@ -35,4 +35,20 @@ return [
         'lock_seconds' => max(1, (int) env('NOTIFICATIONS_IDEMPOTENCY_LOCK_SECONDS', 30)),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Gateway
+    |--------------------------------------------------------------------------
+    |
+    | The external provider every notification is handed to. The provider is
+    | expected to answer with HTTP 202 and a JSON body carrying "messageId".
+    |
+    */
+
+    'gateway' => [
+        'url' => env('NOTIFICATIONS_GATEWAY_URL'),
+        'timeout_seconds' => max(1, (int) env('NOTIFICATIONS_GATEWAY_TIMEOUT_SECONDS', 10)),
+        'connect_timeout_seconds' => max(1, (int) env('NOTIFICATIONS_GATEWAY_CONNECT_TIMEOUT_SECONDS', 5)),
+    ],
+
 ];

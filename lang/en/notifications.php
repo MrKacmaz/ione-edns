@@ -20,6 +20,22 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Delivery Errors
+    |--------------------------------------------------------------------------
+    |
+    | Reasons a delivery attempt failed, stored as the notification's last error
+    | and in its delivery history.
+    |
+    */
+
+    'errors' => [
+        'http_status' => 'The provider responded with HTTP :status.',
+        'unreachable' => 'The provider could not be reached: :reason',
+        'gateway_url_missing' => 'The notification gateway URL is not configured.',
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Recipient Formats
     |--------------------------------------------------------------------------
     |
