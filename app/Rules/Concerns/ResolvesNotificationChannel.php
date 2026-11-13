@@ -1,0 +1,50 @@
+<?php
+
+namespace App\Rules\Concerns;
+
+use App\Enums\NotificationChannel;
+use App\Services\Delivery\Contracts\DeliveryChannel;
+use Illuminate\Support\Str;
+
+/**
+ * Resolves the delivery channel of the notification an attribute belongs to, for both
+ * a single notification (`recipient`) and an item of a batch (`notifications.3.recipient`).
+ *
+ * The using rule must hold the channel registry in a `$channels` property.
+ */
+trait ResolvesNotificationChannel
+{
+    /**
+     * All the data under validation.
+     *
+     * @var array<array-key, mixed>
+     */
+    protected array $data = [];
+
+    /**
+     * Set the data under validation.
+     *
+     * @param  array<array-key, mixed>  $data
+     */
+    public function setData(array $data): static
+    {
+        $this->data = $data;
+
+        return $this;
+    }
+
+    /**
+     * Get the delivery channel of the notification the attribute belongs to, if its channel is valid.
+     */
+    protected function deliveryChannelOf(string $attribute): ?DeliveryChannel
+    {
+        $channelAttribute = str_contains($attribute, '.')
+            ? Str::beforeLast($attribute, '.').'.channel'
+            : 'channel';
+
+        $channelValue = data_get($this->data, $channelAttribute);
+        $channel = is_string($channelValue) ? NotificationChannel::tryFrom($channelValue) : null;
+
+        return $channel === null ? null : $this->channels->for($channel);
+    }
+}
