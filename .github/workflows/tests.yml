@@ -3,7 +3,7 @@ name: tests
 on:
   push:
     branches:
-      - main
+      - master
   pull_request:
 
 permissions:
@@ -12,6 +12,28 @@ permissions:
 jobs:
   ci:
     runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: ione_edns
+          POSTGRES_PASSWORD: secret
+          POSTGRES_DB: ione_edns_testing
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ione_edns"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    # .env.example ships without database credentials and .env.testing is not committed,
+    # so the job points every database connection at the postgres service above.
+    env:
+      DB_DATABASE: ione_edns_testing
+      DB_USERNAME: ione_edns
+      DB_PASSWORD: secret
 
     steps:
       - name: Checkout code
@@ -23,6 +45,7 @@ jobs:
         uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # v2
         with:
           php-version: '8.5'
+          extensions: pdo_pgsql
           tools: composer:v2
           coverage: none
 
