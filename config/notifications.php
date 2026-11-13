@@ -37,6 +37,22 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Delivery
+    |--------------------------------------------------------------------------
+    |
+    | Each channel may send at most "rate_limit_per_second" messages, spaced
+    | evenly. A worker waits up to "rate_limit_max_wait_ms" for its turn and
+    | otherwise hands the job back to the queue.
+    |
+    */
+
+    'delivery' => [
+        'rate_limit_per_second' => max(1, (int) env('NOTIFICATIONS_RATE_LIMIT_PER_SECOND', 100)),
+        'rate_limit_max_wait_ms' => max(0, (int) env('NOTIFICATIONS_RATE_LIMIT_MAX_WAIT_MS', 2000)),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Gateway
     |--------------------------------------------------------------------------
     |

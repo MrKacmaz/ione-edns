@@ -6,8 +6,10 @@ use App\Services\Delivery\ChannelRegistry;
 use App\Services\Delivery\Channels\EmailChannel;
 use App\Services\Delivery\Channels\PushChannel;
 use App\Services\Delivery\Channels\SmsChannel;
+use App\Services\Delivery\Contracts\ChannelRateLimiter;
 use App\Services\Delivery\Contracts\NotificationGateway;
 use App\Services\Delivery\Gateways\WebhookSiteGateway;
+use App\Services\Delivery\RateLimiting\RedisGcraRateLimiter;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Support\ServiceProvider;
 
@@ -24,6 +26,7 @@ class DeliveryServiceProvider extends ServiceProvider
         $this->registerChannels();
 
         $this->app->bind(NotificationGateway::class, WebhookSiteGateway::class);
+        $this->app->singleton(ChannelRateLimiter::class, RedisGcraRateLimiter::class);
     }
 
     /**

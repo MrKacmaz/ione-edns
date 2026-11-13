@@ -2,8 +2,10 @@
 
 use App\Enums\NotificationChannel;
 use App\Services\Delivery\ChannelRegistry;
+use App\Services\Delivery\Contracts\ChannelRateLimiter;
 use App\Services\Delivery\Contracts\NotificationGateway;
 use App\Services\Delivery\Gateways\WebhookSiteGateway;
+use App\Services\Delivery\RateLimiting\RedisGcraRateLimiter;
 
 test('registers a delivery channel for every notification channel', function (NotificationChannel $channel) {
     $deliveryChannel = app(ChannelRegistry::class)->for($channel);
@@ -17,4 +19,10 @@ test('shares one channel registry across the application', function () {
 
 test('delivers through the webhook.site gateway', function () {
     expect(app(NotificationGateway::class))->toBeInstanceOf(WebhookSiteGateway::class);
+});
+
+test('shares one GCRA rate limiter across the application', function () {
+    expect(app(ChannelRateLimiter::class))
+        ->toBeInstanceOf(RedisGcraRateLimiter::class)
+        ->toBe(app(ChannelRateLimiter::class));
 });

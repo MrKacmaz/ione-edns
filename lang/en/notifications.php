@@ -32,6 +32,8 @@ return [
         'http_status' => 'The provider responded with HTTP :status.',
         'unreachable' => 'The provider could not be reached: :reason',
         'gateway_url_missing' => 'The notification gateway URL is not configured.',
+        'rate_limiter_reply' => 'The rate limiter returned an unexpected reply.',
+        'rate_limiter_client' => 'The rate limiter requires the phpredis Redis client.',
     ],
 
     /*
