@@ -93,6 +93,9 @@ return [
 
     'waits' => [
         'redis:default' => 60,
+        'redis:notifications-high' => 30,
+        'redis:notifications-normal' => 120,
+        'redis:notifications-low' => 600,
     ],
 
     /*
@@ -205,6 +208,39 @@ return [
             'timeout' => 60,
             'nice' => 0,
         ],
+
+        // Strict priority: every worker drains notifications-high before it looks at
+        // notifications-normal, and normal before low. High-priority notifications
+        // therefore also win the per-channel send slots during a burst.
+        'supervisor-notifications' => [
+            'connection' => 'redis',
+            'queue' => ['notifications-high', 'notifications-normal', 'notifications-low'],
+            'balance' => false,
+            'minProcesses' => 1,
+            'maxProcesses' => 4,
+            'maxTime' => 0,
+            'maxJobs' => 0,
+            'memory' => 128,
+            'tries' => 1,
+            'timeout' => 60,
+            'nice' => 0,
+        ],
+
+        // A small floor for low priority, so that a long run of high and normal
+        // notifications cannot starve it completely.
+        'supervisor-notifications-low' => [
+            'connection' => 'redis',
+            'queue' => ['notifications-low'],
+            'balance' => false,
+            'minProcesses' => 1,
+            'maxProcesses' => 1,
+            'maxTime' => 0,
+            'maxJobs' => 0,
+            'memory' => 128,
+            'tries' => 1,
+            'timeout' => 60,
+            'nice' => 0,
+        ],
     ],
 
     'environments' => [
@@ -213,6 +249,12 @@ return [
                 'maxProcesses' => 10,
                 'balanceMaxShift' => 1,
                 'balanceCooldown' => 3,
+            ],
+            'supervisor-notifications' => [
+                'maxProcesses' => 20,
+            ],
+            'supervisor-notifications-low' => [
+                'maxProcesses' => 2,
             ],
         ],
 

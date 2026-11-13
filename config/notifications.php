@@ -40,6 +40,10 @@ return [
     | Delivery
     |--------------------------------------------------------------------------
     |
+    | "max_attempts" is how often the provider is tried before a notification
+    | fails. Failed attempts wait a random time between zero and an exponential
+    | window ("base_seconds" doubling per attempt, at most "cap_seconds").
+    |
     | Each channel may send at most "rate_limit_per_second" messages, spaced
     | evenly. A worker waits up to "rate_limit_max_wait_ms" for its turn and
     | otherwise hands the job back to the queue.
@@ -47,6 +51,13 @@ return [
     */
 
     'delivery' => [
+        'max_attempts' => max(1, (int) env('NOTIFICATIONS_MAX_ATTEMPTS', 5)),
+
+        'backoff' => [
+            'base_seconds' => max(1, (int) env('NOTIFICATIONS_BACKOFF_BASE_SECONDS', 30)),
+            'cap_seconds' => max(1, (int) env('NOTIFICATIONS_BACKOFF_CAP_SECONDS', 300)),
+        ],
+
         'rate_limit_per_second' => max(1, (int) env('NOTIFICATIONS_RATE_LIMIT_PER_SECOND', 100)),
         'rate_limit_max_wait_ms' => max(0, (int) env('NOTIFICATIONS_RATE_LIMIT_MAX_WAIT_MS', 2000)),
     ],

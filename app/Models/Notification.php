@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * @property string $id
@@ -93,6 +94,84 @@ class Notification extends Model
     }
 
     /**
+     * Get every provider call made for the notification.
+     *
+     * @return HasMany<NotificationAttempt, $this>
+     */
+    public function deliveryAttempts(): HasMany
+    {
+        return $this->hasMany(NotificationAttempt::class);
+    }
+
+    /**
+     * Claim the notification for one delivery attempt.
+     *
+     * The status check, the claim and the attempt count happen in one statement,
+     * so two workers holding a job for the same notification never both deliver it,
+     * and a notification cancelled in the meantime is left alone.
+     */
+    public static function claimForDelivery(string $id): ?self
+    {
+        $claimedRows = static::query()
+            ->whereKey($id)
+            ->whereIn('status', NotificationStatus::claimable())
+            ->increment('attempts', 1, ['status' => NotificationStatus::Processing]);
+
+        return $claimedRows === 1 ? static::query()->find($id) : null;
+    }
+
+    /**
+     * Record that the provider accepted the notification.
+     */
+    public function markSent(?string $providerMessageId): void
+    {
+        $this->transitionFromProcessing([
+            'status' => NotificationStatus::Sent,
+            'provider_message_id' => $providerMessageId,
+            'last_error' => null,
+            'sent_at' => now(),
+        ]);
+    }
+
+    /**
+     * Put the notification back in line for another attempt.
+     */
+    public function markRetryPending(string $error): void
+    {
+        $this->transitionFromProcessing([
+            'status' => NotificationStatus::Queued,
+            'last_error' => $error,
+        ]);
+    }
+
+    /**
+     * Record that the notification failed for good.
+     */
+    public function markFailed(string $error): void
+    {
+        $this->transitionFromProcessing([
+            'status' => NotificationStatus::Failed,
+            'last_error' => $error,
+            'failed_at' => now(),
+        ]);
+    }
+
+    /**
+     * Fail a notification whose delivery job died while the notification was being processed.
+     */
+    public static function markFailedIfStillProcessing(string $id, string $error): void
+    {
+        static::query()
+            ->whereKey($id)
+            ->where('status', NotificationStatus::Processing)
+            ->update([
+                'status' => NotificationStatus::Failed,
+                'last_error' => $error,
+                'failed_at' => now(),
+            ]);
+    }
+
+    /**
      * Cancel the notification if it has not been picked up by a worker yet.
      *
      * The status check and the update run as one statement, so a worker that
@@ -111,5 +190,20 @@ class Notification extends Model
         $this->refresh();
 
         return $cancelledRows === 1;
+    }
+
+    /**
+     * Apply a status change only while the notification is still being processed.
+     *
+     * @param  array<string, mixed>  $attributes
+     */
+    private function transitionFromProcessing(array $attributes): void
+    {
+        static::query()
+            ->whereKey($this->getKey())
+            ->where('status', NotificationStatus::Processing)
+            ->update($attributes);
+
+        $this->refresh();
     }
 }

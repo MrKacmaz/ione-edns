@@ -1,0 +1,154 @@
+<?php
+
+namespace App\Services\Delivery;
+
+use App\Data\DeliveryResultData;
+use App\Data\GatewayResponseData;
+use App\Enums\GatewayOutcome;
+use App\Models\Notification;
+use App\Services\Delivery\Contracts\NotificationGateway;
+use Illuminate\Container\Attributes\Config;
+use Illuminate\Support\Facades\Context;
+use Psr\Log\LoggerInterface;
+use Throwable;
+
+/**
+ * The single entry point for delivering a notification.
+ *
+ * Callers such as the queue job only ask for a delivery and learn whether to try
+ * again later; claiming the notification, calling the provider, recording the
+ * attempt, classifying the result and computing the backoff all happen here.
+ */
+final readonly class DeliveryService
+{
+    public function __construct(
+        private NotificationGateway $gateway,
+        private RetryBackoff $backoff,
+        private LoggerInterface $logger,
+        #[Config('notifications.delivery.max_attempts')] private int $maxAttempts,
+    ) {}
+
+    /**
+     * Make one delivery attempt for the notification.
+     *
+     * Log entries written during the attempt carry the notification's id and the
+     * correlation id of the request that created it, also when the job was pushed
+     * by the stale-notification sweeper rather than by that request.
+     */
+    public function deliver(string $notificationId): DeliveryResultData
+    {
+        $notification = Notification::claimForDelivery($notificationId);
+
+        if ($notification === null) {
+            $this->logger->info('notification.delivery.skipped', ['notification_id' => $notificationId]);
+
+            return DeliveryResultData::skipped();
+        }
+
+        return Context::scope(
+            fn (): DeliveryResultData => $this->attempt($notification),
+            ['notification_id' => $notification->id, 'correlation_id' => $notification->correlation_id],
+        );
+    }
+
+    /**
+     * Call the provider for a claimed notification and move it to its next status.
+     */
+    private function attempt(Notification $notification): DeliveryResultData
+    {
+        $startedAt = hrtime(true);
+        $response = $this->send($notification);
+        $durationMilliseconds = intdiv(hrtime(true) - $startedAt, 1_000_000);
+
+        $notification->deliveryAttempts()->create([
+            'attempt' => $notification->attempts,
+            'outcome' => $response->outcome,
+            'http_status' => $response->httpStatus,
+            'provider_message_id' => $response->providerMessageId,
+            'error' => $response->error,
+            'duration_ms' => $durationMilliseconds,
+        ]);
+
+        return match ($response->outcome) {
+            GatewayOutcome::Accepted => $this->markSent($notification, $response, $durationMilliseconds),
+            GatewayOutcome::PermanentFailure => $this->markFailed($notification, $response, $durationMilliseconds),
+            GatewayOutcome::RetryableFailure => $notification->attempts >= $this->maxAttempts
+                ? $this->markFailed($notification, $response, $durationMilliseconds)
+                : $this->scheduleRetry($notification, $response, $durationMilliseconds),
+        };
+    }
+
+    /**
+     * Call the provider, turning an unexpected error into a retryable failure.
+     *
+     * The notification is already claimed at this point; letting the error escape
+     * would leave it stuck in processing instead of following the retry policy.
+     */
+    private function send(Notification $notification): GatewayResponseData
+    {
+        try {
+            return $this->gateway->send($notification);
+        } catch (Throwable $exception) {
+            report($exception);
+
+            return GatewayResponseData::retryable(
+                __('notifications.errors.unexpected', ['reason' => $exception->getMessage()]),
+            );
+        }
+    }
+
+    private function markSent(Notification $notification, GatewayResponseData $response, int $durationMilliseconds): DeliveryResultData
+    {
+        $notification->markSent($response->providerMessageId);
+
+        $this->logger->info('notification.delivery.sent', [
+            ...$this->logContext($notification, $response, $durationMilliseconds),
+            'provider_message_id' => $response->providerMessageId,
+        ]);
+
+        return DeliveryResultData::sent();
+    }
+
+    private function markFailed(Notification $notification, GatewayResponseData $response, int $durationMilliseconds): DeliveryResultData
+    {
+        $notification->markFailed((string) $response->error);
+
+        $this->logger->error('notification.delivery.failed', [
+            ...$this->logContext($notification, $response, $durationMilliseconds),
+            'error' => $response->error,
+        ]);
+
+        return DeliveryResultData::failed();
+    }
+
+    private function scheduleRetry(Notification $notification, GatewayResponseData $response, int $durationMilliseconds): DeliveryResultData
+    {
+        $notification->markRetryPending((string) $response->error);
+
+        $delaySeconds = $this->backoff->delayAfter($notification->attempts, $response->retryAfterSeconds);
+
+        $this->logger->warning('notification.delivery.retry_scheduled', [
+            ...$this->logContext($notification, $response, $durationMilliseconds),
+            'error' => $response->error,
+            'retry_in_seconds' => $delaySeconds,
+        ]);
+
+        return DeliveryResultData::retryScheduled($delaySeconds);
+    }
+
+    /**
+     * Get the fields every delivery log entry shares.
+     *
+     * @return array{channel: string, priority: string, attempt: int, http_status: int|null, duration_ms: int}
+     */
+    private function logContext(Notification $notification, GatewayResponseData $response, int $durationMilliseconds): array
+    {
+        return [
+            'channel' => $notification->channel->value,
+            'priority' => $notification->priority->value,
+            'attempt' => $notification->attempts,
+            'http_status' => $response->httpStatus,
+            'duration_ms' => $durationMilliseconds,
+        ];
+    }
+}
