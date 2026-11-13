@@ -1,9 +1,13 @@
 <?php
 
+use Monolog\Formatter\JsonFormatter;
 use Monolog\Handler\NullHandler;
 use Monolog\Handler\StreamHandler;
 use Monolog\Handler\SyslogUdpHandler;
 use Monolog\Processor\PsrLogMessageProcessor;
+
+// Structured (one JSON object per line) unless LOG_FORMAT=line asks for Laravel's plain text lines.
+$logFormatter = env('LOG_FORMAT', 'json') === 'line' ? 'default' : JsonFormatter::class;
 
 return [
 
@@ -63,6 +67,7 @@ return [
             'path' => storage_path('logs/laravel.log'),
             'level' => env('LOG_LEVEL', 'debug'),
             'replace_placeholders' => true,
+            'formatter' => $logFormatter,
         ],
 
         'daily' => [
@@ -71,6 +76,7 @@ return [
             'level' => env('LOG_LEVEL', 'debug'),
             'max_files' => env('LOG_DAILY_DAYS', 14),
             'replace_placeholders' => true,
+            'formatter' => $logFormatter,
         ],
 
         'monthly' => [
@@ -109,7 +115,7 @@ return [
             'handler_with' => [
                 'stream' => 'php://stderr',
             ],
-            'formatter' => env('LOG_STDERR_FORMATTER'),
+            'formatter' => env('LOG_STDERR_FORMATTER', $logFormatter),
             'processors' => [PsrLogMessageProcessor::class],
         ],
 
