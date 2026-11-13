@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\HealthController;
 use App\Http\Middleware\AssignRequestContext;
 use App\Http\Middleware\HandleInertiaRequests;
 use Illuminate\Foundation\Application;
@@ -20,6 +21,11 @@ return Application::configure(basePath: dirname(__DIR__))
                 ->prefix('api/v1')
                 ->name('api.v1.')
                 ->group(base_path('routes/api.php'));
+
+            // Public and session-free, for load balancers and container health checks.
+            Route::middleware('api')
+                ->get('health', HealthController::class)
+                ->name('health');
         },
     )
     ->withMiddleware(function (Middleware $middleware): void {
