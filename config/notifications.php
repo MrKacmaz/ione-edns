@@ -87,6 +87,46 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Circuit Breaker
+    |--------------------------------------------------------------------------
+    |
+    | Every channel's provider calls pass a circuit breaker. Once at least
+    | "minimum_attempts" calls were made in the last "window_seconds" and at
+    | least "failure_rate_percent" of them failed in a retryable way (timeout,
+    | 5xx, 429), the circuit opens: the channel's jobs wait in the queue without
+    | using up delivery attempts. After "cooldown_seconds" a single probe call
+    | is let through; its success closes the circuit and its failure opens it
+    | again. A probe that has not reported back within "probe_timeout_seconds"
+    | is replaced by the next job, so keep it above the gateway timeout.
+    |
+    */
+
+    'circuit_breaker' => [
+        'window_seconds' => max(1, (int) env('NOTIFICATIONS_CIRCUIT_WINDOW_SECONDS', 60)),
+        'minimum_attempts' => max(1, (int) env('NOTIFICATIONS_CIRCUIT_MINIMUM_ATTEMPTS', 20)),
+        'failure_rate_percent' => min(100, max(1, (int) env('NOTIFICATIONS_CIRCUIT_FAILURE_RATE_PERCENT', 50))),
+        'cooldown_seconds' => max(1, (int) env('NOTIFICATIONS_CIRCUIT_COOLDOWN_SECONDS', 30)),
+        'probe_timeout_seconds' => max(1, (int) env('NOTIFICATIONS_CIRCUIT_PROBE_TIMEOUT_SECONDS', 20)),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Operator Alerts
+    |--------------------------------------------------------------------------
+    |
+    | Operators are mailed at "mail_to" (comma separated) when a channel's
+    | circuit opens or closes, at most once per "throttle_minutes" for each
+    | channel and change. Without an address only the log records it.
+    |
+    */
+
+    'alerts' => [
+        'mail_to' => array_values(array_filter(array_map('trim', explode(',', (string) env('NOTIFICATIONS_ALERT_MAIL_TO', ''))))),
+        'throttle_minutes' => max(1, (int) env('NOTIFICATIONS_ALERT_THROTTLE_MINUTES', 10)),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Gateway
     |--------------------------------------------------------------------------
     |

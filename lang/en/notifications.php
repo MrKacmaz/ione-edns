@@ -40,6 +40,8 @@ return [
         'gateway_url_missing' => 'The notification gateway URL is not configured.',
         'rate_limiter_reply' => 'The rate limiter returned an unexpected reply.',
         'rate_limiter_client' => 'The rate limiter requires the phpredis Redis client.',
+        'circuit_breaker_reply' => 'The circuit breaker returned an unexpected reply.',
+        'circuit_breaker_client' => 'The circuit breaker requires the phpredis Redis client.',
     ],
 
     /*

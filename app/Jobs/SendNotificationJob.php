@@ -4,6 +4,7 @@ namespace App\Jobs;
 
 use App\Enums\DeliveryOutcome;
 use App\Enums\NotificationChannel;
+use App\Jobs\Middleware\CheckDeliveryChannelCircuit;
 use App\Jobs\Middleware\RateLimitDeliveryChannel;
 use App\Models\Notification as NotificationModel;
 use App\Services\Delivery\DeliveryService;
@@ -18,7 +19,7 @@ use Throwable;
  *
  * Retries are released back to the queue rather than counted by Laravel's
  * attempt limit: the notification's own attempt counter decides when to give up,
- * and rate-limit waits must not use up any attempts.
+ * and waits for a rate-limit slot or an open circuit must not use up any attempts.
  *
  * With tracing enabled, each delivery starts its own trace linked to the trace of
  * the request that created the notification. A batch of 1000 notifications thus
@@ -54,11 +55,14 @@ class SendNotificationJob implements ShouldQueue, TracingLinked
     /**
      * Get the middleware the job should pass through.
      *
+     * The circuit is checked first, so a job of a channel with an open circuit
+     * does not take up a rate-limit slot.
+     *
      * @return list<object>
      */
     public function middleware(): array
     {
-        return [new RateLimitDeliveryChannel];
+        return [new CheckDeliveryChannelCircuit, new RateLimitDeliveryChannel];
     }
 
     /**

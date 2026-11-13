@@ -2,10 +2,13 @@
 
 namespace App\Services\Delivery;
 
+use App\Actions\ReportCircuitChangeAction;
 use App\Data\DeliveryResultData;
 use App\Data\GatewayResponseData;
 use App\Enums\GatewayOutcome;
+use App\Enums\NotificationChannel;
 use App\Models\Notification;
+use App\Services\Delivery\Contracts\CircuitBreaker;
 use App\Services\Delivery\Contracts\NotificationGateway;
 use Illuminate\Container\Attributes\Config;
 use Illuminate\Support\Facades\Context;
@@ -17,13 +20,16 @@ use Throwable;
  *
  * Callers such as the queue job only ask for a delivery and learn whether to try
  * again later; claiming the notification, calling the provider, recording the
- * attempt, classifying the result and computing the backoff all happen here.
+ * attempt, classifying the result, computing the backoff and feeding the
+ * channel's circuit breaker all happen here.
  */
 final readonly class DeliveryService
 {
     public function __construct(
         private NotificationGateway $gateway,
         private RetryBackoff $backoff,
+        private CircuitBreaker $circuitBreaker,
+        private ReportCircuitChangeAction $reportCircuitChange,
         private LoggerInterface $logger,
         #[Config('notifications.delivery.max_attempts')] private int $maxAttempts,
     ) {}
@@ -69,13 +75,38 @@ final readonly class DeliveryService
             'duration_ms' => $durationMilliseconds,
         ]);
 
-        return match ($response->outcome) {
+        $result = match ($response->outcome) {
             GatewayOutcome::Accepted => $this->markSent($notification, $response, $durationMilliseconds),
             GatewayOutcome::PermanentFailure => $this->markFailed($notification, $response, $durationMilliseconds),
             GatewayOutcome::RetryableFailure => $notification->attempts >= $this->maxAttempts
                 ? $this->markFailed($notification, $response, $durationMilliseconds)
                 : $this->scheduleRetry($notification, $response, $durationMilliseconds),
         };
+
+        $this->recordForCircuit($notification->channel, $response->outcome);
+
+        return $result;
+    }
+
+    /**
+     * Feed the outcome to the channel's circuit breaker and report when the circuit opened or closed.
+     *
+     * The notification has already moved on at this point, so a circuit breaker
+     * error is only reported instead of failing the delivery.
+     */
+    private function recordForCircuit(NotificationChannel $channel, GatewayOutcome $outcome): void
+    {
+        try {
+            $state = $this->circuitBreaker->record($channel, $outcome);
+        } catch (Throwable $exception) {
+            report($exception);
+
+            return;
+        }
+
+        if ($state !== null) {
+            $this->reportCircuitChange->handle($channel, $state);
+        }
     }
 
     /**

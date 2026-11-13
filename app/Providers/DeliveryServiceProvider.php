@@ -6,7 +6,9 @@ use App\Services\Delivery\ChannelRegistry;
 use App\Services\Delivery\Channels\EmailChannel;
 use App\Services\Delivery\Channels\PushChannel;
 use App\Services\Delivery\Channels\SmsChannel;
+use App\Services\Delivery\CircuitBreaking\RedisCircuitBreaker;
 use App\Services\Delivery\Contracts\ChannelRateLimiter;
+use App\Services\Delivery\Contracts\CircuitBreaker;
 use App\Services\Delivery\Contracts\NotificationGateway;
 use App\Services\Delivery\Gateways\WebhookSiteGateway;
 use App\Services\Delivery\RateLimiting\RedisGcraRateLimiter;
@@ -27,6 +29,7 @@ class DeliveryServiceProvider extends ServiceProvider
 
         $this->app->bind(NotificationGateway::class, WebhookSiteGateway::class);
         $this->app->singleton(ChannelRateLimiter::class, RedisGcraRateLimiter::class);
+        $this->app->singleton(CircuitBreaker::class, RedisCircuitBreaker::class);
     }
 
     /**
