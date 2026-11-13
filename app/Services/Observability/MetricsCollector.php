@@ -4,16 +4,18 @@ namespace App\Services\Observability;
 
 use App\Data\MetricsSnapshotData;
 use App\Enums\GatewayOutcome;
+use App\Enums\NotificationChannel;
 use App\Enums\NotificationPriority;
 use App\Enums\NotificationStatus;
 use App\Models\Notification;
 use App\Models\NotificationAttempt;
+use App\Services\Delivery\Contracts\CircuitBreaker;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Queue\Factory as QueueFactory;
 use Illuminate\Database\Query\Builder;
 
 /**
- * Gathers queue depth, in-flight notifications, success rates and latency.
+ * Gathers queue depth, in-flight notifications, success rates, latency and circuit states.
  *
  * Rates and latencies are computed over sliding windows from the delivery
  * history, so they reflect recent behaviour instead of all-time totals that a
@@ -33,7 +35,10 @@ final readonly class MetricsCollector
      */
     private const array WINDOWS = ['5m' => 300, '1h' => 3600];
 
-    public function __construct(private QueueFactory $queues) {}
+    public function __construct(
+        private QueueFactory $queues,
+        private CircuitBreaker $circuitBreaker,
+    ) {}
 
     public function collect(): MetricsSnapshotData
     {
@@ -48,7 +53,22 @@ final readonly class MetricsCollector
                 array_keys(self::WINDOWS),
                 array_values(self::WINDOWS),
             ),
+            circuits: $this->circuitStates(),
         );
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function circuitStates(): array
+    {
+        $states = [];
+
+        foreach (NotificationChannel::cases() as $channel) {
+            $states[$channel->value] = $this->circuitBreaker->state($channel)->value;
+        }
+
+        return $states;
     }
 
     /**

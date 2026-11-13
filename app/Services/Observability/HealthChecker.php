@@ -48,18 +48,19 @@ final readonly class HealthChecker
     }
 
     /**
-     * Determine whether every check passed.
+     * Get the status of the service as a whole: failing if any check fails,
+     * degraded if any check is degraded, and ok otherwise.
      *
      * @param  array<string, HealthCheckResultData>  $results
      */
-    public static function allPassed(array $results): bool
+    public static function overallStatus(array $results): HealthCheckStatus
     {
-        foreach ($results as $result) {
-            if ($result->status !== HealthCheckStatus::Ok) {
-                return false;
-            }
-        }
+        $statuses = array_map(fn (HealthCheckResultData $result): HealthCheckStatus => $result->status, $results);
 
-        return true;
+        return match (true) {
+            in_array(HealthCheckStatus::Failing, $statuses, true) => HealthCheckStatus::Failing,
+            in_array(HealthCheckStatus::Degraded, $statuses, true) => HealthCheckStatus::Degraded,
+            default => HealthCheckStatus::Ok,
+        };
     }
 }

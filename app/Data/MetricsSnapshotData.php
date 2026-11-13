@@ -24,16 +24,18 @@ final readonly class MetricsSnapshotData
      * @param  list<QueueMetrics>  $queues
      * @param  array<string, int>  $inFlight  Notifications per unfinished status.
      * @param  list<WindowMetrics>  $windows
+     * @param  array<string, string>  $circuits  The circuit state per channel.
      */
     public function __construct(
         public CarbonImmutable $generatedAt,
         public array $queues,
         public array $inFlight,
         public array $windows,
+        public array $circuits,
     ) {}
 
     /**
-     * @return array{generated_at: string, queues: list<QueueMetrics>, notifications_in_flight: array<string, int>, windows: list<WindowMetrics>}
+     * @return array{generated_at: string, queues: list<QueueMetrics>, notifications_in_flight: array<string, int>, windows: list<WindowMetrics>, circuits: array<string, string>}
      */
     public function toArray(): array
     {
@@ -42,6 +44,7 @@ final readonly class MetricsSnapshotData
             'queues' => $this->queues,
             'notifications_in_flight' => $this->inFlight,
             'windows' => $this->windows,
+            'circuits' => $this->circuits,
         ];
     }
 }

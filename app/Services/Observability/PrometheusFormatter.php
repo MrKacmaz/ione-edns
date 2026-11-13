@@ -3,6 +3,7 @@
 namespace App\Services\Observability;
 
 use App\Data\MetricsSnapshotData;
+use App\Enums\CircuitState;
 
 /**
  * Renders a metrics snapshot in the Prometheus text exposition format.
@@ -67,6 +68,13 @@ final class PrometheusFormatter
                         'quantile' => $quantile,
                     ], $percentiles[$key]);
                 }
+            }
+        }
+
+        $this->gauge('edns_circuit_state', 'Delivery circuit state per channel; the current state is 1, the others 0.');
+        foreach ($snapshot->circuits as $channel => $currentState) {
+            foreach (CircuitState::cases() as $state) {
+                $this->sample('edns_circuit_state', ['channel' => $channel, 'state' => $state->value], $state->value === $currentState ? 1 : 0);
             }
         }
 

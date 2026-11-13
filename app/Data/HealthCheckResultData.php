@@ -20,6 +20,11 @@ final readonly class HealthCheckResultData
         return new self(HealthCheckStatus::Ok);
     }
 
+    public static function degraded(string $message): self
+    {
+        return new self(HealthCheckStatus::Degraded, $message);
+    }
+
     public static function failing(string $message): self
     {
         return new self(HealthCheckStatus::Failing, $message);

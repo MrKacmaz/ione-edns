@@ -18,4 +18,6 @@ return [
 
     'gateway_not_configured' => 'The notification gateway URL is not configured.',
 
+    'circuits_open' => 'Deliveries are paused on these channels until their provider recovers: :channels.',
+
 ];

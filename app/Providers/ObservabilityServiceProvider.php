@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Services\Observability\HealthChecker;
 use App\Services\Observability\HealthChecks\DatabaseHealthCheck;
+use App\Services\Observability\HealthChecks\DeliveryCircuitsHealthCheck;
 use App\Services\Observability\HealthChecks\GatewayHealthCheck;
 use App\Services\Observability\HealthChecks\HorizonHealthCheck;
 use App\Services\Observability\HealthChecks\RedisHealthCheck;
@@ -26,6 +27,7 @@ class ObservabilityServiceProvider extends ServiceProvider
             RedisHealthCheck::class,
             HorizonHealthCheck::class,
             GatewayHealthCheck::class,
+            DeliveryCircuitsHealthCheck::class,
         ], HealthChecker::TAG);
     }
 }

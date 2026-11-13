@@ -14,17 +14,19 @@ class HealthController extends Controller
      * Report whether the service and every dependency it needs are healthy.
      *
      * Public, so load balancers and container health checks can call it without
-     * a token. Responds with 200 when every check passes and 503 otherwise.
+     * a token. Responds with 503 when a check fails, and with 200 otherwise, also
+     * when the service is degraded (`warn`), for example while a channel's
+     * delivery circuit is open: the API still accepts notifications then.
      */
     public function __invoke(HealthChecker $healthChecker): JsonResponse
     {
         $results = $healthChecker->run();
-        $healthy = HealthChecker::allPassed($results);
+        $status = HealthChecker::overallStatus($results);
 
         return response()->json([
-            'status' => $healthy ? HealthCheckStatus::Ok->value : HealthCheckStatus::Failing->value,
+            'status' => $status->value,
             'checks' => array_map(fn (HealthCheckResultData $result): array => $result->toArray(), $results),
             'checked_at' => now()->toIso8601ZuluString('microsecond'),
-        ], $healthy ? Response::HTTP_OK : Response::HTTP_SERVICE_UNAVAILABLE);
+        ], $status === HealthCheckStatus::Failing ? Response::HTTP_SERVICE_UNAVAILABLE : Response::HTTP_OK);
     }
 }
