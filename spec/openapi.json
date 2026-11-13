@@ -36,6 +36,30 @@
                 }
             }
         },
+        "/v1/broadcasting/auth": {
+            "get": {
+                "operationId": "broadcast.authenticate",
+                "summary": "Authenticate the request for channel access",
+                "tags": [
+                    "Broadcast"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    }
+                }
+            }
+        },
         "/v1/notifications/{notification}/cancel": {
             "post": {
                 "operationId": "v1.notifications.cancel",
@@ -172,7 +196,7 @@
         "/v1/metrics": {
             "get": {
                 "operationId": "v1.metrics",
-                "description": "Responds with JSON, or with the Prometheus text exposition format when\n`format=prometheus`. The snapshot is cached for a few seconds.",
+                "description": "Responds with JSON, or with the Prometheus text exposition format when\n`format=prometheus`. The snapshot is cached for a few seconds. The numbers\ncover every user's notifications, so only operators may read them.",
                 "summary": "Report queue depth, in-flight notifications, success rates and latency",
                 "tags": [
                     "Metrics"
@@ -217,13 +241,20 @@
                                                 "windows": {
                                                     "type": "array",
                                                     "items": {}
+                                                },
+                                                "circuits": {
+                                                    "type": "object",
+                                                    "additionalProperties": {
+                                                        "type": "string"
+                                                    }
                                                 }
                                             },
                                             "required": [
                                                 "generated_at",
                                                 "queues",
                                                 "notifications_in_flight",
-                                                "windows"
+                                                "windows",
+                                                "circuits"
                                             ]
                                         }
                                     },
@@ -241,6 +272,9 @@
                     },
                     "422": {
                         "$ref": "#/components/responses/ValidationException"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/AuthorizationException"
                     },
                     "401": {
                         "$ref": "#/components/responses/AuthenticationException"
@@ -1455,6 +1489,9 @@
                             "null"
                         ],
                         "format": "date-time"
+                    },
+                    "is_operator": {
+                        "type": "boolean"
                     }
                 },
                 "required": [
@@ -1464,7 +1501,8 @@
                     "email_verified_at",
                     "created_at",
                     "updated_at",
-                    "deleted_at"
+                    "deleted_at",
+                    "is_operator"
                 ],
                 "title": "User"
             }
