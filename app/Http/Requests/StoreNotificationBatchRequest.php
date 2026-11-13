@@ -2,9 +2,9 @@
 
 namespace App\Http\Requests;
 
-use App\Channels\ChannelRegistry;
 use App\Data\NewNotificationData;
 use App\Http\Requests\Concerns\HasNotificationRules;
+use App\Services\Delivery\ChannelRegistry;
 use Illuminate\Container\Attributes\Config;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
