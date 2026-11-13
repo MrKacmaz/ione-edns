@@ -12,8 +12,10 @@
 
 use App\Http\Controllers\CancelNotificationBatchController;
 use App\Http\Controllers\CancelNotificationController;
+use App\Http\Controllers\MetricsController;
 use App\Http\Controllers\NotificationBatchController;
 use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\RetryNotificationController;
 use App\Http\Middleware\EnsureRequestIsIdempotent;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -21,6 +23,9 @@ use Illuminate\Support\Facades\Route;
 Route::get('user', static function (Request $request) {
     return $request->user();
 })->name('user');
+
+Route::get('metrics', MetricsController::class)
+    ->name('metrics');
 
 Route::get('notifications', [NotificationController::class, 'index'])
     ->name('notifications.index');
@@ -40,6 +45,10 @@ Route::get('notifications/{notification}', [NotificationController::class, 'show
 Route::post('notifications/{notification}/cancel', CancelNotificationController::class)
     ->whereUuid('notification')
     ->name('notifications.cancel');
+
+Route::post('notifications/{notification}/retry', RetryNotificationController::class)
+    ->whereUuid('notification')
+    ->name('notifications.retry');
 
 Route::get('batches/{batch}', [NotificationBatchController::class, 'show'])
     ->whereUuid('batch')
