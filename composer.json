@@ -1,8 +1,8 @@
 {
     "$schema": "https://getcomposer.org/schema.json",
-    "name": "laravel/blank-vue-starter-kit",
+    "name": "ione/edns",
     "type": "project",
-    "description": "The skeleton application for the Laravel framework.",
+    "description": "Event-driven notification system that delivers SMS, email and push messages through queued, rate-limited workers.",
     "keywords": [
         "laravel",
         "framework"
@@ -10,8 +10,10 @@
     "license": "MIT",
     "require": {
         "php": "^8.3",
+        "dedoc/scramble": "^0.13.53",
         "inertiajs/inertia-laravel": "^3.0",
         "laravel/framework": "^13.17",
+        "laravel/horizon": "^5.51",
         "laravel/reverb": "^1.0",
         "laravel/sanctum": "^4.0",
         "laravel/tinker": "^3.0",
