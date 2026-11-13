@@ -8,6 +8,7 @@ use App\Models\Notification;
 use App\Models\NotificationBatch;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Facades\Context;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use LogicException;
@@ -40,6 +41,7 @@ class CreateNotificationsAction
             $rows = [];
             $newIdsByPosition = [];
             $timestamp = now()->format('Y-m-d H:i:s.u');
+            $correlationId = Context::get('correlation_id');
 
             foreach ($newNotifications as $position => $newNotification) {
                 if ($newNotification->idempotencyKey !== null && $existingByKey->has($newNotification->idempotencyKey)) {
@@ -58,6 +60,7 @@ class CreateNotificationsAction
                     'recipient' => $newNotification->recipient,
                     'content' => $newNotification->content,
                     'idempotency_key' => $newNotification->idempotencyKey,
+                    'correlation_id' => is_string($correlationId) ? $correlationId : null,
                     'created_at' => $timestamp,
                     'updated_at' => $timestamp,
                 ];
