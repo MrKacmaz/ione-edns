@@ -1,0 +1,1562 @@
+{
+    "openapi": "3.1.2",
+    "info": {
+        "title": "EDNS",
+        "version": "0.0.1",
+        "description": "Create, track and cancel SMS, email and push notifications that are delivered asynchronously."
+    },
+    "servers": [
+        {
+            "url": "http://localhost:8000/api"
+        }
+    ],
+    "security": [
+        {
+            "http": []
+        }
+    ],
+    "paths": {
+        "/v1/user": {
+            "get": {
+                "operationId": "v1.user",
+                "responses": {
+                    "200": {
+                        "description": "`User`",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/User"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    }
+                }
+            }
+        },
+        "/v1/notifications/{notification}/cancel": {
+            "post": {
+                "operationId": "v1.notifications.cancel",
+                "description": "Responds with 409 when the notification is already processing or finished.",
+                "summary": "Cancel a notification that a worker has not picked up yet",
+                "tags": [
+                    "CancelNotification"
+                ],
+                "parameters": [
+                    {
+                        "name": "notification",
+                        "in": "path",
+                        "required": true,
+                        "description": "The notification ID",
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "`NotificationResource`",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/NotificationResource"
+                                        }
+                                    },
+                                    "required": [
+                                        "data"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "An error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "description": "Error overview."
+                                        }
+                                    },
+                                    "required": [
+                                        "message"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ModelNotFoundException"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/AuthorizationException"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    }
+                }
+            }
+        },
+        "/v1/batches/{batch}/cancel": {
+            "post": {
+                "operationId": "v1.notification-batches.cancel",
+                "description": "Notifications that are already processing or finished are left untouched;\n`meta.cancelled` reports how many notifications this request cancelled.",
+                "summary": "Cancel every notification in the batch that a worker has not picked up yet",
+                "tags": [
+                    "CancelNotificationBatch"
+                ],
+                "parameters": [
+                    {
+                        "name": "batch",
+                        "in": "path",
+                        "required": true,
+                        "description": "The batch ID",
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "`NotificationBatchResource`",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/NotificationBatchResource"
+                                        },
+                                        "meta": {
+                                            "type": "object",
+                                            "properties": {
+                                                "cancelled": {
+                                                    "type": "integer"
+                                                }
+                                            },
+                                            "required": [
+                                                "cancelled"
+                                            ]
+                                        }
+                                    },
+                                    "required": [
+                                        "data",
+                                        "meta"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ModelNotFoundException"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/AuthorizationException"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    }
+                }
+            }
+        },
+        "/v1/metrics": {
+            "get": {
+                "operationId": "v1.metrics",
+                "description": "Responds with JSON, or with the Prometheus text exposition format when\n`format=prometheus`. The snapshot is cached for a few seconds.",
+                "summary": "Report queue depth, in-flight notifications, success rates and latency",
+                "tags": [
+                    "Metrics"
+                ],
+                "parameters": [
+                    {
+                        "name": "format",
+                        "in": "query",
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "json",
+                                "prometheus"
+                            ]
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "object",
+                                            "properties": {
+                                                "generated_at": {
+                                                    "type": "string"
+                                                },
+                                                "queues": {
+                                                    "type": "array",
+                                                    "items": {}
+                                                },
+                                                "notifications_in_flight": {
+                                                    "type": "object",
+                                                    "additionalProperties": {
+                                                        "type": "integer"
+                                                    }
+                                                },
+                                                "windows": {
+                                                    "type": "array",
+                                                    "items": {}
+                                                }
+                                            },
+                                            "required": [
+                                                "generated_at",
+                                                "queues",
+                                                "notifications_in_flight",
+                                                "windows"
+                                            ]
+                                        }
+                                    },
+                                    "required": [
+                                        "data"
+                                    ]
+                                }
+                            },
+                            "text/plain; version=0.0.4; charset=utf-8": {
+                                "schema": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationException"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    }
+                }
+            }
+        },
+        "/v1/notifications": {
+            "get": {
+                "operationId": "v1.notifications.index",
+                "summary": "List the authenticated user's notifications, newest first",
+                "tags": [
+                    "Notification"
+                ],
+                "parameters": [
+                    {
+                        "name": "status",
+                        "in": "query",
+                        "schema": {
+                            "$ref": "#/components/schemas/NotificationStatus"
+                        }
+                    },
+                    {
+                        "name": "channel",
+                        "in": "query",
+                        "schema": {
+                            "$ref": "#/components/schemas/NotificationChannel"
+                        }
+                    },
+                    {
+                        "name": "batch_id",
+                        "in": "query",
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
+                    {
+                        "name": "created_from",
+                        "in": "query",
+                        "schema": {
+                            "type": "string",
+                            "format": "date-time"
+                        }
+                    },
+                    {
+                        "name": "created_to",
+                        "in": "query",
+                        "schema": {
+                            "type": "string",
+                            "format": "date-time"
+                        }
+                    },
+                    {
+                        "name": "per_page",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 100
+                        }
+                    },
+                    {
+                        "name": "cursor",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Paginated set of `NotificationResource`",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/components/schemas/NotificationResource"
+                                            }
+                                        },
+                                        "links": {
+                                            "type": "object",
+                                            "properties": {
+                                                "first": {
+                                                    "type": [
+                                                        "string",
+                                                        "null"
+                                                    ]
+                                                },
+                                                "last": {
+                                                    "type": [
+                                                        "string",
+                                                        "null"
+                                                    ]
+                                                },
+                                                "prev": {
+                                                    "type": [
+                                                        "string",
+                                                        "null"
+                                                    ]
+                                                },
+                                                "next": {
+                                                    "type": [
+                                                        "string",
+                                                        "null"
+                                                    ]
+                                                }
+                                            },
+                                            "required": [
+                                                "first",
+                                                "last",
+                                                "prev",
+                                                "next"
+                                            ]
+                                        },
+                                        "meta": {
+                                            "type": "object",
+                                            "properties": {
+                                                "path": {
+                                                    "type": [
+                                                        "string",
+                                                        "null"
+                                                    ],
+                                                    "description": "Base path for paginator generated URLs."
+                                                },
+                                                "per_page": {
+                                                    "type": "integer",
+                                                    "description": "Number of items shown per page.",
+                                                    "minimum": 0
+                                                },
+                                                "next_cursor": {
+                                                    "type": [
+                                                        "string",
+                                                        "null"
+                                                    ],
+                                                    "description": "The \"cursor\" that points to the next set of items."
+                                                },
+                                                "prev_cursor": {
+                                                    "type": [
+                                                        "string",
+                                                        "null"
+                                                    ],
+                                                    "description": "The \"cursor\" that points to the previous set of items."
+                                                }
+                                            },
+                                            "required": [
+                                                "path",
+                                                "per_page",
+                                                "next_cursor",
+                                                "prev_cursor"
+                                            ]
+                                        }
+                                    },
+                                    "required": [
+                                        "data",
+                                        "links",
+                                        "meta"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationException"
+                    }
+                }
+            },
+            "post": {
+                "operationId": "v1.notifications.store",
+                "description": "Responds with 202 when the notification is created, or with 200 and the\nexisting notification when its idempotency key was already used.",
+                "summary": "Accept a notification for asynchronous delivery",
+                "tags": [
+                    "Notification"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/StoreNotificationRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "202": {
+                        "description": "`NotificationResource`",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/NotificationResource"
+                                        }
+                                    },
+                                    "required": [
+                                        "data"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "200": {
+                        "description": "`NotificationResource`",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/NotificationResource"
+                                        }
+                                    },
+                                    "required": [
+                                        "data"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationException"
+                    }
+                }
+            }
+        },
+        "/v1/notifications/{notification}": {
+            "get": {
+                "operationId": "v1.notifications.show",
+                "summary": "Show the notification and its delivery status",
+                "tags": [
+                    "Notification"
+                ],
+                "parameters": [
+                    {
+                        "name": "notification",
+                        "in": "path",
+                        "required": true,
+                        "description": "The notification ID",
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "`NotificationResource`",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/NotificationResource"
+                                        }
+                                    },
+                                    "required": [
+                                        "data"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ModelNotFoundException"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/AuthorizationException"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    }
+                }
+            }
+        },
+        "/v1/notifications/batch": {
+            "post": {
+                "operationId": "v1.notification-batches.store",
+                "description": "A batch holds at most `notifications.batch.max_size` notifications (1000 by default).\n`notifications` lists the result for every requested notification in request\norder; a notification whose idempotency key was already used is returned as the\nexisting notification and keeps its original batch.",
+                "summary": "Accept a batch of notifications for asynchronous delivery",
+                "tags": [
+                    "NotificationBatch"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/StoreNotificationBatchRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "202": {
+                        "description": "`NotificationBatchResource`",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/NotificationBatchResource"
+                                        },
+                                        "notifications": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/components/schemas/NotificationResource"
+                                            }
+                                        }
+                                    },
+                                    "required": [
+                                        "data",
+                                        "notifications"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationException"
+                    }
+                }
+            }
+        },
+        "/v1/batches/{batch}": {
+            "get": {
+                "operationId": "v1.notification-batches.show",
+                "summary": "Show how many of the batch's notifications are in each status",
+                "tags": [
+                    "NotificationBatch"
+                ],
+                "parameters": [
+                    {
+                        "name": "batch",
+                        "in": "path",
+                        "required": true,
+                        "description": "The batch ID",
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "`NotificationBatchResource`",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/NotificationBatchResource"
+                                        }
+                                    },
+                                    "required": [
+                                        "data"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ModelNotFoundException"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/AuthorizationException"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    }
+                }
+            }
+        },
+        "/v1/templates": {
+            "get": {
+                "operationId": "v1.notification-templates.index",
+                "summary": "List the authenticated user's templates by name",
+                "tags": [
+                    "NotificationTemplate"
+                ],
+                "parameters": [
+                    {
+                        "name": "channel",
+                        "in": "query",
+                        "schema": {
+                            "$ref": "#/components/schemas/NotificationChannel"
+                        }
+                    },
+                    {
+                        "name": "per_page",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 100
+                        }
+                    },
+                    {
+                        "name": "cursor",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Paginated set of `NotificationTemplateResource`",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/components/schemas/NotificationTemplateResource"
+                                            }
+                                        },
+                                        "links": {
+                                            "type": "object",
+                                            "properties": {
+                                                "first": {
+                                                    "type": [
+                                                        "string",
+                                                        "null"
+                                                    ]
+                                                },
+                                                "last": {
+                                                    "type": [
+                                                        "string",
+                                                        "null"
+                                                    ]
+                                                },
+                                                "prev": {
+                                                    "type": [
+                                                        "string",
+                                                        "null"
+                                                    ]
+                                                },
+                                                "next": {
+                                                    "type": [
+                                                        "string",
+                                                        "null"
+                                                    ]
+                                                }
+                                            },
+                                            "required": [
+                                                "first",
+                                                "last",
+                                                "prev",
+                                                "next"
+                                            ]
+                                        },
+                                        "meta": {
+                                            "type": "object",
+                                            "properties": {
+                                                "path": {
+                                                    "type": [
+                                                        "string",
+                                                        "null"
+                                                    ],
+                                                    "description": "Base path for paginator generated URLs."
+                                                },
+                                                "per_page": {
+                                                    "type": "integer",
+                                                    "description": "Number of items shown per page.",
+                                                    "minimum": 0
+                                                },
+                                                "next_cursor": {
+                                                    "type": [
+                                                        "string",
+                                                        "null"
+                                                    ],
+                                                    "description": "The \"cursor\" that points to the next set of items."
+                                                },
+                                                "prev_cursor": {
+                                                    "type": [
+                                                        "string",
+                                                        "null"
+                                                    ],
+                                                    "description": "The \"cursor\" that points to the previous set of items."
+                                                }
+                                            },
+                                            "required": [
+                                                "path",
+                                                "per_page",
+                                                "next_cursor",
+                                                "prev_cursor"
+                                            ]
+                                        }
+                                    },
+                                    "required": [
+                                        "data",
+                                        "links",
+                                        "meta"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationException"
+                    }
+                }
+            },
+            "post": {
+                "operationId": "v1.notification-templates.store",
+                "description": "Placeholders take the form `{{ name }}`. Notifications created from the\ntemplate give their values in `variables`.",
+                "summary": "Create a template",
+                "tags": [
+                    "NotificationTemplate"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/StoreNotificationTemplateRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "`NotificationTemplateResource`",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/NotificationTemplateResource"
+                                        }
+                                    },
+                                    "required": [
+                                        "data"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationException"
+                    }
+                }
+            }
+        },
+        "/v1/templates/{template}": {
+            "get": {
+                "operationId": "v1.notification-templates.show",
+                "summary": "Show the template",
+                "tags": [
+                    "NotificationTemplate"
+                ],
+                "parameters": [
+                    {
+                        "name": "template",
+                        "in": "path",
+                        "required": true,
+                        "description": "The template ID",
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "`NotificationTemplateResource`",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/NotificationTemplateResource"
+                                        }
+                                    },
+                                    "required": [
+                                        "data"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ModelNotFoundException"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/AuthorizationException"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    }
+                }
+            },
+            "patch": {
+                "operationId": "v1.notification-templates.update",
+                "description": "Notifications already created from the template keep the content they were created with.",
+                "summary": "Update the template's name or content",
+                "tags": [
+                    "NotificationTemplate"
+                ],
+                "parameters": [
+                    {
+                        "name": "template",
+                        "in": "path",
+                        "required": true,
+                        "description": "The template ID",
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/UpdateNotificationTemplateRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "`NotificationTemplateResource`",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/NotificationTemplateResource"
+                                        }
+                                    },
+                                    "required": [
+                                        "data"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ModelNotFoundException"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/AuthorizationException"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationException"
+                    }
+                }
+            },
+            "delete": {
+                "operationId": "v1.notification-templates.destroy",
+                "description": "Notifications created from the template keep their content.",
+                "summary": "Delete the template",
+                "tags": [
+                    "NotificationTemplate"
+                ],
+                "parameters": [
+                    {
+                        "name": "template",
+                        "in": "path",
+                        "required": true,
+                        "description": "The template ID",
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No content"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ModelNotFoundException"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/AuthorizationException"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    }
+                }
+            }
+        },
+        "/v1/notifications/{notification}/retry": {
+            "post": {
+                "operationId": "v1.notifications.retry",
+                "description": "Earlier attempts stay in the delivery history. Responds with 409 when the\nnotification has not failed.",
+                "summary": "Send a failed notification again with a fresh set of delivery attempts",
+                "tags": [
+                    "RetryNotification"
+                ],
+                "parameters": [
+                    {
+                        "name": "notification",
+                        "in": "path",
+                        "required": true,
+                        "description": "The notification ID",
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "202": {
+                        "description": "The notification is queued for delivery again.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/NotificationResource"
+                                        }
+                                    },
+                                    "required": [
+                                        "data"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "An error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "description": "Error overview."
+                                        }
+                                    },
+                                    "required": [
+                                        "message"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ModelNotFoundException"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/AuthorizationException"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    }
+                }
+            }
+        }
+    },
+    "components": {
+        "securitySchemes": {
+            "http": {
+                "type": "http",
+                "scheme": "bearer"
+            }
+        },
+        "schemas": {
+            "NotificationBatchResource": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    },
+                    "total": {
+                        "type": "number"
+                    },
+                    "status_counts": {
+                        "type": "object",
+                        "additionalProperties": {
+                            "type": "integer"
+                        }
+                    },
+                    "is_finished": {
+                        "type": "boolean"
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                },
+                "required": [
+                    "id",
+                    "total",
+                    "status_counts",
+                    "is_finished",
+                    "created_at"
+                ],
+                "title": "NotificationBatchResource"
+            },
+            "NotificationChannel": {
+                "type": "string",
+                "description": "Identifies a delivery channel in storage, validation and the API. Each channel's rules live in its delivery channel implementation, resolved through {@see ChannelRegistry}.\n",
+                "enum": [
+                    "sms",
+                    "email",
+                    "push"
+                ],
+                "title": "NotificationChannel"
+            },
+            "NotificationPriority": {
+                "type": "string",
+                "enum": [
+                    "high",
+                    "normal",
+                    "low"
+                ],
+                "title": "NotificationPriority"
+            },
+            "NotificationResource": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    },
+                    "batch_id": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "template_id": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "channel": {
+                        "$ref": "#/components/schemas/NotificationChannel"
+                    },
+                    "priority": {
+                        "$ref": "#/components/schemas/NotificationPriority"
+                    },
+                    "status": {
+                        "$ref": "#/components/schemas/NotificationStatus"
+                    },
+                    "recipient": {
+                        "type": "string"
+                    },
+                    "content": {
+                        "type": "string"
+                    },
+                    "idempotency_key": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "correlation_id": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "attempts": {
+                        "type": "integer"
+                    },
+                    "provider_message_id": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "last_error": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "scheduled_at": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
+                    },
+                    "queued_at": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
+                    },
+                    "sent_at": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
+                    },
+                    "failed_at": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
+                    },
+                    "cancelled_at": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "updated_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                },
+                "required": [
+                    "id",
+                    "batch_id",
+                    "template_id",
+                    "channel",
+                    "priority",
+                    "status",
+                    "recipient",
+                    "content",
+                    "idempotency_key",
+                    "correlation_id",
+                    "attempts",
+                    "provider_message_id",
+                    "last_error",
+                    "scheduled_at",
+                    "queued_at",
+                    "sent_at",
+                    "failed_at",
+                    "cancelled_at",
+                    "created_at",
+                    "updated_at"
+                ],
+                "title": "NotificationResource"
+            },
+            "NotificationStatus": {
+                "type": "string",
+                "description": "| |\n|---|\n| `waiting` <br/> Persisted and waiting to be handed to the queue (outbox state). |\n| `scheduled` <br/> Held back until its scheduled delivery time. |\n| `queued` <br/> Pushed onto a queue and waiting for a worker. |\n| `processing` <br/> Claimed by a worker and being delivered to the provider. |\n| `sent` <br/> Accepted by the provider. |\n| `failed` <br/> Permanently failed after exhausting its delivery attempts. |\n| `cancelled` <br/> Cancelled before a worker picked it up. |",
+                "enum": [
+                    "waiting",
+                    "scheduled",
+                    "queued",
+                    "processing",
+                    "sent",
+                    "failed",
+                    "cancelled"
+                ],
+                "title": "NotificationStatus"
+            },
+            "NotificationTemplateResource": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "channel": {
+                        "$ref": "#/components/schemas/NotificationChannel"
+                    },
+                    "content": {
+                        "type": "string"
+                    },
+                    "variables": {
+                        "type": "array",
+                        "description": "The variables a notification created from the template must give a value to.",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "updated_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                },
+                "required": [
+                    "id",
+                    "name",
+                    "channel",
+                    "content",
+                    "variables",
+                    "created_at",
+                    "updated_at"
+                ],
+                "title": "NotificationTemplateResource"
+            },
+            "StoreNotificationBatchRequest": {
+                "type": "object",
+                "properties": {
+                    "notifications": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "channel": {
+                                    "$ref": "#/components/schemas/NotificationChannel"
+                                },
+                                "recipient": {
+                                    "type": "string",
+                                    "maxLength": 512
+                                },
+                                "content": {
+                                    "type": "string"
+                                },
+                                "template": {
+                                    "type": "string",
+                                    "maxLength": 100
+                                },
+                                "variables": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "string"
+                                    }
+                                },
+                                "priority": {
+                                    "$ref": "#/components/schemas/NotificationPriority"
+                                },
+                                "idempotency_key": {
+                                    "type": [
+                                        "string",
+                                        "null"
+                                    ],
+                                    "maxLength": 255
+                                },
+                                "scheduled_at": {
+                                    "type": [
+                                        "string",
+                                        "null"
+                                    ],
+                                    "format": "date-time"
+                                }
+                            },
+                            "required": [
+                                "channel",
+                                "recipient"
+                            ]
+                        },
+                        "minItems": 1,
+                        "maxItems": 1000,
+                        "uniqueItems": true
+                    }
+                },
+                "required": [
+                    "notifications"
+                ],
+                "title": "StoreNotificationBatchRequest"
+            },
+            "StoreNotificationRequest": {
+                "type": "object",
+                "properties": {
+                    "channel": {
+                        "$ref": "#/components/schemas/NotificationChannel"
+                    },
+                    "recipient": {
+                        "type": "string",
+                        "maxLength": 512
+                    },
+                    "content": {
+                        "type": "string"
+                    },
+                    "template": {
+                        "type": "string",
+                        "maxLength": 100
+                    },
+                    "variables": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "priority": {
+                        "$ref": "#/components/schemas/NotificationPriority"
+                    },
+                    "idempotency_key": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "maxLength": 255
+                    },
+                    "scheduled_at": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
+                    }
+                },
+                "required": [
+                    "channel",
+                    "recipient"
+                ],
+                "title": "StoreNotificationRequest"
+            },
+            "StoreNotificationTemplateRequest": {
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "maxLength": 100
+                    },
+                    "channel": {
+                        "$ref": "#/components/schemas/NotificationChannel"
+                    },
+                    "content": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "name",
+                    "channel",
+                    "content"
+                ],
+                "title": "StoreNotificationTemplateRequest"
+            },
+            "UpdateNotificationTemplateRequest": {
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "maxLength": 100
+                    },
+                    "channel": {
+                        "type": "string"
+                    },
+                    "content": {
+                        "type": "string"
+                    }
+                },
+                "title": "UpdateNotificationTemplateRequest"
+            },
+            "User": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "email": {
+                        "type": "string"
+                    },
+                    "email_verified_at": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
+                    },
+                    "created_at": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
+                    },
+                    "updated_at": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
+                    },
+                    "deleted_at": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
+                    }
+                },
+                "required": [
+                    "id",
+                    "name",
+                    "email",
+                    "email_verified_at",
+                    "created_at",
+                    "updated_at",
+                    "deleted_at"
+                ],
+                "title": "User"
+            }
+        },
+        "responses": {
+            "AuthenticationException": {
+                "description": "Unauthenticated",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string",
+                                    "description": "Error overview."
+                                }
+                            },
+                            "required": [
+                                "message"
+                            ]
+                        }
+                    }
+                }
+            },
+            "ValidationException": {
+                "description": "Validation error",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string",
+                                    "description": "Errors overview."
+                                },
+                                "errors": {
+                                    "type": "object",
+                                    "description": "A detailed description of each field that failed validation.",
+                                    "additionalProperties": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "string"
+                                        }
+                                    }
+                                }
+                            },
+                            "required": [
+                                "message",
+                                "errors"
+                            ]
+                        }
+                    }
+                }
+            },
+            "AuthorizationException": {
+                "description": "Authorization error",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string",
+                                    "description": "Error overview."
+                                }
+                            },
+                            "required": [
+                                "message"
+                            ]
+                        }
+                    }
+                }
+            },
+            "ModelNotFoundException": {
+                "description": "Not found",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string",
+                                    "description": "Error overview."
+                                }
+                            },
+                            "required": [
+                                "message"
+                            ]
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
