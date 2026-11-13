@@ -19,6 +19,7 @@ use Laravel\Sanctum\HasApiTokens;
  * @property string $email
  * @property Carbon|null $email_verified_at
  * @property string $password
+ * @property bool $is_operator
  * @property string|null $remember_token
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
@@ -32,6 +33,15 @@ class User extends Authenticatable
     use HasApiTokens, HasFactory, SoftDeletes;
 
     /**
+     * The model's default values for attributes, matching the column defaults.
+     *
+     * @var array<string, mixed>
+     */
+    protected $attributes = [
+        'is_operator' => false,
+    ];
+
+    /**
      * Get the attributes that should be cast.
      *
      * @return array<string, string>
@@ -41,6 +51,7 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'is_operator' => 'boolean',
         ];
     }
 

@@ -2,12 +2,14 @@
 
 namespace App\Providers;
 
+use App\Models\User;
 use Carbon\CarbonImmutable;
 use Dedoc\Scramble\Scramble;
 use Dedoc\Scramble\Support\Generator\OpenApi;
 use Dedoc\Scramble\Support\Generator\SecurityScheme;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
 
@@ -27,7 +29,17 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->configureDefaults();
+        $this->configureAuthorization();
         $this->configureApiDocumentation();
+    }
+
+    /**
+     * Let only operators reach the operator tools: the dashboard, its broadcast
+     * channel and the system-wide metrics.
+     */
+    protected function configureAuthorization(): void
+    {
+        Gate::define('operate', static fn (User $user): bool => $user->is_operator);
     }
 
     /**

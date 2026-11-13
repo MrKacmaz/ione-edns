@@ -10,6 +10,7 @@ use Illuminate\Contracts\Cache\Repository as CacheRepository;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Routing\Attributes\Controllers\Authorize;
 use Illuminate\Validation\Rule;
 
 class MetricsController extends Controller
@@ -20,8 +21,10 @@ class MetricsController extends Controller
      * Report queue depth, in-flight notifications, success rates and latency.
      *
      * Responds with JSON, or with the Prometheus text exposition format when
-     * `format=prometheus`. The snapshot is cached for a few seconds.
+     * `format=prometheus`. The snapshot is cached for a few seconds. The numbers
+     * cover every user's notifications, so only operators may read them.
      */
+    #[Authorize('operate')]
     public function __invoke(
         Request $request,
         MetricsCollector $collector,
