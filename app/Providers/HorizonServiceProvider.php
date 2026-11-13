@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Models\User;
 use Illuminate\Support\Facades\Gate;
 use Laravel\Horizon\Horizon;
 use Laravel\Horizon\HorizonApplicationServiceProvider;
@@ -24,13 +25,11 @@ class HorizonServiceProvider extends HorizonApplicationServiceProvider
      * Register the Horizon gate.
      *
      * This gate determines who can access Horizon in non-local environments.
+     * Nobody can until the dashboard introduces operator accounts; Horizon
+     * itself always allows access in the local environment.
      */
     protected function gate(): void
     {
-        Gate::define('viewHorizon', static function ($user = null) {
-            return in_array(optional($user)->email, [
-                //
-            ], true);
-        });
+        Gate::define('viewHorizon', static fn (?User $user = null): bool => false);
     }
 }
