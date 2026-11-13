@@ -86,4 +86,19 @@ return [
         'connect_timeout_seconds' => max(1, (int) env('NOTIFICATIONS_GATEWAY_CONNECT_TIMEOUT_SECONDS', 5)),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Metrics
+    |--------------------------------------------------------------------------
+    |
+    | The metrics endpoint caches its snapshot for "cache_seconds", so frequent
+    | polling by dashboards does not repeat the aggregate queries. Zero
+    | disables the cache.
+    |
+    */
+
+    'metrics' => [
+        'cache_seconds' => max(0, (int) env('NOTIFICATIONS_METRICS_CACHE_SECONDS', 5)),
+    ],
+
 ];
