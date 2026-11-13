@@ -48,6 +48,9 @@ return [
     | evenly. A worker waits up to "rate_limit_max_wait_ms" for its turn and
     | otherwise hands the job back to the queue.
     |
+    | Notifications stuck in "waiting" or "processing" longer than the given
+    | seconds are dispatched again by the notifications:redispatch-stale command.
+    |
     */
 
     'delivery' => [
@@ -60,6 +63,11 @@ return [
 
         'rate_limit_per_second' => max(1, (int) env('NOTIFICATIONS_RATE_LIMIT_PER_SECOND', 100)),
         'rate_limit_max_wait_ms' => max(0, (int) env('NOTIFICATIONS_RATE_LIMIT_MAX_WAIT_MS', 2000)),
+
+        'stale_after_seconds' => [
+            'waiting' => max(1, (int) env('NOTIFICATIONS_STALE_WAITING_SECONDS', 120)),
+            'processing' => max(1, (int) env('NOTIFICATIONS_STALE_PROCESSING_SECONDS', 300)),
+        ],
     ],
 
     /*
