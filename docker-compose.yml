@@ -3,20 +3,20 @@ name: ione-edns
 # OpenTelemetry settings shared by every PHP service (api, horizon, scheduler, reverb).
 # They must be real environment variables: the SDK boots during Composer autoload, before Laravel reads .env.
 x-otel-env: &otel-env
-  OTEL_PHP_AUTOLOAD_ENABLED: "true"
-  OTEL_SERVICE_NAME: ione-edns
-  OTEL_TRACES_EXPORTER: otlp
-  OTEL_METRICS_EXPORTER: none
-  OTEL_LOGS_EXPORTER: none
-  OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
-  OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
-  OTEL_PROPAGATORS: tracecontext,baggage
+    OTEL_PHP_AUTOLOAD_ENABLED: 'true'
+    OTEL_SERVICE_NAME: ione-edns
+    OTEL_TRACES_EXPORTER: otlp
+    OTEL_METRICS_EXPORTER: none
+    OTEL_LOGS_EXPORTER: none
+    OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+    OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
+    OTEL_PROPAGATORS: tracecontext,baggage
 
 services:
-  # Tracing backend: receives OTLP from the PHP services and serves the trace UI on http://localhost:16686.
-  # Traces are kept in memory and are lost when the container restarts.
-  jaeger:
-    image: jaegertracing/jaeger:2.23.0
-    ports:
-      - "16686:16686"
-    restart: unless-stopped
+    # Tracing backend: receives OTLP from the PHP services and serves the trace UI on http://localhost:16686.
+    # Traces are kept in memory and are lost when the container restarts.
+    jaeger:
+        image: jaegertracing/jaeger:2.23.0
+        ports:
+            - '16686:16686'
+        restart: unless-stopped
