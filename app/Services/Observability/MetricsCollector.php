@@ -141,7 +141,7 @@ final readonly class MetricsCollector
                         ->where('notification_attempts.outcome', GatewayOutcome::Accepted)
                         ->where('notification_attempts.created_at', '>=', $since)
                         ->toBase(),
-                    'extract(epoch from (notification_attempts.created_at - notifications.created_at)) * 1000',
+                    'extract(epoch from (notification_attempts.created_at - coalesce(notifications.scheduled_at, notifications.created_at))) * 1000',
                 ),
             ],
         ];

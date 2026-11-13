@@ -18,6 +18,21 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Scheduling
+    |--------------------------------------------------------------------------
+    |
+    | A notification may carry a "scheduled_at" up to "max_days" in the future.
+    | Scheduled notifications wait in the database; the dispatch-due command
+    | queues them shortly before their time with a matching delay.
+    |
+    */
+
+    'schedule' => [
+        'max_days' => max(1, (int) env('NOTIFICATIONS_SCHEDULE_MAX_DAYS', 30)),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Idempotency
     |--------------------------------------------------------------------------
     |

@@ -56,11 +56,14 @@ class CreateNotificationsAction
                     'batch_id' => $batch?->id,
                     'channel' => $newNotification->channel->value,
                     'priority' => $newNotification->priority->value,
-                    'status' => NotificationStatus::Waiting->value,
+                    'status' => $newNotification->isScheduled()
+                        ? NotificationStatus::Scheduled->value
+                        : NotificationStatus::Waiting->value,
                     'recipient' => $newNotification->recipient,
                     'content' => $newNotification->content,
                     'idempotency_key' => $newNotification->idempotencyKey,
                     'correlation_id' => is_string($correlationId) ? $correlationId : null,
+                    'scheduled_at' => $newNotification->scheduledAt?->format('Y-m-d H:i:s.u'),
                     'created_at' => $timestamp,
                     'updated_at' => $timestamp,
                 ];
@@ -102,10 +105,11 @@ class CreateNotificationsAction
             }
 
             // Queue the new notifications only once the outermost transaction has committed,
-            // so a worker never looks for a notification that is not visible yet.
+            // so a worker never looks for a notification that is not visible yet. Scheduled
+            // notifications further ahead are left to notifications:dispatch-due.
             DB::afterCommit(fn () => $this->dispatchNotifications->handle(
                 $notifications->filter(
-                    fn (Notification $notification): bool => $notification->wasRecentlyCreated,
+                    fn (Notification $notification): bool => $notification->wasRecentlyCreated && $notification->isDueForDispatch(),
                 )->values(),
             ));
 

@@ -1,5 +1,6 @@
 <?php
 
+use App\Console\Commands\DispatchDueNotificationsCommand;
 use App\Console\Commands\RedispatchStaleNotificationsCommand;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
@@ -14,6 +15,11 @@ Schedule::command('horizon:snapshot')->everyFiveMinutes();
 Schedule::command('model:prune')->daily();
 
 Schedule::command(RedispatchStaleNotificationsCommand::class)
+    ->everyMinute()
+    ->withoutOverlapping(5)
+    ->onOneServer();
+
+Schedule::command(DispatchDueNotificationsCommand::class)
     ->everyMinute()
     ->withoutOverlapping(5)
     ->onOneServer();

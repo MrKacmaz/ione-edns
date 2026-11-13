@@ -4,6 +4,7 @@ namespace App\Data;
 
 use App\Enums\NotificationChannel;
 use App\Enums\NotificationPriority;
+use Carbon\CarbonImmutable;
 
 /**
  * A validated request to create one notification.
@@ -16,6 +17,7 @@ final readonly class NewNotificationData
         public string $content,
         public NotificationPriority $priority = NotificationPriority::Normal,
         public ?string $idempotencyKey = null,
+        public ?CarbonImmutable $scheduledAt = null,
     ) {}
 
     /**
@@ -33,6 +35,17 @@ final readonly class NewNotificationData
                 ? NotificationPriority::from($attributes['priority'])
                 : NotificationPriority::Normal,
             idempotencyKey: $attributes['idempotency_key'] ?? null,
+            scheduledAt: isset($attributes['scheduled_at'])
+                ? CarbonImmutable::parse($attributes['scheduled_at'])->utc()
+                : null,
         );
+    }
+
+    /**
+     * Determine whether the notification is to be sent at a later time.
+     */
+    public function isScheduled(): bool
+    {
+        return $this->scheduledAt !== null;
     }
 }

@@ -9,6 +9,8 @@ use Carbon\CarbonImmutable;
 use Database\Factories\NotificationFactory;
 use Illuminate\Database\Eloquent\Attributes\DateFormat;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Attributes\Scope;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -52,6 +54,15 @@ class Notification extends Model
 {
     /** @use HasFactory<NotificationFactory> */
     use HasFactory, HasUuids;
+
+    /**
+     * How long before its delivery time a scheduled notification is put on a queue.
+     *
+     * Matches the every-minute run of notifications:dispatch-due, so each run
+     * covers every notification that comes due before the next run. The job is
+     * delayed until the exact delivery time.
+     */
+    public const int SCHEDULE_LOOKAHEAD_SECONDS = 60;
 
     /**
      * Get the attributes that should be cast.
@@ -104,17 +115,51 @@ class Notification extends Model
     }
 
     /**
+     * Scope the query to scheduled notifications that should be put on a queue now.
+     *
+     * @param  Builder<self>  $query
+     */
+    #[Scope]
+    protected function dueForDispatch(Builder $query): void
+    {
+        $query->where('status', NotificationStatus::Scheduled)
+            ->where('scheduled_at', '<=', now()->addSeconds(self::SCHEDULE_LOOKAHEAD_SECONDS));
+    }
+
+    /**
+     * Determine whether the notification should be put on a queue now.
+     *
+     * A waiting notification always is; a scheduled one once its delivery time
+     * lies within the lookahead window.
+     */
+    public function isDueForDispatch(): bool
+    {
+        return match ($this->status) {
+            NotificationStatus::Waiting => true,
+            NotificationStatus::Scheduled => $this->scheduled_at === null
+                || $this->scheduled_at->lte(now()->addSeconds(self::SCHEDULE_LOOKAHEAD_SECONDS)),
+            default => false,
+        };
+    }
+
+    /**
      * Claim the notification for one delivery attempt.
      *
      * The status check, the claim and the attempt count happen in one statement,
      * so two workers holding a job for the same notification never both deliver it,
-     * and a notification cancelled in the meantime is left alone.
+     * and a notification cancelled in the meantime is left alone. A scheduled
+     * notification is claimable once its delivery time has come, so a job that
+     * runs before the notification was marked as queued is not lost.
      */
     public static function claimForDelivery(string $id): ?self
     {
         $claimedRows = static::query()
             ->whereKey($id)
-            ->whereIn('status', NotificationStatus::claimable())
+            ->where(fn (Builder $query) => $query
+                ->whereIn('status', NotificationStatus::claimable())
+                ->orWhere(fn (Builder $query) => $query
+                    ->where('status', NotificationStatus::Scheduled)
+                    ->where('scheduled_at', '<=', now())))
             ->increment('attempts', 1, ['status' => NotificationStatus::Processing]);
 
         return $claimedRows === 1 ? static::query()->find($id) : null;

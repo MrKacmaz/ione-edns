@@ -11,12 +11,20 @@ use Illuminate\Database\Eloquent\Collection;
  * Hands notifications to the queue of their priority.
  *
  * Jobs are pushed before the notifications are marked as queued: if the push
- * fails, the notifications stay waiting and the stale-notification sweeper
- * pushes them again. A job that runs before the status update can still claim
- * its notification, because waiting notifications are claimable.
+ * fails, the notifications stay waiting or scheduled and the sweeper or the
+ * dispatch-due command pushes them again. A job that runs before the status
+ * update can still claim its notification, because waiting notifications and
+ * scheduled notifications whose time has come are claimable.
+ *
+ * A notification scheduled for the future is delayed until its delivery time.
  */
 class DispatchNotificationsAction
 {
+    /**
+     * The statuses a notification leaves when it is put on a queue.
+     */
+    private const array DISPATCHABLE_STATUSES = [NotificationStatus::Waiting, NotificationStatus::Scheduled];
+
     /**
      * @param  Collection<int, Notification>  $notifications
      */
@@ -28,18 +36,19 @@ class DispatchNotificationsAction
 
         foreach ($notifications as $notification) {
             SendNotificationJob::dispatch($notification->id, $notification->channel)
-                ->onQueue($notification->priority->queue());
+                ->onQueue($notification->priority->queue())
+                ->delay($notification->scheduled_at?->isFuture() ? $notification->scheduled_at : null);
         }
 
         $queuedAt = now();
 
         Notification::query()
             ->whereKey($notifications->modelKeys())
-            ->where('status', NotificationStatus::Waiting)
+            ->whereIn('status', self::DISPATCHABLE_STATUSES)
             ->update(['status' => NotificationStatus::Queued, 'queued_at' => $queuedAt]);
 
         foreach ($notifications as $notification) {
-            if ($notification->status === NotificationStatus::Waiting) {
+            if (in_array($notification->status, self::DISPATCHABLE_STATUSES, true)) {
                 $notification->forceFill(['status' => NotificationStatus::Queued, 'queued_at' => $queuedAt])->syncOriginal();
             }
         }
