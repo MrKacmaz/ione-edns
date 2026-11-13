@@ -1,8 +1,50 @@
 <?php
 
+/*
+|--------------------------------------------------------------------------
+| API v1 Routes
+|--------------------------------------------------------------------------
+|
+| Registered in bootstrap/app.php under the "api/v1" prefix, the "api.v1."
+| name prefix and the "api" + "auth:sanctum" middleware.
+|
+*/
+
+use App\Http\Controllers\CancelNotificationBatchController;
+use App\Http\Controllers\CancelNotificationController;
+use App\Http\Controllers\NotificationBatchController;
+use App\Http\Controllers\NotificationController;
+use App\Http\Middleware\EnsureRequestIsIdempotent;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/user', function (Request $request) {
+Route::get('user', static function (Request $request) {
     return $request->user();
-})->middleware('auth:sanctum');
+})->name('user');
+
+Route::get('notifications', [NotificationController::class, 'index'])
+    ->name('notifications.index');
+
+Route::post('notifications', [NotificationController::class, 'store'])
+    ->middleware(EnsureRequestIsIdempotent::class)
+    ->name('notifications.store');
+
+Route::post('notifications/batch', [NotificationBatchController::class, 'store'])
+    ->middleware(EnsureRequestIsIdempotent::class)
+    ->name('notification-batches.store');
+
+Route::get('notifications/{notification}', [NotificationController::class, 'show'])
+    ->whereUuid('notification')
+    ->name('notifications.show');
+
+Route::post('notifications/{notification}/cancel', CancelNotificationController::class)
+    ->whereUuid('notification')
+    ->name('notifications.cancel');
+
+Route::get('batches/{batch}', [NotificationBatchController::class, 'show'])
+    ->whereUuid('batch')
+    ->name('notification-batches.show');
+
+Route::post('batches/{batch}/cancel', CancelNotificationBatchController::class)
+    ->whereUuid('batch')
+    ->name('notification-batches.cancel');
