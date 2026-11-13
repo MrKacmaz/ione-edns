@@ -44,7 +44,18 @@ expect()->extend('toBeOne', function () {
 |
 */
 
-function something()
+/**
+ * Build a valid request payload for a single SMS notification.
+ *
+ * @param  array<string, mixed>  $overrides
+ * @return array<string, mixed>
+ */
+function smsNotificationPayload(array $overrides = []): array
 {
-    // ..
+    return [
+        'channel' => 'sms',
+        'recipient' => '+905551234567',
+        'content' => 'Your order has shipped.',
+        ...$overrides,
+    ];
 }
