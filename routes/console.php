@@ -1,5 +1,6 @@
 <?php
 
+use App\Console\Commands\BroadcastMetricsCommand;
 use App\Console\Commands\DispatchDueNotificationsCommand;
 use App\Console\Commands\RedispatchStaleNotificationsCommand;
 use Illuminate\Foundation\Inspiring;
@@ -22,4 +23,9 @@ Schedule::command(RedispatchStaleNotificationsCommand::class)
 Schedule::command(DispatchDueNotificationsCommand::class)
     ->everyMinute()
     ->withoutOverlapping(5)
+    ->onOneServer();
+
+Schedule::command(BroadcastMetricsCommand::class)
+    ->everyFiveSeconds()
+    ->withoutOverlapping(1)
     ->onOneServer();

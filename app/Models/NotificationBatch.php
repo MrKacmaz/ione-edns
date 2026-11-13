@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\NotificationStatus;
+use App\Events\NotificationStatusChanged;
 use Carbon\CarbonImmutable;
 use Database\Factories\NotificationBatchFactory;
 use Illuminate\Database\Eloquent\Attributes\DateFormat;
@@ -11,6 +12,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\DB;
 
 /**
  * @property string $id
@@ -69,15 +71,41 @@ class NotificationBatch extends Model
     /**
      * Cancel every notification in the batch that has not been picked up by a worker yet.
      *
+     * The cancellable notifications are locked while they are cancelled, so a
+     * worker that tries to claim one at the same moment waits and then finds it
+     * cancelled. Each cancellation is announced to the owner once committed.
+     *
      * @return int The number of notifications that were cancelled.
      */
     public function cancelPendingNotifications(): int
     {
-        return $this->notifications()
-            ->whereIn('status', NotificationStatus::cancellable())
-            ->update([
+        return DB::transaction(function (): int {
+            $notifications = $this->notifications()
+                ->whereIn('status', NotificationStatus::cancellable())
+                ->lockForUpdate()
+                ->get();
+
+            if ($notifications->isEmpty()) {
+                return 0;
+            }
+
+            $cancelledAt = now();
+
+            $cancellation = [
                 'status' => NotificationStatus::Cancelled,
-                'cancelled_at' => now(),
-            ]);
+                'cancelled_at' => $cancelledAt,
+                'updated_at' => $cancelledAt,
+            ];
+
+            Notification::query()->whereKey($notifications->modelKeys())->update($cancellation);
+
+            foreach ($notifications as $notification) {
+                $notification->forceFill($cancellation)->syncOriginal();
+
+                NotificationStatusChanged::dispatch($notification);
+            }
+
+            return $notifications->count();
+        });
     }
 }

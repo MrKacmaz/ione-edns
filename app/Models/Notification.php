@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\NotificationChannel;
 use App\Enums\NotificationPriority;
 use App\Enums\NotificationStatus;
+use App\Events\NotificationStatusChanged;
 use Carbon\CarbonImmutable;
 use Database\Factories\NotificationFactory;
 use Illuminate\Database\Eloquent\Attributes\DateFormat;
@@ -217,7 +218,7 @@ class Notification extends Model
      */
     public static function markFailedIfStillProcessing(string $id, string $error): void
     {
-        static::query()
+        $failedRows = static::query()
             ->whereKey($id)
             ->where('status', NotificationStatus::Processing)
             ->update([
@@ -225,6 +226,12 @@ class Notification extends Model
                 'last_error' => $error,
                 'failed_at' => now(),
             ]);
+
+        $notification = $failedRows === 1 ? static::query()->find($id) : null;
+
+        if ($notification !== null) {
+            NotificationStatusChanged::dispatch($notification);
+        }
     }
 
     /**
@@ -267,21 +274,33 @@ class Notification extends Model
 
         $this->refresh();
 
-        return $cancelledRows === 1;
+        if ($cancelledRows !== 1) {
+            return false;
+        }
+
+        NotificationStatusChanged::dispatch($this);
+
+        return true;
     }
 
     /**
      * Apply a status change only while the notification is still being processed.
      *
+     * Reaching a final status is announced to the owner.
+     *
      * @param  array<string, mixed>  $attributes
      */
     private function transitionFromProcessing(array $attributes): void
     {
-        static::query()
+        $transitionedRows = static::query()
             ->whereKey($this->getKey())
             ->where('status', NotificationStatus::Processing)
             ->update($attributes);
 
         $this->refresh();
+
+        if ($transitionedRows === 1 && in_array($this->status, NotificationStatus::final(), true)) {
+            NotificationStatusChanged::dispatch($this);
+        }
     }
 }

@@ -195,9 +195,11 @@ return [
     */
 
     'defaults' => [
+        // WebSocket broadcasts go first: they are small and the dashboard and API
+        // clients wait for them. Operator alert mails and other jobs use default.
         'supervisor-1' => [
             'connection' => 'redis',
-            'queue' => ['default'],
+            'queue' => ['broadcasts', 'default'],
             'balance' => 'auto',
             'autoScalingStrategy' => 'time',
             'maxProcesses' => 1,

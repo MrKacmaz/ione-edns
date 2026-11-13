@@ -8,6 +8,7 @@ use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Broadcast;
 use Illuminate\Support\Facades\Route;
 
 return Application::configure(basePath: dirname(__DIR__))
@@ -26,6 +27,10 @@ return Application::configure(basePath: dirname(__DIR__))
             Route::middleware('api')
                 ->get('health', HealthController::class)
                 ->name('health');
+
+            // API clients authorize their private WebSocket channels with their Sanctum token;
+            // the dashboard uses /broadcasting/auth with its session.
+            Broadcast::routes(['prefix' => 'api/v1', 'middleware' => ['api', 'auth:sanctum']]);
         },
     )
     ->withMiddleware(function (Middleware $middleware): void {
