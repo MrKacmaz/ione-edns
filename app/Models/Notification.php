@@ -21,6 +21,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property string $id
  * @property int $user_id
  * @property string|null $batch_id
+ * @property string|null $template_id
  * @property NotificationChannel $channel
  * @property NotificationPriority $priority
  * @property NotificationStatus $status
@@ -102,6 +103,16 @@ class Notification extends Model
     public function batch(): BelongsTo
     {
         return $this->belongsTo(NotificationBatch::class, 'batch_id');
+    }
+
+    /**
+     * Get the template the notification's content was rendered from.
+     *
+     * @return BelongsTo<NotificationTemplate, $this>
+     */
+    public function template(): BelongsTo
+    {
+        return $this->belongsTo(NotificationTemplate::class, 'template_id');
     }
 
     /**

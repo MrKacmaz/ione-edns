@@ -18,10 +18,14 @@ final readonly class NewNotificationData
         public NotificationPriority $priority = NotificationPriority::Normal,
         public ?string $idempotencyKey = null,
         public ?CarbonImmutable $scheduledAt = null,
+        public ?string $templateId = null,
     ) {}
 
     /**
      * Build the notification from input that already passed validation.
+     *
+     * For a notification created from a template, `content` holds the rendered
+     * content and `template_id` the template.
      *
      * @param  array<array-key, mixed>  $attributes
      */
@@ -38,6 +42,7 @@ final readonly class NewNotificationData
             scheduledAt: isset($attributes['scheduled_at'])
                 ? CarbonImmutable::parse($attributes['scheduled_at'])->utc()
                 : null,
+            templateId: $attributes['template_id'] ?? null,
         );
     }
 

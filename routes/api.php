@@ -15,6 +15,7 @@ use App\Http\Controllers\CancelNotificationController;
 use App\Http\Controllers\MetricsController;
 use App\Http\Controllers\NotificationBatchController;
 use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\NotificationTemplateController;
 use App\Http\Controllers\RetryNotificationController;
 use App\Http\Middleware\EnsureRequestIsIdempotent;
 use Illuminate\Http\Request;
@@ -57,3 +58,21 @@ Route::get('batches/{batch}', [NotificationBatchController::class, 'show'])
 Route::post('batches/{batch}/cancel', CancelNotificationBatchController::class)
     ->whereUuid('batch')
     ->name('notification-batches.cancel');
+
+Route::get('templates', [NotificationTemplateController::class, 'index'])
+    ->name('notification-templates.index');
+
+Route::post('templates', [NotificationTemplateController::class, 'store'])
+    ->name('notification-templates.store');
+
+Route::get('templates/{template}', [NotificationTemplateController::class, 'show'])
+    ->whereUuid('template')
+    ->name('notification-templates.show');
+
+Route::patch('templates/{template}', [NotificationTemplateController::class, 'update'])
+    ->whereUuid('template')
+    ->name('notification-templates.update');
+
+Route::delete('templates/{template}', [NotificationTemplateController::class, 'destroy'])
+    ->whereUuid('template')
+    ->name('notification-templates.destroy');

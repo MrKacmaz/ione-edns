@@ -31,6 +31,16 @@ class StoreNotificationRequest extends FormRequest
      */
     public function newNotification(): NewNotificationData
     {
-        return NewNotificationData::fromValidated($this->validated());
+        return $this->newNotificationFrom($this->validated());
+    }
+
+    /**
+     * Get the template names the request refers to, as sent.
+     *
+     * @return list<mixed>
+     */
+    protected function templateNames(): array
+    {
+        return [$this->input('template')];
     }
 }

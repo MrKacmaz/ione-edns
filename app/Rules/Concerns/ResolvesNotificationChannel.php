@@ -38,13 +38,19 @@ trait ResolvesNotificationChannel
      */
     protected function deliveryChannelOf(string $attribute): ?DeliveryChannel
     {
-        $channelAttribute = str_contains($attribute, '.')
-            ? Str::beforeLast($attribute, '.').'.channel'
-            : 'channel';
-
-        $channelValue = data_get($this->data, $channelAttribute);
+        $channelValue = data_get($this->data, $this->siblingOf($attribute, 'channel'));
         $channel = is_string($channelValue) ? NotificationChannel::tryFrom($channelValue) : null;
 
         return $channel === null ? null : $this->channels->for($channel);
+    }
+
+    /**
+     * Get the name of another attribute of the same notification, such as `notifications.3.channel`.
+     */
+    protected function siblingOf(string $attribute, string $sibling): string
+    {
+        return str_contains($attribute, '.')
+            ? Str::beforeLast($attribute, '.').'.'.$sibling
+            : $sibling;
     }
 }

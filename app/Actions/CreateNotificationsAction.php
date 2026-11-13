@@ -54,6 +54,7 @@ class CreateNotificationsAction
                     'id' => $newIdsByPosition[$position],
                     'user_id' => $user->id,
                     'batch_id' => $batch?->id,
+                    'template_id' => $newNotification->templateId,
                     'channel' => $newNotification->channel->value,
                     'priority' => $newNotification->priority->value,
                     'status' => $newNotification->isScheduled()

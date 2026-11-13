@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Models\NotificationTemplate;
 use App\Models\User;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
@@ -19,6 +20,9 @@ class DatabaseSeeder extends Seeder
             'name' => 'Test User',
             'email' => 'test@example.com',
         ]);
+
+        NotificationTemplate::factory()->for($user)->create(['name' => 'order-shipped']);
+        NotificationTemplate::factory()->for($user)->email()->create(['name' => 'invoice-ready']);
 
         $token = $user->createToken('demo')->plainTextToken;
 

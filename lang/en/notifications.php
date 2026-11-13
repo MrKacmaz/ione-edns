@@ -20,6 +20,8 @@ return [
 
     'cannot_be_retried' => 'Only failed notifications can be retried; this notification is :status.',
 
+    'template_variable_missing' => 'The template variable [:variable] has no text or number value.',
+
     /*
     |--------------------------------------------------------------------------
     | Delivery Errors

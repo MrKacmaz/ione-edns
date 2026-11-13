@@ -65,6 +65,16 @@ class User extends Authenticatable
     }
 
     /**
+     * Get the notification templates the user created.
+     *
+     * @return HasMany<NotificationTemplate, $this>
+     */
+    public function notificationTemplates(): HasMany
+    {
+        return $this->hasMany(NotificationTemplate::class);
+    }
+
+    /**
      * Get the idempotency keys the user has used.
      *
      * @return HasMany<IdempotencyKey, $this>

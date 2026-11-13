@@ -43,8 +43,22 @@ class StoreNotificationBatchRequest extends FormRequest
     public function newNotifications(): array
     {
         return array_values(array_map(
-            NewNotificationData::fromValidated(...),
+            $this->newNotificationFrom(...),
             $this->validated('notifications'),
         ));
+    }
+
+    /**
+     * Get the template names the request refers to, as sent.
+     *
+     * @return list<mixed>
+     */
+    protected function templateNames(): array
+    {
+        $notifications = $this->input('notifications');
+
+        return is_array($notifications)
+            ? array_column(array_filter($notifications, is_array(...)), 'template')
+            : [];
     }
 }
