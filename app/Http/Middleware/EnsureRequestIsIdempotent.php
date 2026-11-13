@@ -54,7 +54,7 @@ class EnsureRequestIsIdempotent
 
         if ($key === '' || mb_strlen($key) > self::MAX_KEY_LENGTH) {
             return response()->json([
-                'message' => 'The Idempotency-Key header must be a non-empty string of at most '.self::MAX_KEY_LENGTH.' characters.',
+                'message' => __('idempotency.invalid_key', ['header' => self::KEY_HEADER, 'max' => self::MAX_KEY_LENGTH]),
             ], Response::HTTP_BAD_REQUEST);
         }
 
@@ -62,7 +62,7 @@ class EnsureRequestIsIdempotent
 
         if (! $lock->get()) {
             return response()->json([
-                'message' => 'A request with this Idempotency-Key is still being processed. Retry later.',
+                'message' => __('idempotency.in_progress', ['header' => self::KEY_HEADER]),
             ], Response::HTTP_CONFLICT);
         }
 
@@ -78,7 +78,7 @@ class EnsureRequestIsIdempotent
                 return hash_equals($completed->request_fingerprint, $fingerprint)
                     ? $this->replay($completed)
                     : response()->json([
-                        'message' => 'This Idempotency-Key was already used with a different request payload.',
+                        'message' => __('idempotency.payload_mismatch', ['header' => self::KEY_HEADER]),
                     ], Response::HTTP_UNPROCESSABLE_ENTITY);
             }
 
