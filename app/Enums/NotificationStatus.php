@@ -36,6 +36,19 @@ enum NotificationStatus: string
     }
 
     /**
+     * Get the statuses from which a worker may claim a notification for delivery.
+     *
+     * Waiting is included so that a job pushed before its notification was marked
+     * as queued is not lost.
+     *
+     * @return list<self>
+     */
+    public static function claimable(): array
+    {
+        return [self::Waiting, self::Queued];
+    }
+
+    /**
      * Get the statuses a notification can no longer leave.
      *
      * @return list<self>
