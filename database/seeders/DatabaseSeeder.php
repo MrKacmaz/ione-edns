@@ -27,5 +27,6 @@ class DatabaseSeeder extends Seeder
         $token = $user->createToken('demo')->plainTextToken;
 
         $this->command->info("API token for {$user->email}: {$token}");
+        $this->command->info("Dashboard login: {$user->email} / password");
     }
 }
