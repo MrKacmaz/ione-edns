@@ -2,11 +2,11 @@
 
 namespace App\Http\Requests\Concerns;
 
-use App\Channels\ChannelRegistry;
 use App\Enums\NotificationChannel;
 use App\Enums\NotificationPriority;
 use App\Rules\NotificationContentLengthRule;
 use App\Rules\NotificationRecipientRule;
+use App\Services\Delivery\ChannelRegistry;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Validation\Rule;
 
