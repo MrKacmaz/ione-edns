@@ -25,6 +25,14 @@ class NotificationPolicy
     }
 
     /**
+     * Determine whether the user can send a failed notification again.
+     */
+    public function retry(User $user, Notification $notification): Response
+    {
+        return $this->ownedBy($user, $notification);
+    }
+
+    /**
      * Allow the owner and answer everyone else as if the notification did not exist.
      */
     private function ownedBy(User $user, Notification $notification): Response

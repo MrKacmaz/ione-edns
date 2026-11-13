@@ -18,6 +18,8 @@ return [
 
     'not_created_nor_found' => 'Notification at position :position was neither created nor found.',
 
+    'cannot_be_retried' => 'Only failed notifications can be retried; this notification is :status.',
+
     /*
     |--------------------------------------------------------------------------
     | Delivery Errors

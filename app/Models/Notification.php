@@ -172,6 +172,28 @@ class Notification extends Model
     }
 
     /**
+     * Give a failed notification a fresh set of delivery attempts.
+     *
+     * Earlier attempts stay in the delivery history.
+     */
+    public function resetForRedelivery(): bool
+    {
+        $resetRows = static::query()
+            ->whereKey($this->getKey())
+            ->where('status', NotificationStatus::Failed)
+            ->update([
+                'status' => NotificationStatus::Waiting,
+                'attempts' => 0,
+                'last_error' => null,
+                'failed_at' => null,
+            ]);
+
+        $this->refresh();
+
+        return $resetRows === 1;
+    }
+
+    /**
      * Cancel the notification if it has not been picked up by a worker yet.
      *
      * The status check and the update run as one statement, so a worker that
