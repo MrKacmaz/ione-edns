@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Http\Pagination\CursorPaginator;
 use App\Models\User;
 use Carbon\CarbonImmutable;
 use Dedoc\Scramble\Scramble;
@@ -9,6 +10,7 @@ use Dedoc\Scramble\Support\Generator\OpenApi;
 use Dedoc\Scramble\Support\Generator\SecurityScheme;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\CursorPaginator as BaseCursorPaginator;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
@@ -22,7 +24,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        // Paginate with a cursor that keeps the microseconds of dates.
+        $this->app->bind(BaseCursorPaginator::class, CursorPaginator::class);
     }
 
     /**

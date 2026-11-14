@@ -108,6 +108,32 @@ describe('index', function () {
             ->assertJsonPath('meta.next_cursor', null);
     });
 
+    test('pages through notifications created within the same second without skipping any', function (array $createdAt) {
+        $user = User::factory()->create();
+        Notification::factory()->for($user)->count(5)->sequence(...array_map(
+            fn (string $moment): array => ['created_at' => $moment],
+            $createdAt,
+        ))->create();
+        Sanctum::actingAs($user);
+
+        $ids = [];
+        $cursor = null;
+        do {
+            $page = $this->getJson(route('api.v1.notifications.index', array_filter(['per_page' => 2, 'cursor' => $cursor])));
+            $ids = [...$ids, ...$page->json('data.*.id')];
+            $cursor = $page->json('meta.next_cursor');
+        } while ($cursor !== null);
+
+        expect($ids)->toHaveCount(5)
+            ->and(array_unique($ids))->toHaveCount(5);
+    })->with([
+        'apart by microseconds' => [[
+            '2026-11-14 10:00:00.100000', '2026-11-14 10:00:00.200000', '2026-11-14 10:00:00.300000',
+            '2026-11-14 10:00:00.400000', '2026-11-14 10:00:00.500000',
+        ]],
+        'at the very same moment, like a batch' => [array_fill(0, 5, '2026-11-14 10:00:00.250000')],
+    ]);
+
     test('explains with 422 why a filter is invalid', function (array $query, string $invalidField, string $message) {
         Sanctum::actingAs(User::factory()->create());
 
@@ -148,6 +174,7 @@ describe('index', function () {
 
         $response->assertOk()->assertJsonPath('data.*.content', ['before']);
     });
+
 });
 
 describe('store', function () {
