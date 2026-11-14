@@ -52,3 +52,18 @@ test('stamps the generation time in UTC with microseconds', function () {
 
     expect($serialized['generated_at'])->toBe('2026-11-14T10:15:30.000250Z');
 });
+
+test('rebuilds the same snapshot from its array form', function () {
+    $snapshot = new MetricsSnapshotData(
+        generatedAt: CarbonImmutable::parse('2026-11-14T10:15:30.123456Z'),
+        queues: [['queue' => 'notifications-high', 'pending' => 3, 'delayed' => 1, 'reserved' => 2, 'oldest_pending_age_seconds' => 12]],
+        inFlight: ['waiting' => 1, 'scheduled' => 4, 'queued' => 3, 'processing' => 2],
+        windows: [],
+        circuits: ['sms' => 'closed', 'email' => 'open', 'push' => 'half_open'],
+    );
+
+    $rebuilt = MetricsSnapshotData::fromArray($snapshot->toArray());
+
+    expect($rebuilt->toArray())->toBe($snapshot->toArray())
+        ->and($rebuilt->generatedAt->equalTo($snapshot->generatedAt))->toBeTrue();
+});

@@ -2,11 +2,8 @@
 
 namespace App\Http\Controllers;
 
-use App\Data\MetricsSnapshotData;
 use App\Services\Observability\MetricsCollector;
 use App\Services\Observability\PrometheusFormatter;
-use Illuminate\Container\Attributes\Config;
-use Illuminate\Contracts\Cache\Repository as CacheRepository;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -15,8 +12,6 @@ use Illuminate\Validation\Rule;
 
 class MetricsController extends Controller
 {
-    private const string CACHE_KEY = 'notifications:metrics:snapshot';
-
     /**
      * Report queue depth, in-flight notifications, success rates and latency.
      *
@@ -25,20 +20,13 @@ class MetricsController extends Controller
      * cover every user's notifications, so only operators may read them.
      */
     #[Authorize('operate')]
-    public function __invoke(
-        Request $request,
-        MetricsCollector $collector,
-        PrometheusFormatter $formatter,
-        CacheRepository $cache,
-        #[Config('notifications.metrics.cache_seconds')] int $cacheSeconds,
-    ): JsonResponse|Response {
+    public function __invoke(Request $request, MetricsCollector $collector, PrometheusFormatter $formatter): JsonResponse|Response
+    {
         $validated = $request->validate([
             'format' => ['sometimes', Rule::in(['json', 'prometheus'])],
         ]);
 
-        $snapshot = $cacheSeconds > 0
-            ? $cache->remember(self::CACHE_KEY, $cacheSeconds, fn (): MetricsSnapshotData => $collector->collect())
-            : $collector->collect();
+        $snapshot = $collector->snapshot();
 
         if (($validated['format'] ?? 'json') === 'prometheus') {
             return response($formatter->format($snapshot), Response::HTTP_OK, [

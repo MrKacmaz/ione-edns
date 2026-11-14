@@ -8,6 +8,8 @@ use App\Models\Notification;
 use App\Models\NotificationAttempt;
 use App\Services\Delivery\Contracts\CircuitBreaker;
 use App\Services\Observability\MetricsCollector;
+use Illuminate\Cache\ArrayStore;
+use Illuminate\Cache\Repository;
 use Illuminate\Support\Facades\Queue;
 use Tests\Support\FakeCircuitBreaker;
 
@@ -180,4 +182,42 @@ test('reports the delivery circuit state of every channel', function () {
     $snapshot = app(MetricsCollector::class)->collect();
 
     expect($snapshot->circuits)->toBe(['sms' => 'closed', 'email' => 'open', 'push' => 'half_open']);
+});
+
+test('shares one snapshot between callers until the cache period ends', function () {
+    config(['notifications.metrics.cache_seconds' => 5]);
+    $this->freezeSecond();
+    Notification::factory()->queued()->create();
+    $first = app(MetricsCollector::class)->snapshot();
+    Notification::factory()->queued()->create();
+
+    $withinPeriod = app(MetricsCollector::class)->snapshot();
+    $this->travel(6)->seconds();
+    $afterPeriod = app(MetricsCollector::class)->snapshot();
+
+    expect($withinPeriod->inFlight['queued'])->toBe(1)
+        ->and($withinPeriod->generatedAt->equalTo($first->generatedAt))->toBeTrue()
+        ->and($afterPeriod->inFlight['queued'])->toBe(2);
+});
+
+test('reads the shared snapshot back from a cache that serializes its values, as Redis does', function () {
+    config(['notifications.metrics.cache_seconds' => 5]);
+    $this->travelTo('2026-11-14 12:00:00.250000');
+    $cache = new Repository(new ArrayStore(serializesValues: true, serializableClasses: config('cache.serializable_classes')));
+    $collector = app()->make(MetricsCollector::class, ['cache' => $cache]);
+    Notification::factory()->queued()->create();
+    $collector->snapshot();
+
+    $cached = $collector->snapshot();
+
+    expect($cached->inFlight['queued'])->toBe(1)
+        ->and($cached->generatedAt->format('Y-m-d H:i:s.u'))->toBe('2026-11-14 12:00:00.250000');
+});
+
+test('collects afresh on every call when caching is turned off', function () {
+    config(['notifications.metrics.cache_seconds' => 0]);
+    app(MetricsCollector::class)->snapshot();
+    Notification::factory()->queued()->create();
+
+    expect(app(MetricsCollector::class)->snapshot()->inFlight['queued'])->toBe(1);
 });

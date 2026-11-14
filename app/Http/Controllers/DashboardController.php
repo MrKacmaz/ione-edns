@@ -20,13 +20,13 @@ class DashboardController extends Controller
     /**
      * Show the live operator dashboard.
      *
-     * The page starts from a fresh metrics snapshot and the operator's latest
+     * The page starts from the current metrics snapshot and the operator's latest
      * notifications; both are then kept current over the WebSocket connection.
      */
     public function __invoke(Request $request, #[CurrentUser] User $user, MetricsCollector $collector): Response
     {
         return Inertia::render('Dashboard', [
-            'metrics' => $collector->collect()->toArray(),
+            'metrics' => $collector->snapshot()->toArray(),
             'notifications' => NotificationResource::collection(
                 $user->notifications()->latest()->latest('id')->limit(self::RECENT_NOTIFICATIONS)->get(),
             )->resolve($request),

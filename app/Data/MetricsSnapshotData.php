@@ -35,6 +35,22 @@ final readonly class MetricsSnapshotData
     ) {}
 
     /**
+     * Rebuild a snapshot from its array form, as kept in the cache.
+     *
+     * @param  array{generated_at: string, queues: list<QueueMetrics>, notifications_in_flight: array<string, int>, windows: list<WindowMetrics>, circuits: array<string, string>}  $snapshot
+     */
+    public static function fromArray(array $snapshot): self
+    {
+        return new self(
+            generatedAt: CarbonImmutable::parse($snapshot['generated_at']),
+            queues: $snapshot['queues'],
+            inFlight: $snapshot['notifications_in_flight'],
+            windows: $snapshot['windows'],
+            circuits: $snapshot['circuits'],
+        );
+    }
+
+    /**
      * @return array{generated_at: string, queues: list<QueueMetrics>, notifications_in_flight: array<string, int>, windows: list<WindowMetrics>, circuits: array<string, string>}
      */
     public function toArray(): array

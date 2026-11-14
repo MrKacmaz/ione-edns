@@ -11,6 +11,8 @@ use App\Models\Notification;
 use App\Models\NotificationAttempt;
 use App\Services\Delivery\Contracts\CircuitBreaker;
 use Carbon\CarbonImmutable;
+use Illuminate\Container\Attributes\Config;
+use Illuminate\Contracts\Cache\Repository as CacheRepository;
 use Illuminate\Contracts\Queue\Factory as QueueFactory;
 use Illuminate\Database\Query\Builder;
 
@@ -35,11 +37,37 @@ final readonly class MetricsCollector
      */
     private const array WINDOWS = ['5m' => 300, '1h' => 3600];
 
+    private const string CACHE_KEY = 'notifications:metrics:snapshot';
+
     public function __construct(
         private QueueFactory $queues,
         private CircuitBreaker $circuitBreaker,
+        private CacheRepository $cache,
+        #[Config('notifications.metrics.cache_seconds')] private int $cacheSeconds,
     ) {}
 
+    /**
+     * Get the metrics from a snapshot that every caller shares for a few seconds.
+     *
+     * The endpoint, the dashboard and the five-second broadcast all read this, so
+     * the aggregate queries run at most once per cache period however many
+     * dashboards and scrapers ask. The cache keeps the snapshot as an array,
+     * because it refuses to unserialize objects (`cache.serializable_classes`).
+     */
+    public function snapshot(): MetricsSnapshotData
+    {
+        if ($this->cacheSeconds === 0) {
+            return $this->collect();
+        }
+
+        return MetricsSnapshotData::fromArray(
+            $this->cache->remember(self::CACHE_KEY, $this->cacheSeconds, fn (): array => $this->collect()->toArray()),
+        );
+    }
+
+    /**
+     * Compute the metrics now.
+     */
     public function collect(): MetricsSnapshotData
     {
         $now = CarbonImmutable::now();
