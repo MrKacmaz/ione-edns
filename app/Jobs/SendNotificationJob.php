@@ -4,6 +4,7 @@ namespace App\Jobs;
 
 use App\Enums\DeliveryOutcome;
 use App\Enums\NotificationChannel;
+use App\Jobs\Middleware\AssignDeliveryTraceContext;
 use App\Jobs\Middleware\CheckDeliveryChannelCircuit;
 use App\Jobs\Middleware\RateLimitDeliveryChannel;
 use App\Jobs\Middleware\ReleaseDuringInfrastructureOutage;
@@ -74,15 +75,16 @@ class SendNotificationJob implements ShouldQueue, TracingLinked
     /**
      * Get the middleware the job should pass through.
      *
-     * The outage guard wraps the others, as the circuit breaker and the rate limiter
-     * read Redis too. The circuit is checked before the rate limit, so a job of a
+     * The trace context comes first, so every log entry of the job leads to the
+     * delivery's trace. The outage guard wraps the others, as the circuit breaker and
+     * the rate limiter read Redis too. The circuit is checked before the rate limit, so a job of a
      * channel with an open circuit does not take up a send slot.
      *
      * @return list<object>
      */
     public function middleware(): array
     {
-        return [new ReleaseDuringInfrastructureOutage, new CheckDeliveryChannelCircuit, new RateLimitDeliveryChannel];
+        return [new AssignDeliveryTraceContext, new ReleaseDuringInfrastructureOutage, new CheckDeliveryChannelCircuit, new RateLimitDeliveryChannel];
     }
 
     /**
