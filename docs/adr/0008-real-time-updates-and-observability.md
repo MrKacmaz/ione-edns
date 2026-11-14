@@ -11,23 +11,13 @@ At millions of notifications a day, broadcasting every status change would multi
 
 ## Decision
 
-**WebSocket updates (Laravel Reverb).**
+- **Push only final statuses, on Laravel Reverb.** `NotificationStatusChanged` goes to the owner's private channel when a notification is `sent`, `failed` or `cancelled`, without its content. It is sent after the transaction commits and from a separate `broadcasts` queue, so delivery workers are not slowed down. API clients authorize with their Sanctum token, the dashboard with its session.
+- **Give operators aggregates, not a feed.** Operators (`users.is_operator`) get a live dashboard on a private channel: a metrics snapshot every five seconds, every circuit change as it happens, and their own latest notifications.
+- **One correlation id per request.** It is taken from `X-Correlation-ID` or created, carried through Laravel's `Context` into every log line and queued job, stored on the notification and sent to the provider. Jobs pushed later by the sweep or the scheduler get the stored id, so they log it from the start.
+- **One trace per delivery.** OpenTelemetry auto-instrumentation traces requests, queries, HTTP calls and jobs. Each delivery job starts its own trace linked to the creating request, so a batch of 1000 yields 1000 small traces rather than one huge one, and passes its context to the provider in `traceparent`.
+- **Metrics from the delivery history.** Queue depth comes from Redis; status counts, success rates and latency percentiles come from `notifications` and `notification_attempts`. The snapshot is cached for five seconds and shared by the endpoint, the dashboard and the broadcast. `/health` separates `ok`, `warn` (a circuit is open) and `fail`.
 
-- `NotificationStatusChanged` is broadcast on the owner's private channel `App.Models.User.{id}` when a notification reaches a final status: `sent`, `failed` or `cancelled`. Intermediate statuses are not broadcast. The payload is captured when the event is created and leaves out the content, and the event is sent after the transaction commits from a separate `broadcasts` queue, so delivery workers are not slowed down.
-- API clients authorize their channel at `/api/v1/broadcasting/auth` with their Sanctum token; the dashboard uses `/broadcasting/auth` with its session.
-- Operators (`users.is_operator`, the `operate` gate) get a live dashboard (Inertia, Vue and Echo) on the private `operators` channel. A metrics snapshot is broadcast every five seconds by the scheduler (`metrics:broadcast`), and circuit changes are broadcast the moment they happen.
-
-**Correlation and tracing.**
-
-- `AssignRequestContext` accepts a UUID in `X-Correlation-ID` (or creates a UUIDv7), echoes it in the response and puts it into Laravel's `Context`. Context is copied into every log entry and every queued job. The id is also stored on the notification and sent to the provider.
-- `DispatchNotificationsAction` gives every delivery job its notification's id and stored correlation id as context when it pushes the job. Jobs pushed by the stale sweep or the scheduler, which run outside any request, thus log both ids from the start, including waits before the notification is claimed.
-- OpenTelemetry auto-instrumentation traces requests, queries, HTTP calls and jobs to Jaeger. Each delivery job starts its own trace linked to the request's trace (`TracingLinked`), so a batch of 1000 yields 1000 small traces rather than one huge one. The provider call carries the job's trace context in the W3C `traceparent` header, so a provider that traces too continues the trace.
-
-**Metrics and health.**
-
-- `GET /api/v1/metrics` (operators only) reports queue depth per priority from Redis, notifications per unfinished status, and, over five-minute and one-hour windows from `notification_attempts`, attempts per outcome, success rate and p50/p95/p99 provider and end-to-end latency. It also reports each channel's circuit state. The snapshot is cached for five seconds.
-- `GET /health` (public) runs tagged checks for the database, Redis, Horizon (running and not paused), the gateway URL and the delivery circuits. It answers `200` with `ok`, `200` with `warn` while a circuit is open, and `503` with `fail`.
-- Logs are structured JSON with the notification and correlation ids.
+The endpoints and payloads are described in the README.
 
 ## Considered options
 
