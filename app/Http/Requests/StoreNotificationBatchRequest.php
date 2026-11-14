@@ -28,7 +28,7 @@ class StoreNotificationBatchRequest extends FormRequest
         #[Config('notifications.schedule.max_days')] int $maxScheduleDays,
     ): array {
         return [
-            'notifications' => ['required', 'array', 'list', 'min:1', 'max:'.$maxBatchSize],
+            'notifications' => ['required', 'array', 'list', 'max:'.$maxBatchSize],
             'notifications.*' => ['required', 'array'],
             ...$this->notificationRules($channels, $maxScheduleDays, 'notifications.*.'),
             'notifications.*.idempotency_key' => ['sometimes', 'nullable', 'string', 'max:255', 'distinct'],
