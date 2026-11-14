@@ -42,9 +42,9 @@ Notifications and batches are never deleted today, while the system is expected 
 - Every notification that reaches a final status queues one WebSocket broadcast on the `broadcasts` queue, also when nobody listens. At millions of notifications a day, consider broadcasting only to users with an open connection (Reverb's channel occupancy) or batching updates per user.
 - The dashboard's live feed shows the signed-in operator's own notifications; a system-wide feed would need sampling or aggregation to stay readable at full volume.
 
-### Testing
+### API behavior
 
-- The path where two concurrent requests create a notification with the same idempotency key is handled in `CreateNotificationsAction` but has no automated test.
+- A batch whose notifications all reuse existing idempotency keys still creates a new, empty batch (`total` 0, `is_finished` true), while each notification keeps its original batch. Decide whether such a request should answer without creating a batch.
 
 ### Continuous integration
 
@@ -52,7 +52,7 @@ Notifications and batches are never deleted today, while the system is expected 
 
 ### Operations
 
-- The webhook.site URL is not set up yet. Create it, make it answer `202` with a JSON `messageId`, and set `NOTIFICATIONS_GATEWAY_URL`; until then every attempt fails as retryable and the notifications end up failed.
+- The provider is a free webhook.site URL set in `NOTIFICATIONS_GATEWAY_URL` (local `.env` only). It answers every request with the same static `202` body, so every notification gets the same `messageId`; it expires after seven days, and its inbox shows a limit of 50 requests, which may cap or rotate what a load test can send. Create a new URL when it expires, and use a paid URL or a local stub provider for load tests.
 - The GCRA rate limiter requires the phpredis client (`REDIS_CLIENT=phpredis`); predis is not supported.
 - A notification whose job is lost from Redis (for example a restart without persistence) stays `queued`, because the stale-notification sweeper only covers `waiting` and `processing`. This includes scheduled notifications, whose delayed jobs wait in Redis for up to a minute. Enable Redis AOF persistence, or sweep `queued` notifications whose `queued_at` (or `scheduled_at`) is long past.
 - A delivery job gives up one day after it was dispatched (`retryUntil`), for example while a channel's circuit stays open; its notification then fails and can be retried through `POST /notifications/{id}/retry`. Decide whether such notifications should be retried automatically once the circuit closes.
