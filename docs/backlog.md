@@ -42,6 +42,8 @@ Notifications and batches are never deleted today, while the system is expected 
 ### API behavior
 
 - A batch whose notifications all reuse existing idempotency keys still creates a new, empty batch (`total` 0, `is_finished` true), while each notification keeps its original batch. Decide whether such a request should answer without creating a batch.
+- The API limit counts requests per account (600 a minute), not notifications, so one account may queue up to 600,000 notifications a minute in batches, and all accounts share the same queues: one account's large batches delay the others' notifications of the same channel and priority. A notifications-per-minute quota per account, and fair scheduling across accounts (for example a queue per account and priority, worked round-robin), would bound that.
+- `/health` is not part of the OpenAPI document, which describes the versioned API under `/api/v1` only; it is described in the README.
 
 ### Performance at volume
 
@@ -58,7 +60,9 @@ Notifications and batches are never deleted today, while the system is expected 
 - A delivery job gives up one day after it was dispatched (`retryUntil`), for example while a channel's circuit stays open; its notification then fails and can be retried through `POST /notifications/{id}/retry`. Decide whether such notifications should be retried automatically once the circuit closes.
 - The queue metric `oldest_pending_age_seconds` counts from when a job was first pushed, so it includes time the job spent delayed or released back. A "ready for" age would need the time a job became available, which Laravel's Redis queue does not record.
 - Every channel has its own circuit, although all channels currently share one provider URL, so an outage of that provider opens the three circuits one by one.
+- A send slot of the rate limiter is reserved before the notification is claimed, so a job that turns out to have nothing to send (a cancelled notification, a duplicate job) still uses a slot. Checking that the notification is claimable before reserving costs a database read per job; reserving after the claim would need the claim undone when the slot is far away.
+- With fewer than 20 calls a minute a circuit cannot open, so a provider URL that stopped working fails low-traffic notifications after their five attempts without an alert. `notifications:retry-failed` sends them again once the URL is fixed; an alert on the failure rate itself would catch it sooner.
 
 - The app image is about 860 MB, mostly the Debian-based `php:8.5-fpm` with its compiled extensions; an Alpine base would shrink it. Development dependencies live only in the separate `tests` image.
-- Docker Compose runs with `APP_ENV=local`, so Horizon uses the small local worker counts. A production deployment needs `APP_ENV=production`, `HORIZON_NOTIFICATION_WORKERS` sized to the provider latency (about 90 workers for 3 × 100 messages a second at 300 ms) and real secrets instead of the generated ones in the `secrets` volume.
+- Docker Compose runs with `APP_ENV=local`, so Horizon uses the small local worker counts. A production deployment needs `APP_ENV=production`, `HORIZON_NOTIFICATION_WORKERS` sized to the provider latency (about 30 workers per channel for 100 messages a second at 300 ms) and real secrets instead of the generated ones in the `secrets` volume.
 - Tracing every notification is expensive at production volume. Add sampling (for example 10%) and an OpenTelemetry Collector in front of the tracing backend.

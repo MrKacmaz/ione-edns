@@ -14,7 +14,7 @@ A worker that has to wait for a slot can either wait in place (keeping its place
 `RedisGcraRateLimiter` implements the Generic Cell Rate Algorithm in one Lua script per reservation:
 
 - Each channel has one Redis key holding its _theoretical arrival time_ (TAT), the moment its next slot opens, in microseconds.
-- A reservation takes the slot at `max(TAT, now)` and moves the TAT one emission interval further (10 ms at 100 messages per second), so sends are spaced evenly.
+- A reservation takes the slot at `max(TAT, now)` and moves the TAT one emission interval further (10 ms at 100 messages per second), so sends are spaced evenly. The interval is rounded up to whole microseconds, so a limit that does not divide a second evenly never fits one send too many into a second.
 - The script reads the clock with Redis `TIME`, so all workers share one schedule regardless of their own clocks, and the read-modify-write is atomic.
 
 The `RateLimitDeliveryChannel` job middleware reserves a slot before each delivery attempt. When the slot opens within `rate_limit_max_wait_ms` (2 seconds by default) the worker sleeps until then; otherwise it releases the job back to the queue for the time until the slot opens. A wait never counts as a delivery attempt.
@@ -31,10 +31,12 @@ The `RateLimitDeliveryChannel` job middleware reserves a slot before each delive
 
 - No one-second window ever holds more than the limit, and bursts are smoothed instead of rejected.
 - Short waits keep the job's position, which preserves the priority order of ADR 0002.
+- Every channel has its own queues and workers (ADR 0002), so a worker waiting for a send slot holds up only its own channel.
 - One small key per channel; the state expires on its own when a channel is idle.
 
 **Negative**
 
 - It is custom code with a Lua script, and it requires the phpredis client.
 - Its tests depend on the real Redis clock, so their timing tolerances could be tight on a slow CI machine.
-- Waiting in place keeps a worker busy for up to two seconds.
+- Waiting in place keeps a worker busy for up to two seconds, during which it serves no other notification of its channel.
+- The slot is reserved before the notification is claimed, so a job that turns out to have nothing to send (a cancelled notification, a duplicate job) still uses a slot.
