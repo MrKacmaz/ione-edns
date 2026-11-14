@@ -153,7 +153,17 @@ services:
             - postgres:/var/lib/postgresql
             - ./docker/postgres/create-testing-database.sql:/docker-entrypoint-initdb.d/create-testing-database.sql:ro
         healthcheck:
-            test: ['CMD', 'pg_isready', '-U', 'ione_edns', '-d', 'ione_edns']
+            test:
+                [
+                    'CMD',
+                    'pg_isready',
+                    '-h',
+                    '127.0.0.1',
+                    '-U',
+                    'ione_edns',
+                    '-d',
+                    'ione_edns',
+                ]
             interval: 5s
             timeout: 5s
             retries: 12
