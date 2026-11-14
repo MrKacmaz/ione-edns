@@ -154,6 +154,8 @@ final readonly class RedisCircuitBreaker implements CircuitBreaker
 
     /**
      * Record how the channel's provider answered a call.
+     *
+     * @return CircuitState::Open|CircuitState::Closed|null
      */
     public function record(NotificationChannel $channel, GatewayOutcome $outcome): ?CircuitState
     {
@@ -170,7 +172,11 @@ final readonly class RedisCircuitBreaker implements CircuitBreaker
             (string) ($this->cooldownSeconds * 1000),
         );
 
-        return is_string($result) ? CircuitState::from($result) : null;
+        return match ($result) {
+            'open' => CircuitState::Open,
+            'closed' => CircuitState::Closed,
+            default => null,
+        };
     }
 
     /**

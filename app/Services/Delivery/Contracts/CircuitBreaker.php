@@ -20,7 +20,10 @@ interface CircuitBreaker
     /**
      * Record how the channel's provider answered a call.
      *
-     * @return CircuitState|null The state the circuit moved to, or null when it did not change.
+     * A call's outcome only ever opens or closes a circuit; half open is reached by
+     * asking for a permit after the cooldown.
+     *
+     * @return CircuitState::Open|CircuitState::Closed|null The state the circuit moved to, or null when it did not change.
      */
     public function record(NotificationChannel $channel, GatewayOutcome $outcome): ?CircuitState;
 

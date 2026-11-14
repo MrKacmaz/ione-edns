@@ -19,6 +19,9 @@ class DeliveryCircuitChangedNotification extends Notification implements ShouldQ
 {
     use Queueable;
 
+    /**
+     * @param  CircuitState::Open|CircuitState::Closed  $state  A circuit only ever opens or closes through a call's outcome.
+     */
     public function __construct(
         public readonly NotificationChannel $channel,
         public readonly CircuitState $state,

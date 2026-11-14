@@ -30,6 +30,9 @@ class ReportCircuitChangeAction
         #[Config('notifications.alerts.throttle_minutes')] private readonly int $throttleMinutes,
     ) {}
 
+    /**
+     * @param  CircuitState::Open|CircuitState::Closed  $state
+     */
     public function handle(NotificationChannel $channel, CircuitState $state): void
     {
         if ($state === CircuitState::Open) {
