@@ -279,6 +279,12 @@
                         "application/json": {
                             "schema": {
                                 "$ref": "#/components/schemas/StoreNotificationRequest"
+                            },
+                            "example": {
+                                "channel": "sms",
+                                "recipient": "+905551234567",
+                                "content": "Your order has shipped.",
+                                "priority": "high"
                             }
                         }
                     }
@@ -728,6 +734,22 @@
                         "application/json": {
                             "schema": {
                                 "$ref": "#/components/schemas/StoreNotificationBatchRequest"
+                            },
+                            "example": {
+                                "notifications": [
+                                    {
+                                        "channel": "sms",
+                                        "recipient": "+905551234567",
+                                        "content": "Your order has shipped.",
+                                        "priority": "high"
+                                    },
+                                    {
+                                        "channel": "email",
+                                        "recipient": "customer@example.com",
+                                        "content": "Your invoice is ready.",
+                                        "priority": "low"
+                                    }
+                                ]
                             }
                         }
                     }
@@ -1219,6 +1241,11 @@
                         "application/json": {
                             "schema": {
                                 "$ref": "#/components/schemas/StoreNotificationTemplateRequest"
+                            },
+                            "example": {
+                                "name": "order-shipped",
+                                "channel": "sms",
+                                "content": "Hi {{ name }}, your order {{ order_id }} has shipped."
                             }
                         }
                     }
@@ -2005,24 +2032,6 @@
             },
             "StoreNotificationBatchRequest": {
                 "type": "object",
-                "examples": [
-                    {
-                        "notifications": [
-                            {
-                                "channel": "sms",
-                                "recipient": "+905551234567",
-                                "content": "Your order has shipped.",
-                                "priority": "high"
-                            },
-                            {
-                                "channel": "email",
-                                "recipient": "customer@example.com",
-                                "content": "Your invoice is ready.",
-                                "priority": "low"
-                            }
-                        ]
-                    }
-                ],
                 "properties": {
                     "notifications": {
                         "type": "array",
@@ -2087,14 +2096,6 @@
             },
             "StoreNotificationRequest": {
                 "type": "object",
-                "examples": [
-                    {
-                        "channel": "sms",
-                        "recipient": "+905551234567",
-                        "content": "Your order has shipped.",
-                        "priority": "high"
-                    }
-                ],
                 "properties": {
                     "channel": {
                         "$ref": "#/components/schemas/NotificationChannel"
@@ -2146,13 +2147,6 @@
             },
             "StoreNotificationTemplateRequest": {
                 "type": "object",
-                "examples": [
-                    {
-                        "name": "order-shipped",
-                        "channel": "sms",
-                        "content": "Hi {{ name }}, your order {{ order_id }} has shipped."
-                    }
-                ],
                 "properties": {
                     "name": {
                         "type": "string",
