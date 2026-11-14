@@ -7,6 +7,8 @@ use App\Enums\NotificationStatus;
 use App\Jobs\SendNotificationJob;
 use App\Models\Notification;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Facades\Context;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Testing\Fakes\QueueFake;
 
@@ -111,4 +113,24 @@ test('leaves the notifications waiting when the queue refuses their jobs', funct
     expect($notification->refresh())
         ->status->toBe(NotificationStatus::Waiting)
         ->queued_at->toBeNull();
+});
+
+test('gives each job its notification\'s id and correlation id as log context, whoever pushes it', function () {
+    config(['queue.default' => 'database']);
+    Context::add('correlation_id', 'f6b2a4e0-0d1c-4f53-9c1e-2a7b8c9d0e1f');
+    $notifications = Notification::factory()->count(2)->sequence(
+        ['correlation_id' => '0195d3c2-7a8e-7c4b-9a1e-3f6b2d8c4e10'],
+        ['correlation_id' => '0195d3c2-7a8e-7c4b-9a1e-3f6b2d8c4e11'],
+    )->create();
+
+    app(DispatchNotificationsAction::class)->handle($notifications);
+
+    $jobContexts = DB::table('jobs')->orderBy('id')->pluck('payload')
+        ->map(fn (string $payload): array => array_map(unserialize(...), json_decode($payload, true)['illuminate:log:context']['data']))
+        ->all();
+    expect($jobContexts)->toBe([
+        ['correlation_id' => '0195d3c2-7a8e-7c4b-9a1e-3f6b2d8c4e10', 'notification_id' => $notifications[0]->id],
+        ['correlation_id' => '0195d3c2-7a8e-7c4b-9a1e-3f6b2d8c4e11', 'notification_id' => $notifications[1]->id],
+    ]);
+    expect(Context::all())->toBe(['correlation_id' => 'f6b2a4e0-0d1c-4f53-9c1e-2a7b8c9d0e1f']);
 });
