@@ -14,7 +14,7 @@ request:
       value: application/json
   pathVariables:
     - key: template
-      value: f1e8d97c-21db-5d0f-c03f-c7c82f931e0e
+      value: 518102bb-bd42-5117-df09-cd2519ea1e97
       disabled: false
       description: (Required) The template ID
   body:
@@ -38,8 +38,8 @@ response:
             "string",
             "string"
           ],
-          "created_at": "1957-11-05T10:45:44.672Z",
-          "updated_at": "2009-09-13T00:59:04.892Z"
+          "created_at": "1990-01-19T05:46:07.666Z",
+          "updated_at": "1985-10-19T19:27:38.288Z"
         }
       }
 order: 1000

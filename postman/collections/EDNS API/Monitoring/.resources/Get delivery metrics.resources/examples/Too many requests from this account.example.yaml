@@ -1,6 +1,6 @@
 $kind: http-example
 request:
-  url: "{{baseUrl}}/v1/metrics?format=prometheus"
+  url: "{{baseUrl}}/v1/metrics?format=json"
   method: GET
   headers:
     - key: Authorization
@@ -13,7 +13,7 @@ request:
     - key: Accept
       value: application/json
   queryParams:
-    format: prometheus
+    format: json
   body:
     type: text
     content: ""

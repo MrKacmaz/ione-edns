@@ -1,7 +1,7 @@
 $kind: http-example
 name: ""
 request:
-  url: "{{baseUrl}}/v1/metrics?format=prometheus"
+  url: "{{baseUrl}}/v1/metrics?format=json"
   method: GET
   headers:
     - key: Authorization
@@ -14,7 +14,7 @@ request:
     - key: Accept
       value: application/json
   queryParams:
-    format: prometheus
+    format: json
   body:
     type: text
     content: ""
@@ -30,7 +30,11 @@ response:
         "data": {
           "generated_at": "string",
           "notifications_in_flight": {
-            "key_0": 2024
+            "key_0": 5850,
+            "key_1": 1467,
+            "key_2": 8962,
+            "key_3": 6035,
+            "key_4": 5518
           },
           "circuits": {
             "key_0": "string",

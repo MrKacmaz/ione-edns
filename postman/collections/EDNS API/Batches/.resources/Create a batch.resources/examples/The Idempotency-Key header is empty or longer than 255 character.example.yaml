@@ -24,18 +24,15 @@ request:
         "notifications": [
           {
             "channel": "sms",
-            "recipient": "string",
-            "content": "string",
-            "template": "string",
-            "variables": {
-              "key_0": "string",
-              "key_1": "string",
-              "key_2": "string",
-              "key_3": "string"
-            },
-            "priority": "high",
-            "idempotency_key": "string",
-            "scheduled_at": "2011-11-19T23:55:22.144Z"
+            "recipient": "+905551234567",
+            "content": "Your order has shipped.",
+            "priority": "high"
+          },
+          {
+            "channel": "email",
+            "recipient": "customer@example.com",
+            "content": "Your invoice is ready.",
+            "priority": "low"
           }
         ]
       }
