@@ -27,6 +27,17 @@ jobs:
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
+      # The rate limiter, circuit breaker and health check tests run their Lua scripts and
+      # commands against a real Redis, on the default host and port.
+      redis:
+        image: redis:8
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
 
     # .env.example ships without database credentials and .env.testing is not committed,
     # so the job points every database connection at the postgres service above.
@@ -45,7 +56,7 @@ jobs:
         uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # v2
         with:
           php-version: '8.5'
-          extensions: pdo_pgsql
+          extensions: pdo_pgsql, redis
           tools: composer:v2
           coverage: none
 
