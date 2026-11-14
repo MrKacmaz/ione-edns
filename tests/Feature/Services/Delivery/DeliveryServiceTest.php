@@ -15,6 +15,7 @@ use App\Services\Delivery\Contracts\NotificationGateway;
 use App\Services\Delivery\DeliveryService;
 use Illuminate\Notifications\AnonymousNotifiable;
 use Illuminate\Support\Facades\Context;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Exceptions;
 use Illuminate\Support\Facades\Http;
@@ -322,4 +323,19 @@ test('scopes the log context of the attempt to the notification and its correlat
         'correlation_id' => '0f8fad5b-d9cb-469f-a165-70867728950e',
     ]);
     expect(Context::has('notification_id'))->toBeFalse();
+});
+
+test('keeps no attempt when the status change after the provider\'s answer fails, so the two never disagree', function () {
+    Http::fake(['gateway.test/*' => Http::response(['messageId' => 'msg-123'], 202)]);
+    $notification = Notification::factory()->queued()->create();
+    DB::beforeExecuting(function (string $query): void {
+        if (str_starts_with($query, 'update "notifications" set "status"') && str_contains($query, '"sent_at"')) {
+            throw new RuntimeException('The database went away.');
+        }
+    });
+
+    expect(fn () => app(DeliveryService::class)->deliver($notification->id))->toThrow(RuntimeException::class, 'The database went away.');
+
+    $this->assertDatabaseCount('notification_attempts', 0);
+    expect($notification->refresh()->status)->toBe(NotificationStatus::Processing);
 });

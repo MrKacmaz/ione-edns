@@ -12,6 +12,7 @@ use App\Services\Delivery\Contracts\CircuitBreaker;
 use App\Services\Delivery\Contracts\NotificationGateway;
 use Illuminate\Container\Attributes\Config;
 use Illuminate\Support\Facades\Context;
+use Illuminate\Support\Facades\DB;
 use Psr\Log\LoggerInterface;
 use Throwable;
 
@@ -66,22 +67,27 @@ final readonly class DeliveryService
         $response = $this->send($notification);
         $durationMilliseconds = intdiv(hrtime(true) - $startedAt, 1_000_000);
 
-        $notification->deliveryAttempts()->create([
-            'attempt' => $notification->attempts,
-            'outcome' => $response->outcome,
-            'http_status' => $response->httpStatus,
-            'provider_message_id' => $response->providerMessageId,
-            'error' => $response->error,
-            'duration_ms' => $durationMilliseconds,
-        ]);
+        // The attempt and the status it leads to are written together: a database error
+        // in between can no longer record an attempt while leaving the notification in
+        // processing, where the stale sweep would send it once more.
+        $result = DB::transaction(function () use ($notification, $response, $durationMilliseconds): DeliveryResultData {
+            $notification->deliveryAttempts()->create([
+                'attempt' => $notification->attempts,
+                'outcome' => $response->outcome,
+                'http_status' => $response->httpStatus,
+                'provider_message_id' => $response->providerMessageId,
+                'error' => $response->error,
+                'duration_ms' => $durationMilliseconds,
+            ]);
 
-        $result = match ($response->outcome) {
-            GatewayOutcome::Accepted => $this->markSent($notification, $response, $durationMilliseconds),
-            GatewayOutcome::PermanentFailure => $this->markFailed($notification, $response, $durationMilliseconds),
-            GatewayOutcome::RetryableFailure => $notification->attempts >= $this->maxAttempts
-                ? $this->markFailed($notification, $response, $durationMilliseconds)
-                : $this->scheduleRetry($notification, $response, $durationMilliseconds),
-        };
+            return match ($response->outcome) {
+                GatewayOutcome::Accepted => $this->markSent($notification, $response, $durationMilliseconds),
+                GatewayOutcome::PermanentFailure => $this->markFailed($notification, $response, $durationMilliseconds),
+                GatewayOutcome::RetryableFailure => $notification->attempts >= $this->maxAttempts
+                    ? $this->markFailed($notification, $response, $durationMilliseconds)
+                    : $this->scheduleRetry($notification, $response, $durationMilliseconds),
+            };
+        });
 
         $this->recordForCircuit($notification->channel, $response->outcome);
 
