@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Routing\Attributes\Controllers\Authorize;
 use Symfony\Component\HttpFoundation\Response;
+use Throwable;
 
 #[Group('Notifications', weight: 1)]
 class RetryNotificationController extends Controller
@@ -29,7 +30,13 @@ class RetryNotificationController extends Controller
             abort(Response::HTTP_CONFLICT, __('notifications.cannot_be_retried', ['status' => $notification->status->value]));
         }
 
-        $dispatchNotifications->handle(new Collection([$notification]));
+        // The notification is already waiting again, so a queue outage must not turn the
+        // answer into an error: the stale sweep pushes waiting notifications within minutes.
+        try {
+            $dispatchNotifications->handle(new Collection([$notification]));
+        } catch (Throwable $exception) {
+            report($exception);
+        }
 
         /**
          * The notification is queued for delivery again.

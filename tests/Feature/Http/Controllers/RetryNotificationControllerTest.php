@@ -4,7 +4,9 @@ use App\Enums\GatewayOutcome;
 use App\Jobs\SendNotificationJob;
 use App\Models\Notification;
 use App\Models\User;
+use Illuminate\Support\Facades\Exceptions;
 use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Testing\Fakes\QueueFake;
 use Laravel\Sanctum\Sanctum;
 
 test('queues a failed notification again with a fresh set of attempts and keeps its history', function () {
@@ -74,6 +76,25 @@ test('stores the retried notification as queued with its attempts reset', functi
         'failed_at' => null,
     ]);
     Queue::assertPushed(SendNotificationJob::class, 1);
+});
+
+test('accepts the retry while the queue is unreachable and leaves the notification waiting for the sweep', function () {
+    Exceptions::fake();
+    Queue::swap(new class(app()) extends QueueFake
+    {
+        public function push($job, $data = '', $queue = null): never
+        {
+            throw new RuntimeException('Connection refused');
+        }
+    });
+    $notification = Notification::factory()->failed()->create();
+    Sanctum::actingAs($notification->user);
+
+    $response = $this->postJson(route('api.v1.notifications.retry', $notification));
+
+    $response->assertAccepted()->assertJsonPath('data.status', 'waiting');
+    $this->assertDatabaseHas('notifications', ['id' => $notification->id, 'status' => 'waiting', 'attempts' => 0]);
+    Exceptions::assertReported(fn (RuntimeException $exception): bool => $exception->getMessage() === 'Connection refused');
 });
 
 test('returns 404 for an id that is not a uuid', function () {
