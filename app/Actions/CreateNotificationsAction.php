@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Context;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use LogicException;
 
 class CreateNotificationsAction
@@ -98,11 +99,13 @@ class CreateNotificationsAction
                     continue;
                 }
 
-                $notifications->push(
-                    $existingByKey->get((string) $newNotification->idempotencyKey)
-                        ?? $insertedConcurrentlyByKey->get((string) $newNotification->idempotencyKey)
-                        ?? throw new LogicException(__('notifications.not_created_nor_found', ['position' => $position])),
-                );
+                $existing = $existingByKey->get((string) $newNotification->idempotencyKey)
+                    ?? $insertedConcurrentlyByKey->get((string) $newNotification->idempotencyKey)
+                    ?? throw new LogicException(__('notifications.not_created_nor_found', ['position' => $position]));
+
+                $this->ensureSameNotification($newNotification, $existing, $batch === null ? 'idempotency_key' : "notifications.{$position}.idempotency_key");
+
+                $notifications->push($existing);
             }
 
             // Queue the new notifications only once the outermost transaction has committed,
@@ -134,6 +137,32 @@ class CreateNotificationsAction
                 'notifications' => $this->handle($user, $newNotifications, $batch),
             ];
         });
+    }
+
+    /**
+     * Refuse a reused idempotency key that comes with a different notification.
+     *
+     * A retry of the same notification resolves to the existing one; anything else
+     * under the same key would otherwise be dropped without a word. The exception
+     * rolls back the whole request, batch included.
+     *
+     * @throws ValidationException
+     */
+    private function ensureSameNotification(NewNotificationData $newNotification, Notification $existing, string $attribute): void
+    {
+        $scheduledAtMatches = $existing->scheduled_at === null || $newNotification->scheduledAt === null
+            ? $existing->scheduled_at === $newNotification->scheduledAt
+            : $existing->scheduled_at->equalTo($newNotification->scheduledAt);
+
+        $isSameNotification = $existing->channel === $newNotification->channel
+            && $existing->recipient === $newNotification->recipient
+            && $existing->content === $newNotification->content
+            && $existing->priority === $newNotification->priority
+            && $scheduledAtMatches;
+
+        if (! $isSameNotification) {
+            throw ValidationException::withMessages([$attribute => __('validation.notification_idempotency_key_reused')]);
+        }
     }
 
     /**

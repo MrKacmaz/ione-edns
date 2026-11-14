@@ -9,15 +9,16 @@ use App\Models\User;
 use Illuminate\Support\Facades\Context;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
+use Illuminate\Validation\ValidationException;
 
 test('returns the notifications in request order and flags only the new ones as created', function () {
     Queue::fake([SendNotificationJob::class]);
     $user = User::factory()->create();
-    Notification::factory()->for($user)->withIdempotencyKey('order-1001-shipped')->create(['content' => 'Existing']);
+    Notification::factory()->for($user)->withIdempotencyKey('order-1001-shipped')->create(['recipient' => '+905551234567', 'content' => 'Existing']);
 
     $notifications = app(CreateNotificationsAction::class)->handle($user, [
         NewNotificationData::fromValidated(smsNotificationPayload(['content' => 'First'])),
-        NewNotificationData::fromValidated(smsNotificationPayload(['content' => 'Second', 'idempotency_key' => 'order-1001-shipped'])),
+        NewNotificationData::fromValidated(smsNotificationPayload(['content' => 'Existing', 'idempotency_key' => 'order-1001-shipped'])),
         NewNotificationData::fromValidated(smsNotificationPayload(['content' => 'Third', 'idempotency_key' => 'order-1002-shipped'])),
     ]);
 
@@ -28,10 +29,10 @@ test('returns the notifications in request order and flags only the new ones as 
 test('returns the existing notification for a reused idempotency key without changing or queueing it', function () {
     Queue::fake([SendNotificationJob::class]);
     $user = User::factory()->create();
-    $existing = Notification::factory()->for($user)->withIdempotencyKey('order-1001-shipped')->create(['content' => 'Original text']);
+    $existing = Notification::factory()->for($user)->withIdempotencyKey('order-1001-shipped')->create(['recipient' => '+905551234567', 'content' => 'Original text']);
 
     $notifications = app(CreateNotificationsAction::class)->handle($user, [
-        NewNotificationData::fromValidated(smsNotificationPayload(['content' => 'A different text', 'idempotency_key' => 'order-1001-shipped'])),
+        NewNotificationData::fromValidated(smsNotificationPayload(['content' => 'Original text', 'idempotency_key' => 'order-1001-shipped'])),
     ]);
 
     expect($notifications->sole())
@@ -120,7 +121,7 @@ test('stores the template and the request\'s correlation id with each new notifi
 test('creates a batch for the user with every new notification, while a reused key keeps its original batch', function () {
     Queue::fake([SendNotificationJob::class]);
     $user = User::factory()->create();
-    Notification::factory()->for($user)->withIdempotencyKey('campaign-42-user-7')->create();
+    Notification::factory()->for($user)->withIdempotencyKey('campaign-42-user-7')->create(['recipient' => '+905551234567', 'content' => 'Your order has shipped.']);
 
     ['batch' => $batch, 'notifications' => $notifications] = app(CreateNotificationsAction::class)->handleBatch($user, [
         NewNotificationData::fromValidated(smsNotificationPayload(['idempotency_key' => 'campaign-42-user-7'])),
@@ -159,17 +160,17 @@ test('resolves an idempotency key that a concurrent request inserted first to th
         }
 
         $hasInsertedConcurrently = true;
-        $concurrentNotification = Notification::factory()->for($user)->withIdempotencyKey('order-1001-shipped')->create(['content' => 'From the concurrent request']);
+        $concurrentNotification = Notification::factory()->for($user)->withIdempotencyKey('order-1001-shipped')->create(['recipient' => '+905551234567', 'content' => 'Sent twice']);
     });
 
     $notifications = app(CreateNotificationsAction::class)->handle($user, [
-        NewNotificationData::fromValidated(smsNotificationPayload(['content' => 'From this request', 'idempotency_key' => 'order-1001-shipped'])),
+        NewNotificationData::fromValidated(smsNotificationPayload(['content' => 'Sent twice', 'idempotency_key' => 'order-1001-shipped'])),
         NewNotificationData::fromValidated(smsNotificationPayload(['content' => 'Without a key'])),
     ]);
 
     expect($notifications[0])
         ->id->toBe($concurrentNotification->id)
-        ->content->toBe('From the concurrent request')
+        ->content->toBe('Sent twice')
         ->wasRecentlyCreated->toBeFalse();
     expect($notifications[1])
         ->content->toBe('Without a key')
@@ -177,4 +178,72 @@ test('resolves an idempotency key that a concurrent request inserted first to th
     $this->assertDatabaseCount('notifications', 2);
     expect(Queue::pushed(SendNotificationJob::class)->map(fn (SendNotificationJob $job): string => $job->notificationId)->all())
         ->toBe([$notifications[1]->id]);
+});
+
+test('refuses a reused idempotency key that comes with a different notification and creates nothing', function (array $difference) {
+    Queue::fake([SendNotificationJob::class]);
+    $user = User::factory()->create();
+    Notification::factory()->for($user)->withIdempotencyKey('order-1001-shipped')->create([
+        'recipient' => '+905551234567',
+        'content' => 'Your order has shipped.',
+    ]);
+
+    $create = fn () => app(CreateNotificationsAction::class)->handle($user, [
+        NewNotificationData::fromValidated(smsNotificationPayload(['content' => 'Without a key'])),
+        NewNotificationData::fromValidated(smsNotificationPayload(['idempotency_key' => 'order-1001-shipped', ...$difference])),
+    ]);
+
+    expect($create)->toThrow(ValidationException::class, 'This idempotency key was already used for a different notification.');
+    $this->assertDatabaseCount('notifications', 1);
+    Queue::assertNothingPushed();
+})->with([
+    'other content' => [['content' => 'Your order is delayed.']],
+    'other recipient' => [['recipient' => '+905559876543']],
+    'other channel' => [['channel' => 'email', 'recipient' => 'customer@example.com']],
+    'other priority' => [['priority' => 'high']],
+    'a delivery time' => [['scheduled_at' => '2026-12-01T09:00:00Z']],
+]);
+
+test('reports the reused idempotency key at its position in a batch and rolls the batch back', function () {
+    Queue::fake([SendNotificationJob::class]);
+    $user = User::factory()->create();
+    Notification::factory()->for($user)->withIdempotencyKey('campaign-42-user-7')->create(['recipient' => '+905551234567', 'content' => 'Original']);
+
+    try {
+        app(CreateNotificationsAction::class)->handleBatch($user, [
+            NewNotificationData::fromValidated(smsNotificationPayload()),
+            NewNotificationData::fromValidated(smsNotificationPayload(['content' => 'Changed', 'idempotency_key' => 'campaign-42-user-7'])),
+        ]);
+        $this->fail('The reused idempotency key was not refused.');
+    } catch (ValidationException $exception) {
+        expect($exception->errors())->toBe(['notifications.1.idempotency_key' => ['This idempotency key was already used for a different notification.']]);
+    }
+
+    $this->assertDatabaseCount('notification_batches', 0);
+    $this->assertDatabaseCount('notifications', 1);
+});
+
+test('refuses an idempotency key that a concurrent request used first for a different notification', function () {
+    Queue::fake([SendNotificationJob::class]);
+    $user = User::factory()->create();
+    DB::beforeExecuting(function (string $query) use ($user): void {
+        static $hasInsertedConcurrently = false;
+
+        if ($hasInsertedConcurrently || ! str_contains($query, 'on conflict do nothing')) {
+            return;
+        }
+
+        $hasInsertedConcurrently = true;
+        Notification::factory()->for($user)->withIdempotencyKey('order-1001-shipped')->create(['recipient' => '+905551234567', 'content' => 'From the other request']);
+    });
+
+    $create = fn () => app(CreateNotificationsAction::class)->handle($user, [
+        NewNotificationData::fromValidated(smsNotificationPayload(['content' => 'From this request', 'idempotency_key' => 'order-1001-shipped'])),
+    ]);
+
+    expect($create)->toThrow(ValidationException::class, 'This idempotency key was already used for a different notification.');
+    // The simulated concurrent insert shares this request's connection, so the rollback takes it
+    // along; what matters is that nothing of this request was kept or queued.
+    $this->assertDatabaseMissing('notifications', ['content' => 'From this request']);
+    Queue::assertNothingPushed();
 });

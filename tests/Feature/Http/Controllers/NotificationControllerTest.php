@@ -278,7 +278,23 @@ describe('store', function () {
 
     test('returns the existing notification with 200 when its idempotency key was already used', function () {
         $user = User::factory()->create();
-        $existing = Notification::factory()->for($user)->withIdempotencyKey('order-1001-shipped')->create();
+        $existing = Notification::factory()->for($user)->withIdempotencyKey('order-1001-shipped')->create([
+            'recipient' => '+905551234567',
+            'content' => 'Your order has shipped.',
+        ]);
+        Sanctum::actingAs($user);
+
+        $response = $this->postJson(route('api.v1.notifications.store'), smsNotificationPayload(['idempotency_key' => 'order-1001-shipped']));
+
+        $response->assertOk()->assertJsonPath('data.id', $existing->id);
+    });
+
+    test('returns 422 when the idempotency key was already used for a different notification', function () {
+        $user = User::factory()->create();
+        Notification::factory()->for($user)->withIdempotencyKey('order-1001-shipped')->create([
+            'recipient' => '+905551234567',
+            'content' => 'Your order has shipped.',
+        ]);
         Sanctum::actingAs($user);
 
         $response = $this->postJson(route('api.v1.notifications.store'), smsNotificationPayload([
@@ -286,7 +302,10 @@ describe('store', function () {
             'content' => 'A different text',
         ]));
 
-        $response->assertOk()->assertJsonPath('data.id', $existing->id);
+        $response->assertUnprocessable()->assertJsonValidationErrors([
+            'idempotency_key' => 'This idempotency key was already used for a different notification.',
+        ]);
+        $this->assertDatabaseCount('notifications', 1);
     });
 
     test('creates a notification when another user already used the same idempotency key', function () {

@@ -16,6 +16,8 @@ return [
 
     'notification_content_length' => 'The :attribute may not be greater than :max characters for the :channel channel.',
 
+    'notification_idempotency_key_reused' => 'This idempotency key was already used for a different notification.',
+
     'pagination_cursor' => 'The :attribute is invalid. Use the cursor from the links of the previous page.',
 
     'notification_template_placeholders' => 'The :attribute may only use placeholders like {{ name }}, whose names consist of letters, digits and underscores.',

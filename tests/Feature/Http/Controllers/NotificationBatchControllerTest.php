@@ -174,7 +174,10 @@ describe('store', function () {
     test('returns the existing notification for an idempotency key that was already used', function () {
         Queue::fake([SendNotificationJob::class]);
         $user = User::factory()->create();
-        $existing = Notification::factory()->for($user)->withIdempotencyKey('campaign-42-user-7')->create();
+        $existing = Notification::factory()->for($user)->withIdempotencyKey('campaign-42-user-7')->create([
+            'recipient' => '+905551234567',
+            'content' => 'Your order has shipped.',
+        ]);
         Sanctum::actingAs($user);
 
         $response = $this->postJson(route('api.v1.notification-batches.store'), [
@@ -188,6 +191,28 @@ describe('store', function () {
             ->assertJsonPath('data.total', 1)
             ->assertJsonPath('notifications.0.id', $existing->id);
         Queue::assertPushed(SendNotificationJob::class, fn (SendNotificationJob $job): bool => $job->notificationId === $response->json('notifications.1.id'));
+    });
+
+    test('returns 422 for the notification whose idempotency key was already used for a different one', function () {
+        $user = User::factory()->create();
+        Notification::factory()->for($user)->withIdempotencyKey('campaign-42-user-7')->create([
+            'recipient' => '+905551234567',
+            'content' => 'Your order has shipped.',
+        ]);
+        Sanctum::actingAs($user);
+
+        $response = $this->postJson(route('api.v1.notification-batches.store'), [
+            'notifications' => [
+                smsNotificationPayload(),
+                smsNotificationPayload(['idempotency_key' => 'campaign-42-user-7', 'content' => 'A different text']),
+            ],
+        ]);
+
+        $response->assertUnprocessable()->assertJsonValidationErrors([
+            'notifications.1.idempotency_key' => 'This idempotency key was already used for a different notification.',
+        ]);
+        $this->assertDatabaseCount('notification_batches', 0);
+        $this->assertDatabaseCount('notifications', 1);
     });
 
     test('explains with 422 why the list of notifications is invalid', function (array $payload, string $invalidField, string $message) {
