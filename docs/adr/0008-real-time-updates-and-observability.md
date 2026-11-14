@@ -20,7 +20,8 @@ At millions of notifications a day, broadcasting every status change would multi
 **Correlation and tracing.**
 
 - `AssignRequestContext` accepts a UUID in `X-Correlation-ID` (or creates a UUIDv7), echoes it in the response and puts it into Laravel's `Context`. Context is copied into every log entry and every queued job. The id is also stored on the notification and sent to the provider.
-- OpenTelemetry auto-instrumentation traces requests, queries, HTTP calls and jobs to Jaeger. Each delivery job starts its own trace linked to the request's trace (`TracingLinked`), so a batch of 1000 yields 1000 small traces rather than one huge one.
+- `DispatchNotificationsAction` gives every delivery job its notification's id and stored correlation id as context when it pushes the job. Jobs pushed by the stale sweep or the scheduler, which run outside any request, thus log both ids from the start, including waits before the notification is claimed.
+- OpenTelemetry auto-instrumentation traces requests, queries, HTTP calls and jobs to Jaeger. Each delivery job starts its own trace linked to the request's trace (`TracingLinked`), so a batch of 1000 yields 1000 small traces rather than one huge one. The provider call carries the job's trace context in the W3C `traceparent` header, so a provider that traces too continues the trace.
 
 **Metrics and health.**
 

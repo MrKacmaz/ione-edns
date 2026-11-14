@@ -18,7 +18,7 @@ The provider can time out, answer `5xx`, throttle with `429` (possibly with `Ret
 **Circuit breaker** (`RedisCircuitBreaker`, one circuit per channel, shared in Redis):
 
 - While closed, call outcomes are counted in one-second buckets. When the last 60 seconds hold at least 20 calls and at least 50% of them failed in a retryable way, the circuit opens. Permanent failures count as healthy, because the provider did answer.
-- While open, the `CheckDeliveryChannelCircuit` job middleware releases jobs until the 30-second cooldown ends, without claiming their notifications and before the rate limiter, so no attempt and no send slot is used.
+- While open, the `CheckDeliveryChannelCircuit` job middleware releases jobs until the 30-second cooldown ends, without claiming their notifications and before the rate limiter, so no attempt and no send slot is used. Each job waits the circuit's remaining time plus a random extra of up to the same length, so the jobs held back together return spread over the next window instead of all in the same second.
 - After the cooldown the first job becomes the probe (half open) and all others keep waiting. The probe's success closes the circuit; its failure opens it for another cooldown. A probe that does not report back within 20 seconds is replaced.
 - Every transition happens in one Lua script, so exactly one worker learns that a circuit opened or closed. That worker logs it, broadcasts it to the dashboard and mails the operators (throttled to one mail per channel and change every 10 minutes).
 

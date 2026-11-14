@@ -21,8 +21,9 @@ Exactly-once delivery across a network is not achievable; the realistic goal is 
 - The jobs are pushed in `DB::afterCommit()`, so a worker never looks for a row that is not visible yet. A failed push is reported and left to the sweep below; the request still answers `202`, because the notifications are stored.
 - `DispatchNotificationsAction` pushes each job first and marks the notification `queued` second. If the push fails, the notification stays `waiting`.
 - `notifications:redispatch-stale` runs every minute. It pushes `waiting` notifications older than two minutes again, and puts `processing` notifications untouched for five minutes back to `waiting` and pushes them again. `queued` notifications get the same treatment after 25 hours, past the one-day retry window of their job, which covers a job lost from Redis.
+- Every push of a `processing` notification leads to a new claim, which uses up an attempt. A `processing` notification that has no attempt left fails instead, with a reason saying that the provider may have received it. A notification whose outcome can never be recorded, for example because the database rejects the provider's answer, is thus sent at most `max_attempts` times instead of once per sweep forever. When recording fails, the provider's answer is logged as `notification.delivery.unrecorded`.
 - When a job gives up for good (timeout, one day of retries), `SendNotificationJob::failed()` fails a notification that is still `queued` or `processing`, so none is left behind without a job.
-- A database or Redis outage does not count towards the job's tolerated exceptions: `ReleaseDuringInfrastructureOutage` puts the job back with a growing delay (10 seconds doubling, at most five minutes) until the job's one-day lifetime ends, so an outage of a few minutes fails no notification.
+- A database or Redis outage does not count towards the job's tolerated exceptions: `ReleaseDuringInfrastructureOutage` puts the job back with a growing delay (10 seconds doubling, at most five minutes) until the job's one-day lifetime ends, so an outage of a few minutes fails no notification. It may still send one twice: an outage that starts between the provider's answer and its record leaves the notification in `processing`, and the sweep sends it again (see Consequences). API requests that meet such an outage are answered with `503` and `Retry-After` instead of `500`.
 
 **Three idempotency layers.**
 
@@ -46,6 +47,6 @@ Exactly-once delivery across a network is not achievable; the realistic goal is 
 
 **Negative**
 
-- Delivery to the provider is at-least-once: if a worker dies after the provider accepted a message but before recording it, the message is sent again, and only a provider that honours the idempotency key can drop it.
+- Delivery to the provider is at-least-once: if a worker dies, or the database goes away, after the provider accepted a message but before recording it, the message is sent again, and only a provider that honours the idempotency key can drop it. Each resend uses up an attempt, so it happens at most `max_attempts` times.
 - A job lost from Redis while its notification is `queued` (a Redis restart without persistence) is only recovered by the sweep after 25 hours. Docker Compose runs Redis with append-only persistence for this reason.
 - Stored idempotent responses take space for 24 hours; `model:prune` removes them daily.

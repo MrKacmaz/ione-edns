@@ -5,7 +5,7 @@ Add an item here whenever something is postponed, and remove it once it ships.
 
 ## Planned
 
-- [ ] **Deployment** — CI publishes the images to GitHub Container Registry and creates releases, but nothing deploys them. A target (a server with Docker Compose, Kubernetes or Laravel Cloud) needs runtime configuration instead of the Compose defaults: real secrets, the public Reverb host baked into the frontend build, and sized Horizon supervisors.
+- [ ] **Deployment** — CI publishes the images to GitHub Container Registry and creates releases, but nothing deploys them. A target (a server with Docker Compose, Kubernetes or Laravel Cloud) needs runtime configuration instead of the Compose defaults: real secrets, the public Reverb host baked into the frontend build, sized Horizon supervisors, and a PostgreSQL that takes their connections (about 105 with the production pools, above the default `max_connections` of 100), through a higher limit or a pooler such as PgBouncer.
 - [ ] **Multi-platform images** — the published images are `linux/amd64` only; add `linux/arm64` once a target needs it (QEMU builds are much slower).
 
 ## Deferred
@@ -25,7 +25,7 @@ Notifications and batches are never deleted today, while the system is expected 
 
 ### Authorization
 
-- Operators are marked with `users.is_operator`, which only the seeder or a manual update sets. There is no screen or command to grant or revoke it.
+- Operators are marked with `users.is_operator`, which only the seeder or a manual update sets. There is no screen or command to grant or revoke it. In production the seeder creates no user at all, so the first operator has to be created by hand (for example with `php artisan tinker`); a `users:create-operator` command would make that safe and repeatable.
 - Multi-tenancy is out of scope. Notifications are already scoped to the token's owner through `user_id`, which is the seam for a tenant scope later.
 
 ### API documentation
@@ -44,6 +44,7 @@ Notifications and batches are never deleted today, while the system is expected 
 - A batch whose notifications all reuse existing idempotency keys still creates a new, empty batch (`total` 0, `is_finished` true), while each notification keeps its original batch. Decide whether such a request should answer without creating a batch.
 - The API limit counts requests per account (600 a minute), not notifications, so one account may queue up to 600,000 notifications a minute in batches, and all accounts share the same queues: one account's large batches delay the others' notifications of the same channel and priority. A notifications-per-minute quota per account, and fair scheduling across accounts (for example a queue per account and priority, worked round-robin), would bound that.
 - `/health` is not part of the OpenAPI document, which describes the versioned API under `/api/v1` only; it is described in the README.
+- A template deleted while a notification is being created from it makes the insert fail on the foreign key, which answers `500` instead of `422`. Locking the named templates (`FOR SHARE`) while the notifications are created would close that gap; the window is a few milliseconds.
 
 ### Performance at volume
 
@@ -53,7 +54,7 @@ Notifications and batches are never deleted today, while the system is expected 
 
 ### Operations
 
-- The provider is a free webhook.site URL set in `NOTIFICATIONS_GATEWAY_URL` (local `.env` only). It answers every request with the same static `202` body, so every notification gets the same `messageId`; it expires after seven days, and its inbox shows a limit of 50 requests, which may cap or rotate what a load test can send. Create a new URL when it expires, and use a paid URL or a local stub provider for load tests.
+- The provider is a free webhook.site URL set in `NOTIFICATIONS_GATEWAY_URL` (local `.env` only); without it, Docker Compose delivers to its mock provider. It answers every request with the same static `202` body, so every notification gets the same `messageId`; it expires after seven days, and its inbox shows a limit of 50 requests, which may cap or rotate what a load test can send. Create a new URL when it expires, and use a paid URL or a local stub provider for load tests.
 - The GCRA rate limiter requires the phpredis client (`REDIS_CLIENT=phpredis`); predis is not supported.
 - A notification whose job is lost from Redis (for example a restart without persistence) is pushed again by the stale sweep only after `NOTIFICATIONS_STALE_QUEUED_SECONDS` (25 hours by default), because a queued job may legitimately wait through its one-day retry window. Docker Compose runs Redis with AOF persistence, which makes such losses rare; a production Redis needs the same.
 - The half-open probe of a circuit is taken before the rate limiter. When the rate limiter then releases the probe job, the probe stays taken until `NOTIFICATIONS_CIRCUIT_PROBE_TIMEOUT_SECONDS` (20 by default) pass, so the channel recovers up to 20 seconds later. Handing the probe back when the job is released would remove the wait.
@@ -66,3 +67,5 @@ Notifications and batches are never deleted today, while the system is expected 
 - The app image is about 860 MB, mostly the Debian-based `php:8.5-fpm` with its compiled extensions; an Alpine base would shrink it. Development dependencies live only in the separate `tests` image.
 - Docker Compose runs with `APP_ENV=local`, so Horizon uses the small local worker counts. A production deployment needs `APP_ENV=production`, `HORIZON_NOTIFICATION_WORKERS` sized to the provider latency (about 30 workers per channel for 100 messages a second at 300 ms) and real secrets instead of the generated ones in the `secrets` volume.
 - Tracing every notification is expensive at production volume. Add sampling (for example 10%) and an OpenTelemetry Collector in front of the tracing backend.
+- `/health` is public and unthrottled, and every call runs its checks (a database query, a Redis ping, Horizon's status). Its answers reveal nothing internal, but an exposed deployment should throttle it or cache its result for a few seconds.
+- The metrics report the success rate and the latency percentiles for all channels together; only the queue depth and the circuit state are per channel. Grouping the attempt queries by channel would show, for example, that only SMS is slow.
