@@ -229,17 +229,17 @@ describe('store', function () {
             'priority' => 'normal',
             'content' => 'Your order has shipped.',
         ]);
-        Queue::assertPushedOn('notifications-normal', SendNotificationJob::class, fn (SendNotificationJob $job): bool => $job->notificationId === $response->json('data.id'));
+        Queue::assertPushedOn('notifications-sms-normal', SendNotificationJob::class, fn (SendNotificationJob $job): bool => $job->notificationId === $response->json('data.id'));
     });
 
-    test('queues a high priority notification on the high priority queue', function () {
+    test('queues a high priority notification on the high priority queue of its channel', function () {
         Queue::fake([SendNotificationJob::class]);
         Sanctum::actingAs(User::factory()->create());
 
         $response = $this->postJson(route('api.v1.notifications.store'), smsNotificationPayload(['priority' => 'high']));
 
         $response->assertAccepted();
-        Queue::assertPushedOn('notifications-high', SendNotificationJob::class);
+        Queue::assertPushedOn('notifications-sms-high', SendNotificationJob::class);
     });
 
     test('assigns the notification to the token owner even when another user id is sent', function () {

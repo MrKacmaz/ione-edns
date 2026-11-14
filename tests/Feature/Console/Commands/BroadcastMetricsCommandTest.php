@@ -13,5 +13,5 @@ test('broadcasts a fresh metrics snapshot to the operators', function () {
     $this->artisan('metrics:broadcast')->assertSuccessful();
 
     Event::assertDispatched(MetricsUpdated::class, fn (MetricsUpdated $event): bool => $event->snapshot->circuits['push'] === 'half_open'
-        && count($event->snapshot->queues) === 3);
+        && count($event->snapshot->queues) === 9);
 });

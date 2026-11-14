@@ -40,9 +40,9 @@ describe('store', function () {
             ->assertJsonPath('notifications.*.batch_id', [$batchId, $batchId, $batchId]);
         $this->assertDatabaseHas('notification_batches', ['id' => $batchId, 'user_id' => $user->id]);
         expect(Notification::query()->where('batch_id', $batchId)->where('user_id', $user->id)->count())->toBe(3);
-        Queue::assertPushedOn('notifications-high', SendNotificationJob::class);
-        Queue::assertPushedOn('notifications-normal', SendNotificationJob::class);
-        Queue::assertPushedOn('notifications-low', SendNotificationJob::class);
+        Queue::assertPushedOn('notifications-sms-high', SendNotificationJob::class);
+        Queue::assertPushedOn('notifications-email-normal', SendNotificationJob::class);
+        Queue::assertPushedOn('notifications-push-low', SendNotificationJob::class);
     });
 
     test('renders each notification from its own template, loading the templates with one query', function () {

@@ -8,7 +8,7 @@ use App\Models\Notification;
 use Illuminate\Database\Eloquent\Collection;
 
 /**
- * Hands notifications to the queue of their priority.
+ * Hands notifications to the queue of their channel and priority.
  *
  * Jobs are pushed before the notifications are marked as queued: if the push
  * fails, the notifications stay waiting or scheduled and the sweeper or the
@@ -36,7 +36,7 @@ class DispatchNotificationsAction
 
         foreach ($notifications as $notification) {
             SendNotificationJob::dispatch($notification->id, $notification->channel)
-                ->onQueue($notification->priority->queue())
+                ->onQueue($notification->priority->queueFor($notification->channel))
                 ->delay($notification->scheduled_at?->isFuture() ? $notification->scheduled_at : null);
         }
 

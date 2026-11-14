@@ -1,5 +1,73 @@
 <?php
 
+use App\Enums\NotificationChannel;
+use App\Enums\NotificationPriority;
+
+/*
+ * Notification workers, one set per channel (ADR 0002). Each channel has its own
+ * queues and workers, so a channel that waits for send slots under its rate limit
+ * holds up only its own deliveries. Per channel:
+ *
+ * - "supervisor-{channel}" drains high before normal and normal before low, so
+ *   high-priority notifications also win the channel's send slots during a burst;
+ * - "supervisor-{channel}-normal" and "supervisor-{channel}-low" each serve only
+ *   one lower priority, so a long run of high-priority notifications slows them
+ *   down but cannot starve them, and normal always gets at least as many workers
+ *   as low.
+ */
+$notificationWorker = [
+    'connection' => 'redis',
+    'balance' => false,
+    'maxTime' => 0,
+    'maxJobs' => 0,
+    'memory' => 128,
+    'tries' => 1,
+    'timeout' => 60,
+    'nice' => 0,
+];
+
+$notificationSupervisors = [];
+$productionNotificationSupervisors = [];
+$notificationWaits = [];
+
+foreach (NotificationChannel::cases() as $channel) {
+    $notificationSupervisors["supervisor-{$channel->value}"] = [
+        ...$notificationWorker,
+        'queue' => NotificationPriority::queuesFor($channel),
+        'minProcesses' => 1,
+        'maxProcesses' => 2,
+    ];
+
+    foreach ([NotificationPriority::Normal, NotificationPriority::Low] as $priority) {
+        $notificationSupervisors["supervisor-{$channel->value}-{$priority->value}"] = [
+            ...$notificationWorker,
+            'queue' => [$priority->queueFor($channel)],
+            'minProcesses' => 1,
+            'maxProcesses' => 1,
+        ];
+    }
+
+    // Each worker waits for one provider call at a time, so a channel's throughput is
+    // about its workers / provider latency: at 300 ms, 30 workers reach 100/s.
+    $productionNotificationSupervisors["supervisor-{$channel->value}"] = [
+        'maxProcesses' => (int) env('HORIZON_NOTIFICATION_WORKERS', 20),
+    ];
+    $productionNotificationSupervisors["supervisor-{$channel->value}-normal"] = [
+        'maxProcesses' => (int) env('HORIZON_NORMAL_PRIORITY_WORKERS', 2),
+    ];
+    $productionNotificationSupervisors["supervisor-{$channel->value}-low"] = [
+        'maxProcesses' => (int) env('HORIZON_LOW_PRIORITY_WORKERS', 2),
+    ];
+
+    foreach (NotificationPriority::cases() as $priority) {
+        $notificationWaits['redis:'.$priority->queueFor($channel)] = match ($priority) {
+            NotificationPriority::High => 30,
+            NotificationPriority::Normal => 120,
+            NotificationPriority::Low => 600,
+        };
+    }
+}
+
 return [
 
     /*
@@ -93,9 +161,7 @@ return [
 
     'waits' => [
         'redis:default' => 60,
-        'redis:notifications-high' => 30,
-        'redis:notifications-normal' => 120,
-        'redis:notifications-low' => 600,
+        ...$notificationWaits,
     ],
 
     /*
@@ -211,38 +277,7 @@ return [
             'nice' => 0,
         ],
 
-        // Strict priority: every worker drains notifications-high before it looks at
-        // notifications-normal, and normal before low. High-priority notifications
-        // therefore also win the per-channel send slots during a burst.
-        'supervisor-notifications' => [
-            'connection' => 'redis',
-            'queue' => ['notifications-high', 'notifications-normal', 'notifications-low'],
-            'balance' => false,
-            'minProcesses' => 1,
-            'maxProcesses' => 4,
-            'maxTime' => 0,
-            'maxJobs' => 0,
-            'memory' => 128,
-            'tries' => 1,
-            'timeout' => 60,
-            'nice' => 0,
-        ],
-
-        // A small floor for low priority, so that a long run of high and normal
-        // notifications cannot starve it completely.
-        'supervisor-notifications-low' => [
-            'connection' => 'redis',
-            'queue' => ['notifications-low'],
-            'balance' => false,
-            'minProcesses' => 1,
-            'maxProcesses' => 1,
-            'maxTime' => 0,
-            'maxJobs' => 0,
-            'memory' => 128,
-            'tries' => 1,
-            'timeout' => 60,
-            'nice' => 0,
-        ],
+        ...$notificationSupervisors,
     ],
 
     'environments' => [
@@ -252,16 +287,7 @@ return [
                 'balanceMaxShift' => 1,
                 'balanceCooldown' => 3,
             ],
-            // Each worker waits for one provider call at a time, so throughput is about
-            // workers / provider latency: at 300 ms, 90 workers reach 3 channels x 100/s.
-            // Scale with these values, or by running Horizon on more machines; the rate
-            // limiter is shared through Redis either way.
-            'supervisor-notifications' => [
-                'maxProcesses' => (int) env('HORIZON_NOTIFICATION_WORKERS', 20),
-            ],
-            'supervisor-notifications-low' => [
-                'maxProcesses' => (int) env('HORIZON_LOW_PRIORITY_WORKERS', 2),
-            ],
+            ...$productionNotificationSupervisors,
         ],
 
         'local' => [

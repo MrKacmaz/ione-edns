@@ -115,8 +115,9 @@ final readonly class MetricsCollector
     {
         $connection = $this->queues->connection('redis');
 
-        return array_map(function (NotificationPriority $priority) use ($connection, $now): array {
-            $queue = $priority->queue();
+        $queues = array_merge(...array_map(NotificationPriority::queuesFor(...), NotificationChannel::cases()));
+
+        return array_map(function (string $queue) use ($connection, $now): array {
             $oldestPendingAt = $connection->creationTimeOfOldestPendingJob($queue);
 
             return [
@@ -126,7 +127,7 @@ final readonly class MetricsCollector
                 'reserved' => (int) $connection->reservedSize($queue),
                 'oldest_pending_age_seconds' => $oldestPendingAt === null ? null : max(0, $now->getTimestamp() - (int) $oldestPendingAt),
             ];
-        }, NotificationPriority::cases());
+        }, $queues);
     }
 
     /**

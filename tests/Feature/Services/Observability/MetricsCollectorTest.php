@@ -16,17 +16,18 @@ use Tests\Support\FakeCircuitBreaker;
 /**
  * The collector reads the real Redis queues, so each test starts and ends with empty notification queues.
  */
-beforeEach(function () {
-    foreach (NotificationPriority::cases() as $priority) {
-        Queue::connection('redis')->clear($priority->queue());
+function clearNotificationQueues(): void
+{
+    foreach (NotificationChannel::cases() as $channel) {
+        foreach (NotificationPriority::queuesFor($channel) as $queue) {
+            Queue::connection('redis')->clear($queue);
+        }
     }
-});
+}
 
-afterEach(function () {
-    foreach (NotificationPriority::cases() as $priority) {
-        Queue::connection('redis')->clear($priority->queue());
-    }
-});
+beforeEach(fn () => clearNotificationQueues());
+
+afterEach(fn () => clearNotificationQueues());
 
 test('stamps the snapshot with the moment it was collected', function () {
     $this->travelTo('2026-11-14 12:00:00.250000');
@@ -36,34 +37,41 @@ test('stamps the snapshot with the moment it was collected', function () {
     expect($snapshot->generatedAt->format('Y-m-d H:i:s.u'))->toBe('2026-11-14 12:00:00.250000');
 });
 
-test('reports pending, delayed and reserved jobs and the age of the oldest pending job per priority queue', function () {
+test('reports pending, delayed and reserved jobs and the age of the oldest pending job per channel and priority queue', function () {
     $this->travelTo('2026-11-14 12:00:00');
     $redis = Queue::connection('redis');
-    $redis->push(new SendNotificationJob('first', NotificationChannel::Sms), '', 'notifications-normal');
+    $redis->push(new SendNotificationJob('first', NotificationChannel::Sms), '', 'notifications-sms-normal');
     $this->travel(30)->seconds();
-    $redis->push(new SendNotificationJob('second', NotificationChannel::Sms), '', 'notifications-normal');
-    $redis->later(60, new SendNotificationJob('scheduled', NotificationChannel::Sms), '', 'notifications-normal');
-    $redis->push(new SendNotificationJob('claimed', NotificationChannel::Email), '', 'notifications-high');
-    $redis->pop('notifications-high');
+    $redis->push(new SendNotificationJob('second', NotificationChannel::Sms), '', 'notifications-sms-normal');
+    $redis->later(60, new SendNotificationJob('scheduled', NotificationChannel::Sms), '', 'notifications-sms-normal');
+    $redis->push(new SendNotificationJob('claimed', NotificationChannel::Email), '', 'notifications-email-high');
+    $redis->pop('notifications-email-high');
     $this->travel(15)->seconds();
 
     $snapshot = app(MetricsCollector::class)->collect();
 
+    $idle = ['pending' => 0, 'delayed' => 0, 'reserved' => 0, 'oldest_pending_age_seconds' => null];
     expect($snapshot->queues)->toBe([
-        ['queue' => 'notifications-high', 'pending' => 0, 'delayed' => 0, 'reserved' => 1, 'oldest_pending_age_seconds' => null],
-        ['queue' => 'notifications-normal', 'pending' => 2, 'delayed' => 1, 'reserved' => 0, 'oldest_pending_age_seconds' => 45],
-        ['queue' => 'notifications-low', 'pending' => 0, 'delayed' => 0, 'reserved' => 0, 'oldest_pending_age_seconds' => null],
+        ['queue' => 'notifications-sms-high', ...$idle],
+        ['queue' => 'notifications-sms-normal', 'pending' => 2, 'delayed' => 1, 'reserved' => 0, 'oldest_pending_age_seconds' => 45],
+        ['queue' => 'notifications-sms-low', ...$idle],
+        ['queue' => 'notifications-email-high', 'pending' => 0, 'delayed' => 0, 'reserved' => 1, 'oldest_pending_age_seconds' => null],
+        ['queue' => 'notifications-email-normal', ...$idle],
+        ['queue' => 'notifications-email-low', ...$idle],
+        ['queue' => 'notifications-push-high', ...$idle],
+        ['queue' => 'notifications-push-normal', ...$idle],
+        ['queue' => 'notifications-push-low', ...$idle],
     ]);
 });
 
 test('never reports a negative age for a job stamped by a host whose clock runs ahead', function () {
     $this->travelTo('2026-11-14 12:00:10');
-    Queue::connection('redis')->push(new SendNotificationJob('early', NotificationChannel::Push), '', 'notifications-low');
+    Queue::connection('redis')->push(new SendNotificationJob('early', NotificationChannel::Push), '', 'notifications-push-low');
     $this->travelTo('2026-11-14 12:00:00');
 
     $snapshot = app(MetricsCollector::class)->collect();
 
-    expect($snapshot->queues[2])->toBe(['queue' => 'notifications-low', 'pending' => 1, 'delayed' => 0, 'reserved' => 0, 'oldest_pending_age_seconds' => 0]);
+    expect($snapshot->queues[8])->toBe(['queue' => 'notifications-push-low', 'pending' => 1, 'delayed' => 0, 'reserved' => 0, 'oldest_pending_age_seconds' => 0]);
 });
 
 test('counts the notifications in every unfinished status and leaves out finished ones', function () {

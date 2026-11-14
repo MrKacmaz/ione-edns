@@ -1,6 +1,7 @@
 <?php
 
 use App\Actions\DispatchNotificationsAction;
+use App\Enums\NotificationChannel;
 use App\Enums\NotificationPriority;
 use App\Enums\NotificationStatus;
 use App\Jobs\SendNotificationJob;
@@ -9,20 +10,20 @@ use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Testing\Fakes\QueueFake;
 
-test('pushes each notification onto the queue of its priority and marks it queued', function () {
+test('pushes each notification onto the queue of its channel and priority and marks it queued', function () {
     Queue::fake([SendNotificationJob::class]);
     $this->travelTo('2026-11-14 10:00:00.250000');
     $notifications = Notification::factory()->count(3)->sequence(
-        ['priority' => NotificationPriority::High],
-        ['priority' => NotificationPriority::Normal],
-        ['priority' => NotificationPriority::Low],
+        ['channel' => NotificationChannel::Sms, 'priority' => NotificationPriority::High],
+        ['channel' => NotificationChannel::Email, 'priority' => NotificationPriority::Normal],
+        ['channel' => NotificationChannel::Push, 'priority' => NotificationPriority::Low],
     )->create();
 
     app(DispatchNotificationsAction::class)->handle($notifications);
 
-    Queue::assertPushedOn('notifications-high', SendNotificationJob::class, fn (SendNotificationJob $job): bool => $job->notificationId === $notifications[0]->id);
-    Queue::assertPushedOn('notifications-normal', SendNotificationJob::class, fn (SendNotificationJob $job): bool => $job->notificationId === $notifications[1]->id);
-    Queue::assertPushedOn('notifications-low', SendNotificationJob::class, fn (SendNotificationJob $job): bool => $job->notificationId === $notifications[2]->id);
+    Queue::assertPushedOn('notifications-sms-high', SendNotificationJob::class, fn (SendNotificationJob $job): bool => $job->notificationId === $notifications[0]->id);
+    Queue::assertPushedOn('notifications-email-normal', SendNotificationJob::class, fn (SendNotificationJob $job): bool => $job->notificationId === $notifications[1]->id);
+    Queue::assertPushedOn('notifications-push-low', SendNotificationJob::class, fn (SendNotificationJob $job): bool => $job->notificationId === $notifications[2]->id);
     foreach ($notifications as $notification) {
         expect($notification->status)->toBe(NotificationStatus::Queued)
             ->and($notification->refresh()->status)->toBe(NotificationStatus::Queued)

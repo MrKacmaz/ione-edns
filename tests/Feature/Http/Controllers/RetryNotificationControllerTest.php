@@ -26,7 +26,7 @@ test('queues a failed notification again with a fresh set of attempts and keeps 
         ->assertJsonPath('data.attempts', 0)
         ->assertJsonPath('data.last_error', null)
         ->assertJsonPath('data.failed_at', null);
-    Queue::assertPushedOn('notifications-normal', SendNotificationJob::class, fn (SendNotificationJob $job): bool => $job->notificationId === $notification->id);
+    Queue::assertPushedOn('notifications-sms-normal', SendNotificationJob::class, fn (SendNotificationJob $job): bool => $job->notificationId === $notification->id);
     $this->assertDatabaseCount('notification_attempts', 1);
 });
 

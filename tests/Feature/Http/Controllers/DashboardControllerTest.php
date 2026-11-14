@@ -28,7 +28,7 @@ test('shows operators the system metrics and their own latest notifications', fu
     $response->assertOk()->assertInertia(fn (Assert $page) => $page
         ->component('Dashboard')
         ->where('metrics.circuits', ['sms' => 'closed', 'email' => 'open', 'push' => 'closed'])
-        ->has('metrics.queues', 3)
+        ->has('metrics.queues', 9)
         ->has('metrics.windows', 2)
         ->has('notifications', 1)
         ->where('notifications.0.id', $own->id)
