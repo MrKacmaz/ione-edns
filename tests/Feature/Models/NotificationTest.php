@@ -265,6 +265,20 @@ describe('resetForRedelivery', function () {
     ]);
 });
 
+describe('resetForRedeliveryMany', function () {
+    test('resets only the failed notifications among the given ones and returns them waiting', function () {
+        $failed = Notification::factory()->failed()->count(2)->create(['attempts' => 5]);
+        $sent = Notification::factory()->sent()->create();
+
+        $reset = Notification::resetForRedeliveryMany($failed->concat([$sent]));
+
+        expect($reset->modelKeys())->toEqualCanonicalizing($failed->modelKeys())
+            ->and($reset->pluck('status')->unique()->all())->toBe([NotificationStatus::Waiting])
+            ->and($reset->pluck('attempts')->unique()->all())->toBe([0])
+            ->and($sent->refresh()->status)->toBe(NotificationStatus::Sent);
+    });
+});
+
 describe('cancel', function () {
     test('cancels a notification that no worker has picked up yet and announces it to the owner', function (Closure $state) {
         $this->travelTo('2026-11-14 10:00:00.250000');
