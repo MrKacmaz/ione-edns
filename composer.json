@@ -20,7 +20,9 @@
         "laravel/wayfinder": "^0.1.14",
         "open-telemetry/exporter-otlp": "^1.5",
         "open-telemetry/opentelemetry-auto-laravel": "^1.10",
-        "open-telemetry/sdk": "^1.16"
+        "open-telemetry/sdk": "^1.16",
+        "ext-pdo": "*",
+        "ext-redis": "*"
     },
     "require-dev": {
         "fakerphp/faker": "^1.24",
