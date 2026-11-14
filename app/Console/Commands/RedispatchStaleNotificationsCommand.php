@@ -20,6 +20,12 @@ use Illuminate\Database\Eloquent\Collection;
  * All are pushed again. A duplicate job is harmless because a notification can
  * only be claimed once; the provider receives the notification id as its
  * idempotency key in case a dead worker had already sent it.
+ *
+ * A notification stuck in processing after its last attempt fails instead: the
+ * provider may have received it, and a notification whose outcome cannot be
+ * recorded (for example because the database rejects it) would otherwise be
+ * sent again by every sweep. Each push uses up an attempt, so at most
+ * max_attempts sends happen in all.
  */
 class RedispatchStaleNotificationsCommand extends Command
 {
@@ -47,7 +53,10 @@ class RedispatchStaleNotificationsCommand extends Command
         #[Config('notifications.delivery.stale_after_seconds.waiting')] int $waitingAfterSeconds,
         #[Config('notifications.delivery.stale_after_seconds.processing')] int $processingAfterSeconds,
         #[Config('notifications.delivery.stale_after_seconds.queued')] int $queuedAfterSeconds,
+        #[Config('notifications.delivery.max_attempts')] int $maxAttempts,
     ): int {
+        // Runs first, so the requeue below finds only notifications with attempts left.
+        $outOfAttempts = $this->failWithoutAttemptsLeft($processingAfterSeconds, $maxAttempts);
         $stuckProcessing = $this->requeue($dispatchNotifications, NotificationStatus::Processing, $processingAfterSeconds);
         $lostQueued = $this->requeue($dispatchNotifications, NotificationStatus::Queued, $queuedAfterSeconds);
 
@@ -61,9 +70,31 @@ class RedispatchStaleNotificationsCommand extends Command
                 $staleWaiting += $notifications->count();
             });
 
-        $this->info("Requeued {$stuckProcessing} stuck processing, {$lostQueued} lost queued and {$staleWaiting} stale waiting notifications.");
+        $this->info("Failed {$outOfAttempts} stuck processing without attempts left; requeued {$stuckProcessing} stuck processing, {$lostQueued} lost queued and {$staleWaiting} stale waiting notifications.");
 
         return self::SUCCESS;
+    }
+
+    /**
+     * Fail the notifications stuck in processing that have no delivery attempt left.
+     *
+     * @return int The number of notifications that failed.
+     */
+    private function failWithoutAttemptsLeft(int $afterSeconds, int $maxAttempts): int
+    {
+        $failed = 0;
+
+        Notification::query()
+            ->where('status', NotificationStatus::Processing)
+            ->where('updated_at', '<', now()->subSeconds($afterSeconds))
+            ->where('attempts', '>=', $maxAttempts)
+            ->chunkById(self::CHUNK_SIZE, function (Collection $notifications) use (&$failed): void {
+                foreach ($notifications as $notification) {
+                    $failed += (int) Notification::markFailedIfUndelivered($notification->id, __('notifications.errors.outcome_unknown'));
+                }
+            });
+
+        return $failed;
     }
 
     /**

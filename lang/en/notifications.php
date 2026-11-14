@@ -40,6 +40,7 @@ return [
         'timeout' => 'The provider did not answer in time.',
         'unexpected' => 'The delivery attempt failed with an internal error.',
         'job_failed' => 'The delivery job stopped before the notification was delivered.',
+        'outcome_unknown' => 'The last delivery attempt stopped before its outcome was recorded; the provider may have received the notification.',
         'gateway_url_missing' => 'The notification gateway URL is not configured.',
         'rate_limiter_reply' => 'The rate limiter returned an unexpected reply.',
         'rate_limiter_client' => 'The rate limiter requires the phpredis Redis client.',

@@ -90,10 +90,36 @@ final readonly class DeliveryService
         $response = $this->send($notification);
         $durationMilliseconds = intdiv(hrtime(true) - $startedAt, 1_000_000);
 
-        // The attempt and the status it leads to are written together: a database error
-        // in between can no longer record an attempt while leaving the notification in
-        // processing, where the stale sweep would send it once more.
-        $result = DB::transaction(function () use ($notification, $response, $durationMilliseconds): DeliveryResultData {
+        try {
+            $result = $this->record($notification, $response, $durationMilliseconds);
+        } catch (Throwable $exception) {
+            // The provider has answered, but nothing of it is stored; the log keeps the
+            // answer, as the notification stays in processing until the stale sweep.
+            $this->logger->error('notification.delivery.unrecorded', [
+                ...$this->logContext($notification, $response, $durationMilliseconds),
+                'outcome' => $response->outcome->value,
+                'provider_message_id' => $response->providerMessageId,
+                'error' => $exception->getMessage(),
+            ]);
+
+            throw $exception;
+        }
+
+        $this->recordForCircuit($notification->channel, $response->outcome);
+
+        return $result;
+    }
+
+    /**
+     * Store the attempt and move the notification to the status the provider's answer leads to.
+     *
+     * Both are written together: a database error in between can no longer record
+     * an attempt while leaving the notification in processing, where the stale sweep
+     * would send it once more.
+     */
+    private function record(Notification $notification, GatewayResponseData $response, int $durationMilliseconds): DeliveryResultData
+    {
+        return DB::transaction(function () use ($notification, $response, $durationMilliseconds): DeliveryResultData {
             $notification->deliveryAttempts()->create([
                 'attempt' => $notification->attempts,
                 'outcome' => $response->outcome,
@@ -111,10 +137,6 @@ final readonly class DeliveryService
                     : $this->scheduleRetry($notification, $response, $durationMilliseconds),
             };
         });
-
-        $this->recordForCircuit($notification->channel, $response->outcome);
-
-        return $result;
     }
 
     /**

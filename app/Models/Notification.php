@@ -274,8 +274,10 @@ class Notification extends Model
      * still queued when the job ran out of time, for example while its channel's
      * circuit stayed open. No other job would pick a queued notification up, so
      * without this it would stay queued forever.
+     *
+     * @return bool Whether the notification failed; false when it had moved on already.
      */
-    public static function markFailedIfUndelivered(string $id, string $error): void
+    public static function markFailedIfUndelivered(string $id, string $error): bool
     {
         $failedRows = static::query()
             ->whereKey($id)
@@ -288,9 +290,13 @@ class Notification extends Model
 
         $notification = $failedRows === 1 ? static::query()->find($id) : null;
 
-        if ($notification !== null) {
-            NotificationStatusChanged::dispatch($notification);
+        if ($notification === null) {
+            return false;
         }
+
+        NotificationStatusChanged::dispatch($notification);
+
+        return true;
     }
 
     /**

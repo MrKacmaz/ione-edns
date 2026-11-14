@@ -387,3 +387,33 @@ test('keeps no attempt when the status change after the provider\'s answer fails
     $this->assertDatabaseCount('notification_attempts', 0);
     expect($notification->refresh()->status)->toBe(NotificationStatus::Processing);
 });
+
+test('logs the provider\'s answer when it cannot be recorded, as the notification stays in processing', function () {
+    Http::fake(['gateway.test/*' => Http::response(['messageId' => 'msg-123'], 202)]);
+    Log::spy();
+    $notification = Notification::factory()->queued()->create();
+    DB::beforeExecuting(function (string $query): void {
+        if (str_starts_with($query, 'insert into "notification_attempts"')) {
+            throw new RuntimeException('The database went away.');
+        }
+    });
+
+    expect(fn () => app(DeliveryService::class)->deliver($notification->id))->toThrow(RuntimeException::class);
+
+    Log::shouldHaveReceived('error')->once()->with('notification.delivery.unrecorded', Mockery::on(fn (array $context): bool => $context['outcome'] === 'accepted'
+        && $context['provider_message_id'] === 'msg-123'
+        && $context['attempt'] === 1
+        && $context['error'] === 'The database went away.'));
+});
+
+test('records a provider message id of any length', function () {
+    $messageId = str_repeat('a', 1_000);
+    Http::fake(['gateway.test/*' => Http::response(['messageId' => $messageId], 202)]);
+    $notification = Notification::factory()->queued()->create();
+
+    $result = app(DeliveryService::class)->deliver($notification->id);
+
+    expect($result->outcome)->toBe(DeliveryOutcome::Sent)
+        ->and($notification->refresh()->provider_message_id)->toBe($messageId)
+        ->and($notification->deliveryAttempts()->sole()->provider_message_id)->toBe($messageId);
+});

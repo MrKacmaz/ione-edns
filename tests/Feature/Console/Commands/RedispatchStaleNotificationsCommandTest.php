@@ -1,9 +1,12 @@
 <?php
 
 use App\Enums\NotificationStatus;
+use App\Events\NotificationStatusChanged;
 use App\Jobs\SendNotificationJob;
 use App\Models\Notification;
 use App\Services\Delivery\DeliveryService;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Testing\Fakes\QueueFake;
@@ -12,6 +15,7 @@ beforeEach(function () {
     config([
         'notifications.delivery.stale_after_seconds.waiting' => 120,
         'notifications.delivery.stale_after_seconds.processing' => 300,
+        'notifications.delivery.max_attempts' => 5,
     ]);
 });
 
@@ -95,8 +99,58 @@ test('reports how many notifications it requeued and redispatched', function () 
     $stuck->forceFill(['updated_at' => now()->subMinutes(10)])->saveQuietly();
 
     $this->artisan('notifications:redispatch-stale')
-        ->expectsOutput('Requeued 1 stuck processing, 0 lost queued and 1 stale waiting notifications.')
+        ->expectsOutput('Failed 0 stuck processing without attempts left; requeued 1 stuck processing, 0 lost queued and 1 stale waiting notifications.')
         ->assertSuccessful();
+});
+
+test('fails a notification stuck in processing after its last attempt instead of sending it again', function () {
+    Queue::fake([SendNotificationJob::class]);
+    Event::fake([NotificationStatusChanged::class]);
+    $lastAttempt = Notification::factory()->processing()->create(['attempts' => 5]);
+    $lastAttempt->forceFill(['updated_at' => now()->subMinutes(10)])->saveQuietly();
+    $attemptsLeft = Notification::factory()->processing()->create(['attempts' => 4]);
+    $attemptsLeft->forceFill(['updated_at' => now()->subMinutes(10)])->saveQuietly();
+
+    $this->artisan('notifications:redispatch-stale')
+        ->expectsOutput('Failed 1 stuck processing without attempts left; requeued 1 stuck processing, 0 lost queued and 0 stale waiting notifications.')
+        ->assertSuccessful();
+
+    expect(Queue::pushed(SendNotificationJob::class)->map(fn (SendNotificationJob $job): string => $job->notificationId)->all())
+        ->toBe([$attemptsLeft->id]);
+    expect($lastAttempt->refresh())
+        ->status->toBe(NotificationStatus::Failed)
+        ->attempts->toBe(5)
+        ->last_error->toBe('The last delivery attempt stopped before its outcome was recorded; the provider may have received the notification.')
+        ->failed_at->not->toBeNull();
+    Event::assertDispatched(NotificationStatusChanged::class, fn (NotificationStatusChanged $event): bool => $event->notification['id'] === $lastAttempt->id && $event->notification['status'] === 'failed');
+});
+
+test('sends a notification whose outcome is never recorded at most as often as it has attempts', function () {
+    Queue::fake([SendNotificationJob::class]);
+    config(['notifications.gateway.url' => 'https://gateway.test/notify']);
+    Http::fake(['gateway.test/*' => Http::response(['messageId' => 'msg-1'], 202)]);
+    DB::beforeExecuting(function (string $query): void {
+        if (str_starts_with($query, 'insert into "notification_attempts"')) {
+            throw new RuntimeException('The attempt cannot be stored.');
+        }
+    });
+    $notification = Notification::factory()->queued()->create();
+
+    for ($sweep = 1; $sweep <= 7; $sweep++) {
+        try {
+            app(DeliveryService::class)->deliver($notification->id);
+        } catch (RuntimeException) {
+            // The job would be retried and then skip the notification, which stays processing.
+        }
+
+        $this->travel(10)->minutes();
+        $this->artisan('notifications:redispatch-stale')->assertSuccessful();
+    }
+
+    Http::assertSentCount(5);
+    expect($notification->refresh())
+        ->status->toBe(NotificationStatus::Failed)
+        ->attempts->toBe(5);
 });
 
 test('lets the pushed job deliver a notification its dead worker left processing', function () {
