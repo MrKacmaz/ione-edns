@@ -252,11 +252,15 @@ return [
                 'balanceMaxShift' => 1,
                 'balanceCooldown' => 3,
             ],
+            // Each worker waits for one provider call at a time, so throughput is about
+            // workers / provider latency: at 300 ms, 90 workers reach 3 channels x 100/s.
+            // Scale with these values, or by running Horizon on more machines; the rate
+            // limiter is shared through Redis either way.
             'supervisor-notifications' => [
-                'maxProcesses' => 20,
+                'maxProcesses' => (int) env('HORIZON_NOTIFICATION_WORKERS', 20),
             ],
             'supervisor-notifications-low' => [
-                'maxProcesses' => 2,
+                'maxProcesses' => (int) env('HORIZON_LOW_PRIORITY_WORKERS', 2),
             ],
         ],
 
