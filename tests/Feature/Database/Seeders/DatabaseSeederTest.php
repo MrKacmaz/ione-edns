@@ -46,12 +46,15 @@ test('prints a demo API token that expires after a week and clears the expired o
         ->toBe(['2026-11-29 12:00:00']);
 });
 
-test('creates and prints no API token in production, where the output ends up in the logs', function () {
+test('seeds nothing in production, where the operator\'s password is public and the output ends up in the logs', function () {
     $this->app->detectEnvironment(fn (): string => 'production');
 
     $this->artisan('db:seed', ['--force' => true])
+        ->expectsOutputToContain('Skipped the demo operator, templates and token in production.')
         ->doesntExpectOutputToContain('API token')
         ->assertSuccessful();
 
-    expect(User::query()->sole()->tokens()->count())->toBe(0);
+    $this->assertDatabaseCount('users', 0);
+    $this->assertDatabaseCount('notification_templates', 0);
+    $this->assertDatabaseCount('personal_access_tokens', 0);
 });

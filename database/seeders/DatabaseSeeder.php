@@ -30,11 +30,19 @@ class DatabaseSeeder extends Seeder
      * factories, because the production image ships without Faker.
      *
      * Every run prints a new demo token, which expires after a week; expired ones
-     * are deleted. In production no token is created or printed, as the output
-     * ends up in the logs.
+     * are deleted.
+     *
+     * Production gets none of it: the operator's password is public and the token
+     * would be printed to the logs.
      */
     public function run(): void
     {
+        if (app()->isProduction()) {
+            $this->command->warn('Skipped the demo operator, templates and token in production.');
+
+            return;
+        }
+
         $user = User::query()->firstOrNew(['email' => self::OPERATOR_EMAIL]);
 
         if (! $user->exists) {
@@ -58,10 +66,6 @@ class DatabaseSeeder extends Seeder
         ]);
 
         $this->command->info('Dashboard login: '.self::OPERATOR_EMAIL.' / '.self::OPERATOR_PASSWORD);
-
-        if (app()->isProduction()) {
-            return;
-        }
 
         $user->tokens()->where('name', self::DEMO_TOKEN_NAME)->where('expires_at', '<', now())->delete();
 
