@@ -72,6 +72,7 @@ RUN composer dump-autoload --no-dev \
 FROM base AS app
 
 COPY docker/php/conf.d/app.ini /usr/local/etc/php/conf.d/zz-app.ini
+COPY docker/php/php-fpm.d/zz-pool.conf /usr/local/etc/php-fpm.d/zz-pool.conf
 COPY docker/entrypoint.sh docker/init.sh /usr/local/bin/
 
 COPY --from=vendor /var/www/html/vendor ./vendor
