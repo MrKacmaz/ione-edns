@@ -4,6 +4,7 @@ namespace App\Http\Requests;
 
 use App\Enums\NotificationChannel;
 use App\Enums\NotificationStatus;
+use App\Rules\PaginationCursorRule;
 use Carbon\CarbonInterface;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
@@ -29,7 +30,7 @@ class ListNotificationsRequest extends FormRequest
             'created_from' => ['sometimes', 'date'],
             'created_to' => ['sometimes', 'date', 'after_or_equal:created_from'],
             'per_page' => ['sometimes', 'integer', 'between:1,'.self::MAX_PER_PAGE],
-            'cursor' => ['sometimes', 'string'],
+            'cursor' => ['sometimes', 'string', new PaginationCursorRule(['created_at' => ['required', 'date'], 'id' => ['required', 'uuid']])],
         ];
     }
 

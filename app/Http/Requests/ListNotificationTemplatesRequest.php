@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use App\Enums\NotificationChannel;
+use App\Rules\PaginationCursorRule;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -23,7 +24,7 @@ class ListNotificationTemplatesRequest extends FormRequest
         return [
             'channel' => ['sometimes', Rule::enum(NotificationChannel::class)],
             'per_page' => ['sometimes', 'integer', 'between:1,'.self::MAX_PER_PAGE],
-            'cursor' => ['sometimes', 'string'],
+            'cursor' => ['sometimes', 'string', new PaginationCursorRule(['name' => ['required', 'string'], 'id' => ['required', 'uuid']])],
         ];
     }
 
