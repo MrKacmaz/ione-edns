@@ -1,0 +1,43 @@
+$kind: http-example
+request:
+  url: "{{baseUrl}}/v1/notifications?status=queued&channel=email&batch_id=f1e8d97c-21db-5d0f-c03f-c7c82f931e0e&created_from=2015-07-23T03:34:14.087Z&created_to=2015-07-23T03:34:14.087Z&per_page=19&cursor=string"
+  method: GET
+  headers:
+    - key: Authorization
+      value: Bearer <token>
+      description: "Added as a part of security scheme: bearer"
+    - key: X-Correlation-ID
+      value: 0b9e8c1a-4d2f-4e7b-8a3c-6f1d2e9b7a54
+      disabled: false
+      description: A UUID that ties the request to its log entries, jobs and provider calls. It is echoed in the response; a new one is created when it is missing or not a UUID.
+    - key: Accept
+      value: application/json
+  queryParams:
+    status: queued
+    channel: email
+    batch_id: f1e8d97c-21db-5d0f-c03f-c7c82f931e0e
+    created_from: 2015-07-23T03:34:14.087Z
+    created_to: 2015-07-23T03:34:14.087Z
+    per_page: "19"
+    cursor: string
+  body:
+    type: text
+    content: ""
+response:
+  statusCode: 422
+  statusText: Unprocessable Entity (WebDAV) (RFC 4918)
+  headers:
+    Content-Type: application/json
+  body:
+    type: json
+    content: |-
+      {
+        "message": "string",
+        "errors": {
+          "key_0": [
+            "string",
+            "string"
+          ]
+        }
+      }
+order: 3000

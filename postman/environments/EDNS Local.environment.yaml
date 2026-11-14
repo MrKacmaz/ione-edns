@@ -1,0 +1,11 @@
+name: EDNS Local
+values:
+  - key: appUrl
+    value: http://localhost:8000
+    enabled: true
+  - key: baseUrl
+    value: '{{appUrl}}/api'
+    enabled: true
+  - key: bearerToken
+    value: ''
+    enabled: true

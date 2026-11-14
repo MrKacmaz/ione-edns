@@ -1,0 +1,27 @@
+$kind: http-request
+url: "{{baseUrl}}/v1/notifications"
+method: POST
+headers:
+  - key: "Accept"
+    value: "application/json"
+  - key: "Content-Type"
+    value: "application/json"
+  - key: "X-Correlation-ID"
+    value: "{{$guid}}"
+body:
+  type: json
+  content: |-
+    {
+      "channel": "sms",
+      "recipient": "not-a-phone",
+      "content": "Hello"
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('answers 422 with the reason', () => {
+          pm.response.to.have.status(422);
+          pm.expect(pm.response.json().errors.recipient[0]).to.equal('The recipient must be an E.164 phone number (e.g. +905551234567) for the sms channel.');
+      });
+    language: text/javascript
+order: 10000

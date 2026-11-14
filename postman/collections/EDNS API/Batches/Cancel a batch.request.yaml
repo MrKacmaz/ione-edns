@@ -1,0 +1,21 @@
+$kind: http-request
+description: |-
+  Notifications that are already processing or finished are left untouched;
+  `meta.cancelled` reports how many notifications this request cancelled.
+url: "{{baseUrl}}/v1/batches/:batch/cancel"
+method: POST
+headers:
+  - key: X-Correlation-ID
+    value: 0b9e8c1a-4d2f-4e7b-8a3c-6f1d2e9b7a54
+    disabled: false
+    description: A UUID that ties the request to its log entries, jobs and provider calls. It is echoed in the response; a new one is created when it is missing or not a UUID.
+  - key: Accept
+    value: application/json
+pathVariables:
+  - key: batch
+    value: f1e8d97c-21db-5d0f-c03f-c7c82f931e0e
+    disabled: false
+    description: (Required) The batch ID
+settings: {}
+examples: ./.resources/Cancel a batch.resources/examples
+order: 3000

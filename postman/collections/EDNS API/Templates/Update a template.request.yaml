@@ -1,0 +1,29 @@
+$kind: http-request
+description: Notifications already created from the template keep the content they were created with.
+url: "{{baseUrl}}/v1/templates/:template"
+method: PATCH
+headers:
+  - key: X-Correlation-ID
+    value: 0b9e8c1a-4d2f-4e7b-8a3c-6f1d2e9b7a54
+    disabled: false
+    description: A UUID that ties the request to its log entries, jobs and provider calls. It is echoed in the response; a new one is created when it is missing or not a UUID.
+  - key: Content-Type
+    value: application/json
+  - key: Accept
+    value: application/json
+pathVariables:
+  - key: template
+    value: f1e8d97c-21db-5d0f-c03f-c7c82f931e0e
+    disabled: false
+    description: (Required) The template ID
+body:
+  type: json
+  content: |-
+    {
+      "name": "string",
+      "channel": "string",
+      "content": "string"
+    }
+settings: {}
+examples: ./.resources/Update a template.resources/examples
+order: 4000

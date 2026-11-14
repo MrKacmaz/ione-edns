@@ -72,6 +72,9 @@ export default defineConfig({
             'resources/js/components/ui/*',
             'resources/views/mail/*',
             'spec/**',
+            // Written by the Postman CLI (`composer postman:sync`) in its own format.
+            '.postman/**',
+            'postman/**',
         ],
         sortTailwindcss: {
             functions: ['clsx', 'cn', 'cva'],

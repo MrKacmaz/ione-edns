@@ -1,0 +1,20 @@
+$kind: http-request
+description: "Operators only; the seeded test user is an operator."
+url: "{{baseUrl}}/v1/metrics"
+method: GET
+headers:
+  - key: "Accept"
+    value: "application/json"
+  - key: "X-Correlation-ID"
+    value: "{{$guid}}"
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('answers 200 with windows and circuits', () => {
+          pm.response.to.have.status(200);
+          const metrics = pm.response.json().data;
+          pm.expect(metrics.windows.map((window) => window.window)).to.eql(['5m', '1h']);
+          pm.expect(metrics.circuits).to.include.keys('sms', 'email', 'push');
+      });
+    language: text/javascript
+order: 16000

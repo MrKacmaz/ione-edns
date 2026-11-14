@@ -1,0 +1,17 @@
+$kind: http-request
+description: The authenticated user's templates by name, with cursor pagination.
+url: '{{baseUrl}}/v1/templates?per_page=25'
+method: GET
+headers:
+  - key: X-Correlation-ID
+    value: 0b9e8c1a-4d2f-4e7b-8a3c-6f1d2e9b7a54
+    disabled: false
+    description: A UUID that ties the request to its log entries, jobs and provider calls. It is echoed in the response; a new one is created when it is missing or not a UUID.
+  - key: Accept
+    value: application/json
+queryParams:
+  - key: per_page
+    value: '25'
+settings: {}
+examples: ./.resources/List templates.resources/examples
+order: 1000

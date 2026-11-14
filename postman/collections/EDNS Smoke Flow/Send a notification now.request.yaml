@@ -1,0 +1,28 @@
+$kind: http-request
+description: "The one request of the flow that reaches the provider (NOTIFICATIONS_GATEWAY_URL)."
+url: "{{baseUrl}}/v1/notifications"
+method: POST
+headers:
+  - key: "Accept"
+    value: "application/json"
+  - key: "Content-Type"
+    value: "application/json"
+  - key: "X-Correlation-ID"
+    value: "{{$guid}}"
+body:
+  type: json
+  content: |-
+    {
+      "channel": "email",
+      "recipient": "customer@example.com",
+      "content": "EDNS smoke flow: delivered right away.",
+      "priority": "high"
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('answers 202', () => pm.response.to.have.status(202));
+      pm.collectionVariables.set('sentNotificationId', pm.response.json().data.id);
+      pm.collectionVariables.set('deliveryPolls', 0);
+    language: text/javascript
+order: 14000

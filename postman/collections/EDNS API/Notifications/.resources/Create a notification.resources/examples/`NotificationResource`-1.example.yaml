@@ -1,0 +1,66 @@
+$kind: http-example
+name: "`NotificationResource`"
+request:
+  url: "{{baseUrl}}/v1/notifications"
+  method: POST
+  headers:
+    - key: Authorization
+      value: Bearer <token>
+      description: "Added as a part of security scheme: bearer"
+    - key: Idempotency-Key
+      value: 8d3f1c7e-2b4a-4f0e-9c61-5a7b2e9d1f30
+      disabled: false
+      description: "Makes a retried request safe: a repeat with the same key and payload within 24 hours replays the first response instead of creating notifications again. A different payload with the same key answers 422."
+    - key: X-Correlation-ID
+      value: 0b9e8c1a-4d2f-4e7b-8a3c-6f1d2e9b7a54
+      disabled: false
+      description: A UUID that ties the request to its log entries, jobs and provider calls. It is echoed in the response; a new one is created when it is missing or not a UUID.
+    - key: Accept
+      value: application/json
+  body:
+    type: json
+    content: |-
+      {
+        "channel": "sms",
+        "recipient": "+905551234567",
+        "content": "Your order has shipped.",
+        "priority": "high"
+      }
+response:
+  statusCode: 202
+  statusText: Accepted
+  headers:
+    - key: Idempotent-Replayed
+      value: string
+      disabled: false
+      description: Present with the value "true" when the response is a replay of an earlier request with the same Idempotency-Key.
+    - key: Content-Type
+      value: application/json
+  body:
+    type: json
+    content: |-
+      {
+        "data": {
+          "id": "string",
+          "batch_id": "string",
+          "template_id": "string",
+          "channel": "sms",
+          "priority": "high",
+          "status": "waiting",
+          "recipient": "string",
+          "content": "string",
+          "idempotency_key": "string",
+          "correlation_id": "string",
+          "attempts": 6919,
+          "provider_message_id": "string",
+          "last_error": "string",
+          "scheduled_at": "1960-10-14T05:14:31.531Z",
+          "queued_at": "1997-06-06T19:17:55.775Z",
+          "sent_at": "2011-03-16T19:44:18.853Z",
+          "failed_at": "2008-04-15T13:51:20.644Z",
+          "cancelled_at": "1982-05-03T14:10:29.136Z",
+          "created_at": "2007-07-24T17:03:03.497Z",
+          "updated_at": "2019-03-31T15:54:08.876Z"
+        }
+      }
+order: 2000

@@ -1,0 +1,11 @@
+$kind: collection
+description: Create, track and cancel SMS, email and push notifications that are delivered asynchronously.
+variables:
+  baseUrl: http://localhost:8000/api
+  bearerToken: ""
+auth:
+  - id: 8281b7d9-122d-4ff0-9d71-56ffce3bee5c
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{bearerToken}}"

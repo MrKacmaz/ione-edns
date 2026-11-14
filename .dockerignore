@@ -45,5 +45,8 @@ auth.json
 
 Dockerfile
 .dockerignore
+
+/postman
+/.postman
 docker-compose*.yml
 compose*.yml

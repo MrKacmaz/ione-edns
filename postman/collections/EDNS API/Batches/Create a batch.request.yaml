@@ -1,0 +1,46 @@
+$kind: http-request
+description: |-
+  A batch holds at most `notifications.batch.max_size` notifications (1000 by default).
+  `notifications` lists the result for every requested notification in request
+  order; a notification whose idempotency key was already used is returned as the
+  existing notification and keeps its original batch.
+url: "{{baseUrl}}/v1/notifications/batch"
+method: POST
+headers:
+  - key: Idempotency-Key
+    value: 8d3f1c7e-2b4a-4f0e-9c61-5a7b2e9d1f30
+    disabled: false
+    description: "Makes a retried request safe: a repeat with the same key and payload within 24 hours replays the first response instead of creating notifications again. A different payload with the same key answers 422."
+  - key: X-Correlation-ID
+    value: 0b9e8c1a-4d2f-4e7b-8a3c-6f1d2e9b7a54
+    disabled: false
+    description: A UUID that ties the request to its log entries, jobs and provider calls. It is echoed in the response; a new one is created when it is missing or not a UUID.
+  - key: Content-Type
+    value: application/json
+  - key: Accept
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "notifications": [
+        {
+          "channel": "sms",
+          "recipient": "string",
+          "content": "string",
+          "template": "string",
+          "variables": {
+            "key_0": "string",
+            "key_1": "string",
+            "key_2": "string",
+            "key_3": "string"
+          },
+          "priority": "high",
+          "idempotency_key": "string",
+          "scheduled_at": "2011-11-19T23:55:22.144Z"
+        }
+      ]
+    }
+settings: {}
+examples: ./.resources/Create a batch.resources/examples
+order: 1000

@@ -1,0 +1,45 @@
+$kind: http-request
+description: "Scheduled a day ahead, so it is cancelled below without reaching the provider."
+url: "{{baseUrl}}/v1/notifications"
+method: POST
+headers:
+  - key: "Accept"
+    value: "application/json"
+  - key: "Content-Type"
+    value: "application/json"
+  - key: "Idempotency-Key"
+    value: "{{idempotencyKey}}"
+  - key: "X-Correlation-ID"
+    value: "{{correlationId}}"
+body:
+  type: json
+  content: |-
+    {
+      "channel": "sms",
+      "recipient": "+905551234567",
+      "template": "{{templateName}}",
+      "variables": {
+        "name": "Ada",
+        "order_id": 1001
+      },
+      "scheduled_at": "{{scheduledAt}}"
+    }
+scripts:
+  - type: beforeRequest
+    code: |-
+      pm.collectionVariables.set('scheduledAt', new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString());
+      pm.collectionVariables.set('idempotencyKey', pm.variables.replaceIn('{{$guid}}'));
+      pm.collectionVariables.set('correlationId', pm.variables.replaceIn('{{$guid}}'));
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      pm.test('answers 202', () => pm.response.to.have.status(202));
+      const notification = pm.response.json().data;
+      pm.test('holds the notification until its time', () => pm.expect(notification.status).to.equal('scheduled'));
+      pm.test('renders the template', () => pm.expect(notification.content).to.equal('Hi Ada, your order 1001 has shipped.'));
+      pm.test('echoes the correlation id', () => {
+          pm.expect(pm.response.headers.get('X-Correlation-ID')).to.equal(pm.collectionVariables.get('correlationId'));
+      });
+      pm.collectionVariables.set('notificationId', notification.id);
+    language: text/javascript
+order: 4000

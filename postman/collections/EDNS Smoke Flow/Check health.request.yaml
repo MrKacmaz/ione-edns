@@ -1,0 +1,18 @@
+$kind: http-request
+description: "The service and its dependencies are up. `warn` means a channel's circuit is open."
+url: "{{appUrl}}/health"
+method: GET
+headers:
+  - key: "Accept"
+    value: "application/json"
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('answers 200', () => pm.response.to.have.status(200));
+      pm.test('reports every dependency', () => {
+          const health = pm.response.json();
+          pm.expect(health.status).to.be.oneOf(['ok', 'warn']);
+          pm.expect(health.checks).to.include.keys('database', 'redis', 'horizon', 'gateway', 'delivery_circuits');
+      });
+    language: text/javascript
+order: 1000

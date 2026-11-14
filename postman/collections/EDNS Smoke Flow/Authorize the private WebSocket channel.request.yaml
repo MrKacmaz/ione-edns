@@ -1,0 +1,25 @@
+$kind: http-request
+description: "What Laravel Echo does before subscribing to the user's status updates."
+url: "{{baseUrl}}/v1/broadcasting/auth"
+method: POST
+headers:
+  - key: "Accept"
+    value: "application/json"
+  - key: "Content-Type"
+    value: "application/json"
+body:
+  type: json
+  content: |-
+    {
+      "socket_id": "1234.5678",
+      "channel_name": "private-App.Models.User.{{userId}}"
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('answers 200 with a signature', () => {
+          pm.response.to.have.status(200);
+          pm.expect(pm.response.json().auth).to.be.a('string').and.not.empty;
+      });
+    language: text/javascript
+order: 17000

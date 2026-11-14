@@ -1,0 +1,26 @@
+$kind: collection
+name: EDNS Smoke Flow
+description: |-
+  Walks through the whole API in order and checks every answer: health, the
+  account, templates, a scheduled notification with an idempotent replay,
+  listing, cancelling, a scheduled batch, validation, one real delivery, the
+  metrics, the WebSocket channel authorization and clean-up.
+
+  Only "Send a notification now" reaches the provider; every other notification
+  is scheduled a day ahead and cancelled, so a run costs one webhook.site request.
+
+  Needs the EDNS Local environment with bearerToken set to an operator's API
+  token (the seeded test@example.com is one). Run it with:
+  postman collection run "postman/collections/EDNS Smoke Flow" -e "postman/environments/EDNS Local.environment.yaml" --env-var bearerToken=<token>
+auth:
+  type: bearer
+  credentials:
+    - key: token
+      value: '{{bearerToken}}'
+scripts:
+  - type: http:afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('carries a correlation id', () => {
+          pm.expect(pm.response.headers.get('X-Correlation-ID')).to.match(/^[0-9a-f-]{36}$/);
+      });

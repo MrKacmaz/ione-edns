@@ -1,0 +1,6 @@
+workflows:
+  syncSpecToCollection:
+    - spec: ../spec/openapi.json
+      collection: ../postman/collections/EDNS API
+      options:
+        folderStrategy: Tags

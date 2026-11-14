@@ -1,0 +1,39 @@
+$kind: http-example
+request:
+  url: "{{baseUrl}}/v1/batches/:batch/cancel"
+  method: POST
+  headers:
+    - key: Authorization
+      value: Bearer <token>
+      description: "Added as a part of security scheme: bearer"
+    - key: X-Correlation-ID
+      value: 0b9e8c1a-4d2f-4e7b-8a3c-6f1d2e9b7a54
+      disabled: false
+      description: A UUID that ties the request to its log entries, jobs and provider calls. It is echoed in the response; a new one is created when it is missing or not a UUID.
+    - key: Accept
+      value: application/json
+  pathVariables:
+    - key: batch
+      value: f1e8d97c-21db-5d0f-c03f-c7c82f931e0e
+      disabled: false
+      description: (Required) The batch ID
+  body:
+    type: text
+    content: ""
+response:
+  statusCode: 429
+  statusText: Too Many Requests
+  headers:
+    - key: Retry-After
+      value: "30"
+      disabled: false
+      description: Seconds to wait before the account may make requests again.
+    - key: Content-Type
+      value: application/json
+  body:
+    type: json
+    content: |-
+      {
+        "message": "string"
+      }
+order: 4000

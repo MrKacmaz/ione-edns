@@ -1,0 +1,19 @@
+$kind: http-request
+url: "{{baseUrl}}/v1/batches/{{batchId}}/cancel"
+method: POST
+headers:
+  - key: "Accept"
+    value: "application/json"
+  - key: "X-Correlation-ID"
+    value: "{{$guid}}"
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('answers 200 and cancels both notifications', () => {
+          pm.response.to.have.status(200);
+          const body = pm.response.json();
+          pm.expect(body.meta.cancelled).to.equal(2);
+          pm.expect(body.data.is_finished).to.equal(true);
+      });
+    language: text/javascript
+order: 13000

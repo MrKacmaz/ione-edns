@@ -99,6 +99,12 @@
         ],
         "pre-package-uninstall": [
             "Illuminate\\Foundation\\ComposerScripts::prePackageUninstall"
+        ],
+        "postman:sync": [
+            "@php artisan scramble:export --path=spec/openapi.json",
+            "postman spec generate collection spec/openapi.json -n \"EDNS API\" --folder-strategy Tags --force",
+            "postman collection request update \"List notifications\" --collection \"EDNS API\" --folder Notifications --url '{{baseUrl}}/v1/notifications?per_page=25'",
+            "postman collection request update \"List templates\" --collection \"EDNS API\" --folder Templates --url '{{baseUrl}}/v1/templates?per_page=25'"
         ]
     },
     "extra": {

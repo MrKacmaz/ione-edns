@@ -1,0 +1,26 @@
+$kind: http-request
+description: |-
+  Placeholders take the form `{{ name }}`. Notifications created from the
+  template give their values in `variables`.
+url: "{{baseUrl}}/v1/templates"
+method: POST
+headers:
+  - key: X-Correlation-ID
+    value: 0b9e8c1a-4d2f-4e7b-8a3c-6f1d2e9b7a54
+    disabled: false
+    description: A UUID that ties the request to its log entries, jobs and provider calls. It is echoed in the response; a new one is created when it is missing or not a UUID.
+  - key: Content-Type
+    value: application/json
+  - key: Accept
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "name": "order-shipped",
+      "channel": "sms",
+      "content": "Hi {{ name }}, your order {{ order_id }} has shipped."
+    }
+settings: {}
+examples: ./.resources/Create a template.resources/examples
+order: 2000

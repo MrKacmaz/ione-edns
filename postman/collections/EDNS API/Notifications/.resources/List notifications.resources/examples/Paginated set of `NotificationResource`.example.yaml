@@ -1,0 +1,94 @@
+$kind: http-example
+request:
+  url: "{{baseUrl}}/v1/notifications?status=queued&channel=email&batch_id=f1e8d97c-21db-5d0f-c03f-c7c82f931e0e&created_from=2015-07-23T03:34:14.087Z&created_to=2015-07-23T03:34:14.087Z&per_page=19&cursor=string"
+  method: GET
+  headers:
+    - key: Authorization
+      value: Bearer <token>
+      description: "Added as a part of security scheme: bearer"
+    - key: X-Correlation-ID
+      value: 0b9e8c1a-4d2f-4e7b-8a3c-6f1d2e9b7a54
+      disabled: false
+      description: A UUID that ties the request to its log entries, jobs and provider calls. It is echoed in the response; a new one is created when it is missing or not a UUID.
+    - key: Accept
+      value: application/json
+  queryParams:
+    status: queued
+    channel: email
+    batch_id: f1e8d97c-21db-5d0f-c03f-c7c82f931e0e
+    created_from: 2015-07-23T03:34:14.087Z
+    created_to: 2015-07-23T03:34:14.087Z
+    per_page: "19"
+    cursor: string
+  body:
+    type: text
+    content: ""
+response:
+  statusCode: 200
+  statusText: OK
+  headers:
+    Content-Type: application/json
+  body:
+    type: json
+    content: |-
+      {
+        "data": [
+          {
+            "id": "string",
+            "batch_id": "string",
+            "template_id": "string",
+            "channel": "push",
+            "priority": "normal",
+            "status": "scheduled",
+            "recipient": "string",
+            "content": "string",
+            "idempotency_key": "string",
+            "correlation_id": "string",
+            "attempts": 7887,
+            "provider_message_id": "string",
+            "last_error": "string",
+            "scheduled_at": "2006-02-28T21:49:17.481Z",
+            "queued_at": "2006-05-17T07:34:30.753Z",
+            "sent_at": "2010-03-03T10:27:40.019Z",
+            "failed_at": "1955-12-18T19:50:24.564Z",
+            "cancelled_at": "2016-09-21T14:19:59.163Z",
+            "created_at": "2025-12-25T22:10:33.220Z",
+            "updated_at": "2026-05-02T10:28:24.957Z"
+          },
+          {
+            "id": "string",
+            "batch_id": "string",
+            "template_id": "string",
+            "channel": "email",
+            "priority": "normal",
+            "status": "queued",
+            "recipient": "string",
+            "content": "string",
+            "idempotency_key": "string",
+            "correlation_id": "string",
+            "attempts": 7948,
+            "provider_message_id": "string",
+            "last_error": "string",
+            "scheduled_at": "2015-01-19T20:44:24.439Z",
+            "queued_at": "1976-03-08T20:10:33.442Z",
+            "sent_at": "2006-04-18T18:47:00.762Z",
+            "failed_at": "1970-09-18T15:32:26.918Z",
+            "cancelled_at": "2012-07-01T19:16:10.771Z",
+            "created_at": "1984-06-20T19:24:41.397Z",
+            "updated_at": "2013-01-29T16:48:04.373Z"
+          }
+        ],
+        "links": {
+          "first": "string",
+          "last": "string",
+          "prev": "string",
+          "next": "string"
+        },
+        "meta": {
+          "path": "string",
+          "per_page": 5880,
+          "next_cursor": "string",
+          "prev_cursor": "string"
+        }
+      }
+order: 1000

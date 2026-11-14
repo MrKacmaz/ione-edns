@@ -1,0 +1,70 @@
+$kind: http-example
+request:
+  url: "{{baseUrl}}/v1/templates?channel=email&per_page=19&cursor=string"
+  method: GET
+  headers:
+    - key: Authorization
+      value: Bearer <token>
+      description: "Added as a part of security scheme: bearer"
+    - key: X-Correlation-ID
+      value: 0b9e8c1a-4d2f-4e7b-8a3c-6f1d2e9b7a54
+      disabled: false
+      description: A UUID that ties the request to its log entries, jobs and provider calls. It is echoed in the response; a new one is created when it is missing or not a UUID.
+    - key: Accept
+      value: application/json
+  queryParams:
+    channel: email
+    per_page: "19"
+    cursor: string
+  body:
+    type: text
+    content: ""
+response:
+  statusCode: 200
+  statusText: OK
+  headers:
+    Content-Type: application/json
+  body:
+    type: json
+    content: |-
+      {
+        "data": [
+          {
+            "id": "string",
+            "name": "string",
+            "channel": "push",
+            "content": "string",
+            "variables": [
+              "string",
+              "string"
+            ],
+            "created_at": "2017-08-10T14:12:42.411Z",
+            "updated_at": "2003-12-25T14:07:15.345Z"
+          },
+          {
+            "id": "string",
+            "name": "string",
+            "channel": "sms",
+            "content": "string",
+            "variables": [
+              "string",
+              "string"
+            ],
+            "created_at": "1984-07-04T05:05:13.540Z",
+            "updated_at": "1996-06-29T16:20:52.811Z"
+          }
+        ],
+        "links": {
+          "first": "string",
+          "last": "string",
+          "prev": "string",
+          "next": "string"
+        },
+        "meta": {
+          "path": "string",
+          "per_page": 6397,
+          "next_cursor": "string",
+          "prev_cursor": "string"
+        }
+      }
+order: 1000

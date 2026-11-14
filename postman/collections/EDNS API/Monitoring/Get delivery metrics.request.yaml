@@ -1,0 +1,19 @@
+$kind: http-request
+description: |-
+  Responds with JSON, or with the Prometheus text exposition format when
+  `format=prometheus`. The snapshot is cached for a few seconds. The numbers
+  cover every user's notifications, so only operators may read them.
+url: "{{baseUrl}}/v1/metrics?format=prometheus"
+method: GET
+headers:
+  - key: X-Correlation-ID
+    value: 0b9e8c1a-4d2f-4e7b-8a3c-6f1d2e9b7a54
+    disabled: false
+    description: A UUID that ties the request to its log entries, jobs and provider calls. It is echoed in the response; a new one is created when it is missing or not a UUID.
+  - key: Accept
+    value: application/json
+queryParams:
+  format: prometheus
+settings: {}
+examples: ./.resources/Get delivery metrics.resources/examples
+order: 1000

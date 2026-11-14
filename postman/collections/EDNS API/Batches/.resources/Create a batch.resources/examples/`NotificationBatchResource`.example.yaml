@@ -1,0 +1,111 @@
+$kind: http-example
+request:
+  url: "{{baseUrl}}/v1/notifications/batch"
+  method: POST
+  headers:
+    - key: Authorization
+      value: Bearer <token>
+      description: "Added as a part of security scheme: bearer"
+    - key: Idempotency-Key
+      value: 8d3f1c7e-2b4a-4f0e-9c61-5a7b2e9d1f30
+      disabled: false
+      description: "Makes a retried request safe: a repeat with the same key and payload within 24 hours replays the first response instead of creating notifications again. A different payload with the same key answers 422."
+    - key: X-Correlation-ID
+      value: 0b9e8c1a-4d2f-4e7b-8a3c-6f1d2e9b7a54
+      disabled: false
+      description: A UUID that ties the request to its log entries, jobs and provider calls. It is echoed in the response; a new one is created when it is missing or not a UUID.
+    - key: Accept
+      value: application/json
+  body:
+    type: json
+    content: |-
+      {
+        "notifications": [
+          {
+            "channel": "sms",
+            "recipient": "string",
+            "content": "string",
+            "template": "string",
+            "variables": {
+              "key_0": "string",
+              "key_1": "string",
+              "key_2": "string",
+              "key_3": "string"
+            },
+            "priority": "high",
+            "idempotency_key": "string",
+            "scheduled_at": "2011-11-19T23:55:22.144Z"
+          }
+        ]
+      }
+response:
+  statusCode: 202
+  statusText: Accepted
+  headers:
+    - key: Idempotent-Replayed
+      value: string
+      disabled: false
+      description: Present with the value "true" when the response is a replay of an earlier request with the same Idempotency-Key.
+    - key: Content-Type
+      value: application/json
+  body:
+    type: json
+    content: |-
+      {
+        "data": {
+          "id": "string",
+          "total": 4273.970457725227,
+          "status_counts": {
+            "key_0": 2663
+          },
+          "is_finished": false,
+          "created_at": "2023-01-27T09:50:10.542Z"
+        },
+        "notifications": [
+          {
+            "id": "string",
+            "batch_id": "string",
+            "template_id": "string",
+            "channel": "push",
+            "priority": "low",
+            "status": "queued",
+            "recipient": "string",
+            "content": "string",
+            "idempotency_key": "string",
+            "correlation_id": "string",
+            "attempts": 970,
+            "provider_message_id": "string",
+            "last_error": "string",
+            "scheduled_at": "1978-06-13T01:14:28.833Z",
+            "queued_at": "1982-02-14T07:05:29.586Z",
+            "sent_at": "2013-12-09T16:52:27.216Z",
+            "failed_at": "2011-05-15T22:51:46.126Z",
+            "cancelled_at": "2010-04-04T11:24:21.773Z",
+            "created_at": "2019-01-27T00:48:26.460Z",
+            "updated_at": "2017-04-15T09:09:05.490Z"
+          },
+          {
+            "id": "string",
+            "batch_id": "string",
+            "template_id": "string",
+            "channel": "sms",
+            "priority": "normal",
+            "status": "scheduled",
+            "recipient": "string",
+            "content": "string",
+            "idempotency_key": "string",
+            "correlation_id": "string",
+            "attempts": 6519,
+            "provider_message_id": "string",
+            "last_error": "string",
+            "scheduled_at": "1956-06-29T20:34:27.658Z",
+            "queued_at": "2003-04-21T02:08:20.191Z",
+            "sent_at": "1980-08-01T21:16:15.022Z",
+            "failed_at": "1983-12-17T16:28:11.235Z",
+            "cancelled_at": "1994-02-06T20:41:52.535Z",
+            "created_at": "2015-02-22T15:42:27.499Z",
+            "updated_at": "2003-08-27T11:57:36.529Z"
+          }
+        ]
+      }
+order: 1000

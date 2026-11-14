@@ -1,0 +1,36 @@
+$kind: http-example
+request:
+  url: "{{baseUrl}}/v1/user"
+  method: GET
+  headers:
+    - key: Authorization
+      value: Bearer <token>
+      description: "Added as a part of security scheme: bearer"
+    - key: X-Correlation-ID
+      value: 0b9e8c1a-4d2f-4e7b-8a3c-6f1d2e9b7a54
+      disabled: false
+      description: A UUID that ties the request to its log entries, jobs and provider calls. It is echoed in the response; a new one is created when it is missing or not a UUID.
+    - key: Accept
+      value: application/json
+  body:
+    type: text
+    content: ""
+response:
+  statusCode: 200
+  statusText: OK
+  headers:
+    Content-Type: application/json
+  body:
+    type: json
+    content: |-
+      {
+        "id": 9314,
+        "name": "string",
+        "email": "string",
+        "email_verified_at": "2009-12-30T21:43:51.864Z",
+        "created_at": "1959-09-08T18:05:52.724Z",
+        "updated_at": "1949-12-14T14:41:34.271Z",
+        "deleted_at": "1979-04-15T17:00:16.287Z",
+        "is_operator": false
+      }
+order: 1000

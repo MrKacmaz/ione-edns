@@ -1,0 +1,3 @@
+$kind: collection
+description: The user the token belongs to.
+order: 4000

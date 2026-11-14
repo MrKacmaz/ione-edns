@@ -1,0 +1,16 @@
+$kind: http-request
+description: "Its id names the private WebSocket channel used further below."
+url: "{{baseUrl}}/v1/user"
+method: GET
+headers:
+  - key: "Accept"
+    value: "application/json"
+  - key: "X-Correlation-ID"
+    value: "{{$guid}}"
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('answers 200 for the token', () => pm.response.to.have.status(200));
+      pm.collectionVariables.set('userId', pm.response.json().id);
+    language: text/javascript
+order: 2000

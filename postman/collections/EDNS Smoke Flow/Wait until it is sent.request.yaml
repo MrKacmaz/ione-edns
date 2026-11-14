@@ -1,0 +1,30 @@
+$kind: http-request
+description: "Polls once a second, at most 15 times, until a worker has delivered the notification."
+url: "{{baseUrl}}/v1/notifications/{{sentNotificationId}}"
+method: GET
+headers:
+  - key: "Accept"
+    value: "application/json"
+  - key: "X-Correlation-ID"
+    value: "{{$guid}}"
+scripts:
+  - type: beforeRequest
+    code: |-
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      const notification = pm.response.json().data;
+      const polls = Number(pm.collectionVariables.get('deliveryPolls')) + 1;
+      pm.collectionVariables.set('deliveryPolls', polls);
+
+      if (['waiting', 'queued', 'processing'].includes(notification.status) && polls < 15) {
+          pm.execution.setNextRequest(pm.info.requestName);
+      } else {
+          pm.test('is delivered to the provider', () => {
+              pm.expect(notification.status, notification.last_error || '').to.equal('sent');
+              pm.expect(notification.attempts).to.be.at.least(1);
+          });
+      }
+    language: text/javascript
+order: 15000

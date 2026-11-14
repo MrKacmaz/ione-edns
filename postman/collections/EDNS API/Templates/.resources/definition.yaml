@@ -1,0 +1,3 @@
+$kind: collection
+description: Reusable content with {{ variable }} placeholders.
+order: 3000

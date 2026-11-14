@@ -1,0 +1,3 @@
+$kind: collection
+description: Create up to 1000 notifications at once and follow them as a batch.
+order: 2000

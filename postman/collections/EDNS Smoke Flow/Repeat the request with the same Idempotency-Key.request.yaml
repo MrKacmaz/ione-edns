@@ -1,0 +1,36 @@
+$kind: http-request
+description: "Replays the first response instead of creating a second notification."
+url: "{{baseUrl}}/v1/notifications"
+method: POST
+headers:
+  - key: "Accept"
+    value: "application/json"
+  - key: "Content-Type"
+    value: "application/json"
+  - key: "Idempotency-Key"
+    value: "{{idempotencyKey}}"
+  - key: "X-Correlation-ID"
+    value: "{{$guid}}"
+body:
+  type: json
+  content: |-
+    {
+      "channel": "sms",
+      "recipient": "+905551234567",
+      "template": "{{templateName}}",
+      "variables": {
+        "name": "Ada",
+        "order_id": 1001
+      },
+      "scheduled_at": "{{scheduledAt}}"
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('replays the first response', () => {
+          pm.response.to.have.status(202);
+          pm.expect(pm.response.headers.get('Idempotent-Replayed')).to.equal('true');
+          pm.expect(pm.response.json().data.id).to.equal(pm.collectionVariables.get('notificationId'));
+      });
+    language: text/javascript
+order: 5000

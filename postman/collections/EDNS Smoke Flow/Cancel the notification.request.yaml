@@ -1,0 +1,17 @@
+$kind: http-request
+url: "{{baseUrl}}/v1/notifications/{{notificationId}}/cancel"
+method: POST
+headers:
+  - key: "Accept"
+    value: "application/json"
+  - key: "X-Correlation-ID"
+    value: "{{$guid}}"
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('answers 200 with the cancelled notification', () => {
+          pm.response.to.have.status(200);
+          pm.expect(pm.response.json().data.status).to.equal('cancelled');
+      });
+    language: text/javascript
+order: 8000
