@@ -3,9 +3,9 @@
 namespace App\Jobs\Middleware;
 
 use App\Jobs\SendNotificationJob;
+use App\Services\Observability\InfrastructureOutageDetector;
 use Closure;
 use Illuminate\Container\Container;
-use Illuminate\Database\DetectsLostConnections;
 use Illuminate\Database\QueryException;
 use PDOException;
 use Psr\Log\LoggerInterface;
@@ -25,8 +25,6 @@ use RedisException;
  */
 class ReleaseDuringInfrastructureOutage
 {
-    use DetectsLostConnections;
-
     /**
      * The delay after the first outage, doubled after each further one.
      */
@@ -39,7 +37,7 @@ class ReleaseDuringInfrastructureOutage
 
     private LoggerInterface $logger;
 
-    public function __construct(?LoggerInterface $logger = null)
+    public function __construct(?LoggerInterface $logger = null, private InfrastructureOutageDetector $outages = new InfrastructureOutageDetector)
     {
         $this->logger = $logger ?? Container::getInstance()->make(LoggerInterface::class);
     }
@@ -56,7 +54,7 @@ class ReleaseDuringInfrastructureOutage
         try {
             $next($job);
         } catch (PDOException|RedisException $exception) {
-            if (! $this->isOutage($exception)) {
+            if (! $this->outages->isOutage($exception)) {
                 throw $exception;
             }
 
@@ -70,24 +68,6 @@ class ReleaseDuringInfrastructureOutage
 
             $job->release($delaySeconds);
         }
-    }
-
-    /**
-     * Determine whether the error only means that the database or Redis cannot be reached.
-     *
-     * Any Redis error counts, as Redis commands here do not fail for other reasons.
-     * A database error counts when it is a lost or refused connection (SQLSTATE class
-     * 08), not when the query itself is wrong.
-     */
-    private function isOutage(PDOException|RedisException $exception): bool
-    {
-        if ($exception instanceof RedisException) {
-            return true;
-        }
-
-        $sqlState = $exception instanceof QueryException ? $exception->getPrevious()?->getCode() : $exception->getCode();
-
-        return str_starts_with((string) $sqlState, '08') || $this->causedByLostConnection($exception);
     }
 
     /**

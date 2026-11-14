@@ -1,5 +1,6 @@
 <?php
 
+use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Tests\TestCase;
 
@@ -44,4 +45,22 @@ function smsNotificationPayload(array $overrides = []): array
         'content' => 'Your order has shipped.',
         ...$overrides,
     ];
+}
+
+/**
+ * Build the error the database layer raises for a query, with the given SQLSTATE and message.
+ */
+function queryException(string $sqlState, string $message): QueryException
+{
+    // PDO puts the SQLSTATE into the protected $code, which only a subclass can set.
+    $pdoException = new class("SQLSTATE[{$sqlState}]: {$message}", $sqlState) extends PDOException
+    {
+        public function __construct(string $message, string $sqlState)
+        {
+            parent::__construct($message);
+            $this->code = $sqlState;
+        }
+    };
+
+    return new QueryException('pgsql', 'update "notifications" set "status" = ?', [], $pdoException);
 }
