@@ -384,7 +384,7 @@ Everything is set with environment variables. [`config/notifications.php`](confi
 
 ## Tests and CI
 
-802 Pest tests: unit tests for pure logic (data objects, enums, backoff, channels), feature tests per class and endpoint, and architecture rules (`tests/Unit/ArchitectureTest.php`). Redis-backed code (rate limiter, circuit breaker, queues) is tested against a real Redis.
+784 Pest tests: unit tests for pure logic (data objects, enums, backoff, channels), feature tests per class and endpoint, and architecture rules (`tests/Unit/ArchitectureTest.php`). Redis-backed code (rate limiter, circuit breaker, queues) is tested against a real Redis.
 
 ```bash
 docker compose --profile test run --rm tests   # the whole suite in Docker

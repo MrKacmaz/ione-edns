@@ -27,9 +27,9 @@ test('reports every dependency healthy with 200 and without a token', function (
         ->assertJsonPath('checks.database.status', 'ok')
         ->assertJsonPath('checks.redis.status', 'ok')
         ->assertJsonPath('checks.horizon.status', 'ok')
-        ->assertJsonPath('checks.gateway.status', 'ok');
-    // JSON drops the fraction of a whole number of milliseconds, so the duration may come back as an int.
-    expect($response->json('checks.database.duration_ms'))->toBeNumeric()->toBeGreaterThanOrEqual(0);
+        ->assertJsonPath('checks.gateway.status', 'ok')
+        ->assertJsonPath('checks.database.message', null)
+        ->assertJsonStructure(['status', 'checks', 'checked_at']);
 });
 
 test('returns 503 when Horizon is not running', function () {

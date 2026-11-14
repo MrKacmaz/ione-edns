@@ -1,114 +1,105 @@
 <?php
 
-use App\Data\HealthCheckResultData;
+use App\Enums\CircuitState;
 use App\Enums\HealthCheckStatus;
-use App\Services\Observability\Contracts\HealthCheck;
+use App\Services\Delivery\Contracts\CircuitBreaker;
 use App\Services\Observability\HealthChecker;
+use Illuminate\Database\QueryException;
+use Illuminate\Redis\RedisManager;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Exceptions;
-use Tests\Support\StubHealthCheck;
+use Laravel\Horizon\Contracts\MasterSupervisorRepository;
+use Mockery\MockInterface;
+use Tests\Support\FakeCircuitBreaker;
 
-test('reports a check that throws as failing without revealing the exception', function () {
-    $broken = new class implements HealthCheck
-    {
-        public function name(): string
-        {
-            return 'broken';
-        }
-
-        public function check(): HealthCheckResultData
-        {
-            throw new RuntimeException('Connection refused by db.internal:5432');
-        }
-    };
-
-    $results = (new HealthChecker([$broken]))->run();
-
-    expect($results['broken']->status)->toBe(HealthCheckStatus::Failing)
-        ->and($results['broken']->message)->toBe('The broken check failed.')
-        ->and(HealthChecker::overallStatus($results))->toBe(HealthCheckStatus::Failing);
+beforeEach(function () {
+    config(['notifications.gateway.url' => 'https://gateway.test/notify']);
+    $this->mock(MasterSupervisorRepository::class, function (MockInterface $mock): void {
+        $mock->shouldReceive('all')->andReturn([(object) ['name' => 'master-1', 'status' => 'running']]);
+    });
 });
 
-test('passes when every check passes', function () {
-    $healthy = new class implements HealthCheck
-    {
-        public function name(): string
-        {
-            return 'healthy';
-        }
+test('passes every check, in the order the health endpoint reports them, while every dependency is healthy', function () {
+    $results = app(HealthChecker::class)->run();
 
-        public function check(): HealthCheckResultData
-        {
-            return HealthCheckResultData::ok();
-        }
-    };
-
-    $results = (new HealthChecker([$healthy]))->run();
-
-    expect(HealthChecker::overallStatus($results))->toBe(HealthCheckStatus::Ok)
-        ->and($results['healthy']->durationMilliseconds)->toBeFloat();
+    expect(array_keys($results))->toBe(['database', 'redis', 'horizon', 'gateway', 'delivery_circuits'])
+        ->and(array_column($results, 'status'))->each->toBe(HealthCheckStatus::Ok)
+        ->and(array_column($results, 'message'))->each->toBeNull();
 });
 
-test('rates the service by its worst check', function (array $results, HealthCheckStatus $overallStatus) {
-    expect(HealthChecker::overallStatus($results))->toBe($overallStatus);
-})->with([
-    'one check degraded' => [
-        ['database' => HealthCheckResultData::ok(), 'delivery_circuits' => HealthCheckResultData::degraded('Paused.')],
-        HealthCheckStatus::Degraded,
-    ],
-    'one check failing' => [
-        ['database' => HealthCheckResultData::ok(), 'horizon' => HealthCheckResultData::failing('Down.')],
-        HealthCheckStatus::Failing,
-    ],
-    'a failing check outweighs an earlier degraded one' => [
-        ['delivery_circuits' => HealthCheckResultData::degraded('Paused.'), 'horizon' => HealthCheckResultData::failing('Down.')],
-        HealthCheckStatus::Failing,
-    ],
-]);
+test('fails a check that throws without revealing why, and reports the exception for the logs', function () {
+    Exceptions::fake();
+    config(['database.connections.missing' => [
+        ...config('database.connections.pgsql'),
+        'database' => 'edns_health_check_missing_database',
+    ]]);
 
-test('keeps each check\'s own result under its name, in the order the checks are registered', function () {
-    $checker = new HealthChecker([
-        StubHealthCheck::returning('database', HealthCheckResultData::ok()),
-        StubHealthCheck::returning('delivery_circuits', HealthCheckResultData::degraded('Deliveries are paused on sms.')),
+    $results = DB::usingConnection('missing', fn (): array => app(HealthChecker::class)->run());
+
+    expect($results['database'])->toBe(['status' => HealthCheckStatus::Failing, 'message' => 'The database check failed.']);
+    Exceptions::assertReported(fn (QueryException $exception): bool => str_contains($exception->getMessage(), 'edns_health_check_missing_database'));
+});
+
+test('fails the redis check when Redis cannot be reached', function () {
+    Exceptions::fake();
+    $unreachable = new RedisManager($this->app, 'phpredis', [
+        'default' => ['host' => '127.0.0.1', 'port' => 1, 'database' => 0, 'timeout' => 1],
     ]);
 
-    $results = $checker->run();
+    $results = $this->app->make(HealthChecker::class, ['redis' => $unreachable])->run();
 
-    expect(array_keys($results))->toBe(['database', 'delivery_circuits'])
-        ->and($results['delivery_circuits']->status)->toBe(HealthCheckStatus::Degraded)
-        ->and($results['delivery_circuits']->message)->toBe('Deliveries are paused on sms.');
+    expect($results['redis'])->toBe(['status' => HealthCheckStatus::Failing, 'message' => 'The redis check failed.']);
+    Exceptions::assertReported(RedisException::class);
 });
 
-test('reports how long each check took in milliseconds', function () {
-    $slow = new StubHealthCheck('slow', function (): HealthCheckResultData {
-        $startedAt = hrtime(true);
-
-        do {
-            $elapsedNanoseconds = hrtime(true) - $startedAt;
-        } while ($elapsedNanoseconds < 5_000_000);
-
-        return HealthCheckResultData::ok();
+test('checks that an unpaused Horizon master supervisor runs, because nothing is delivered otherwise', function (array $masters, HealthCheckStatus $status, ?string $message) {
+    $this->mock(MasterSupervisorRepository::class, function (MockInterface $mock) use ($masters): void {
+        $mock->shouldReceive('all')->andReturn($masters);
     });
 
-    $results = (new HealthChecker([$slow]))->run();
+    $result = app(HealthChecker::class)->run()['horizon'];
 
-    expect($results['slow']->durationMilliseconds)
-        ->toBeGreaterThanOrEqual(5.0)
-        ->toBeLessThan(1000.0);
-});
+    expect($result)->toBe(['status' => $status, 'message' => $message]);
+})->with([
+    'one master runs' => [[(object) ['status' => 'running']], HealthCheckStatus::Ok, null],
+    'one of several masters runs' => [[(object) ['status' => 'paused'], (object) ['status' => 'running']], HealthCheckStatus::Ok, null],
+    'no master runs' => [[], HealthCheckStatus::Failing, 'Horizon is not running, so no notification is being delivered.'],
+    'every master is paused' => [[(object) ['status' => 'paused']], HealthCheckStatus::Failing, 'Horizon is paused, so no notification is being delivered.'],
+]);
 
-test('reports how long a check that throws took', function () {
-    $broken = new StubHealthCheck('broken', fn (): HealthCheckResultData => throw new RuntimeException('Connection refused.'));
+test('fails without calling the gateway when its URL is not configured', function (?string $url) {
+    config(['notifications.gateway.url' => $url]);
 
-    $results = (new HealthChecker([$broken]))->run();
+    $result = app(HealthChecker::class)->run()['gateway'];
 
-    expect($results['broken']->durationMilliseconds)->toBeFloat();
-});
+    expect($result)->toBe(['status' => HealthCheckStatus::Failing, 'message' => 'The notification gateway URL is not configured.']);
+})->with([
+    'missing' => [null],
+    'empty' => [''],
+]);
 
-test('reports the exception of a check that throws, so operators find the cause in the logs', function () {
-    Exceptions::fake();
-    $broken = new StubHealthCheck('database', fn (): HealthCheckResultData => throw new RuntimeException('Connection refused by db.internal:5432'));
+test('reports the service degraded and names every channel whose circuit is not closed', function (array $states, string $channels) {
+    $this->app->instance(CircuitBreaker::class, new FakeCircuitBreaker(states: $states));
 
-    (new HealthChecker([$broken]))->run();
+    $result = app(HealthChecker::class)->run()['delivery_circuits'];
 
-    Exceptions::assertReported(fn (RuntimeException $exception): bool => $exception->getMessage() === 'Connection refused by db.internal:5432');
-});
+    expect($result)->toBe([
+        'status' => HealthCheckStatus::Degraded,
+        'message' => "Deliveries are paused on these channels until their provider recovers: {$channels}.",
+    ]);
+})->with([
+    'one circuit open' => [['email' => CircuitState::Open], 'email'],
+    'one circuit half open' => [['email' => CircuitState::HalfOpen], 'email'],
+    'several circuits, named in channel order' => [['push' => CircuitState::Open, 'sms' => CircuitState::Open, 'email' => CircuitState::HalfOpen], 'sms, email, push'],
+]);
+
+test('rates the service by its worst check', function (array $statuses, HealthCheckStatus $overallStatus) {
+    $results = array_map(fn (HealthCheckStatus $status): array => ['status' => $status, 'message' => null], $statuses);
+
+    expect(HealthChecker::overallStatus($results))->toBe($overallStatus);
+})->with([
+    'every check passes' => [['database' => HealthCheckStatus::Ok, 'redis' => HealthCheckStatus::Ok], HealthCheckStatus::Ok],
+    'one check degraded' => [['database' => HealthCheckStatus::Ok, 'delivery_circuits' => HealthCheckStatus::Degraded], HealthCheckStatus::Degraded],
+    'one check failing' => [['database' => HealthCheckStatus::Ok, 'horizon' => HealthCheckStatus::Failing], HealthCheckStatus::Failing],
+    'a failing check outweighs a degraded one' => [['delivery_circuits' => HealthCheckStatus::Degraded, 'horizon' => HealthCheckStatus::Failing], HealthCheckStatus::Failing],
+]);

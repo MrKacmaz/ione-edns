@@ -5,7 +5,6 @@ use App\Services\Delivery\Contracts\ChannelRateLimiter;
 use App\Services\Delivery\Contracts\CircuitBreaker;
 use App\Services\Delivery\Contracts\DeliveryChannel;
 use App\Services\Delivery\Contracts\NotificationGateway;
-use App\Services\Observability\Contracts\HealthCheck;
 use Illuminate\Console\Command;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Contracts\Validation\ValidationRule;
@@ -153,7 +152,7 @@ arch('service classes are final')
     ->toBeFinal();
 
 arch('service contracts are interfaces')
-    ->expect(['App\Services\Delivery\Contracts', 'App\Services\Observability\Contracts'])
+    ->expect('App\Services\Delivery\Contracts')
     ->toBeInterfaces();
 
 arch('service implementations implement the contract they are grouped under', function (string $namespace, string $contract, string $suffix) {
@@ -165,5 +164,4 @@ arch('service implementations implement the contract they are grouped under', fu
     'notification gateways' => ['App\Services\Delivery\Gateways', NotificationGateway::class, 'Gateway'],
     'rate limiters' => ['App\Services\Delivery\RateLimiting', ChannelRateLimiter::class, 'RateLimiter'],
     'circuit breakers' => ['App\Services\Delivery\CircuitBreaking', CircuitBreaker::class, 'CircuitBreaker'],
-    'health checks' => ['App\Services\Observability\HealthChecks', HealthCheck::class, 'HealthCheck'],
 ]);

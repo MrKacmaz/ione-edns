@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Data\HealthCheckResultData;
 use App\Enums\HealthCheckStatus;
 use App\Services\Observability\HealthChecker;
 use Illuminate\Http\JsonResponse;
@@ -25,7 +24,10 @@ class HealthController extends Controller
 
         return response()->json([
             'status' => $status->value,
-            'checks' => array_map(fn (HealthCheckResultData $result): array => $result->toArray(), $results),
+            'checks' => array_map(fn (array $result): array => [
+                'status' => $result['status']->value,
+                'message' => $result['message'],
+            ], $results),
             'checked_at' => now()->toIso8601ZuluString('microsecond'),
         ], $status === HealthCheckStatus::Failing ? Response::HTTP_SERVICE_UNAVAILABLE : Response::HTTP_OK);
     }
