@@ -24,6 +24,17 @@ test('spaces reservations of a channel one emission interval apart', function ()
         ->and($reservations[2]->waitMilliseconds)->toBeGreaterThan(180)->toBeLessThanOrEqual(200);
 });
 
+test('spaces sends so that no second ever holds more than the limit, also when the limit does not divide a second evenly', function (int $perSecond, int $expectedInterval) {
+    $interval = RedisGcraRateLimiter::emissionIntervalMicroseconds($perSecond);
+
+    expect($interval)->toBe($expectedInterval)
+        ->and(intdiv(1_000_000 - 1, $interval) + 1)->toBeLessThanOrEqual($perSecond);
+})->with([
+    '100 per second' => [100, 10_000],
+    '3 per second' => [3, 333_334],
+    '7 per second' => [7, 142_858],
+]);
+
 test('denies a slot that opens later than the caller accepts, without taking it', function () {
     $rateLimiter = new RedisGcraRateLimiter(app('redis'), perSecond: 1, maxWaitMilliseconds: 500);
 

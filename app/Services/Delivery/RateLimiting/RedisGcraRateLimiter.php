@@ -76,7 +76,7 @@ final readonly class RedisGcraRateLimiter implements ChannelRateLimiter
             self::SCRIPT,
             1,
             self::key($channel),
-            (string) intdiv(1_000_000, $this->perSecond),
+            (string) self::emissionIntervalMicroseconds($this->perSecond),
             (string) ($this->maxWaitMilliseconds * 1000),
         );
 
@@ -89,6 +89,18 @@ final readonly class RedisGcraRateLimiter implements ChannelRateLimiter
         return (int) $result[0] === 1
             ? RateLimitReservationData::granted($waitMilliseconds)
             : RateLimitReservationData::denied($waitMilliseconds);
+    }
+
+    /**
+     * Get the time between two sends of a channel, in microseconds.
+     *
+     * Rounded up: a rounded-down interval would fit one send too many into a second
+     * for limits that do not divide a second evenly (3 per second: 333,333 µs apart,
+     * so the fourth send would still land inside the first second).
+     */
+    public static function emissionIntervalMicroseconds(int $perSecond): int
+    {
+        return intdiv(1_000_000 + $perSecond - 1, $perSecond);
     }
 
     /**
