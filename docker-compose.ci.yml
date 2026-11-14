@@ -1,0 +1,32 @@
+# Replaces webhook.site with a local mock provider, for CI and for trying the
+# stack without a webhook.site URL:
+#   docker compose -f docker-compose.yml -f docker-compose.ci.yml up -d --build
+# The "provider" service accepts every delivery with 202 and a fresh messageId.
+
+x-mock-provider-env: &mock-provider-env
+    NOTIFICATIONS_GATEWAY_URL: http://provider/
+
+services:
+    provider:
+        image: nginx:1.30.6-alpine
+        volumes:
+            - ./docker/mock-provider/default.conf:/etc/nginx/conf.d/default.conf:ro
+        restart: unless-stopped
+
+    init:
+        environment: *mock-provider-env
+
+    app:
+        environment: *mock-provider-env
+
+    horizon:
+        environment: *mock-provider-env
+        depends_on:
+            provider:
+                condition: service_started
+
+    scheduler:
+        environment: *mock-provider-env
+
+    reverb:
+        environment: *mock-provider-env
