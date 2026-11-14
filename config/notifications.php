@@ -159,4 +159,20 @@ return [
         'cache_seconds' => max(0, (int) env('NOTIFICATIONS_METRICS_CACHE_SECONDS', 5)),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | API Rate Limit
+    |--------------------------------------------------------------------------
+    |
+    | Every account may make "requests_per_minute" API requests, shared by all
+    | of its tokens; further requests answer 429 with a Retry-After header.
+    | This keeps one runaway client from flooding the database and queues.
+    | The per-channel provider limits apply separately, at delivery.
+    |
+    */
+
+    'api' => [
+        'requests_per_minute' => max(1, (int) env('NOTIFICATIONS_API_REQUESTS_PER_MINUTE', 600)),
+    ],
+
 ];

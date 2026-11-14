@@ -18,7 +18,8 @@ return Application::configure(basePath: dirname(__DIR__))
         channels: __DIR__.'/../routes/channels.php',
         health: '/up',
         then: function (): void {
-            Route::middleware(['api', 'auth:sanctum'])
+            // Every account has its own request budget, see the "api" rate limiter.
+            Route::middleware(['api', 'auth:sanctum', 'throttle:api'])
                 ->prefix('api/v1')
                 ->name('api.v1.')
                 ->group(base_path('routes/api.php'));
@@ -30,7 +31,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
             // API clients authorize their private WebSocket channels with their Sanctum token;
             // the dashboard uses /broadcasting/auth with its session.
-            Broadcast::routes(['prefix' => 'api/v1', 'middleware' => ['api', 'auth:sanctum']]);
+            Broadcast::routes(['prefix' => 'api/v1', 'middleware' => ['api', 'auth:sanctum', 'throttle:api']]);
         },
     )
     ->withMiddleware(function (Middleware $middleware): void {

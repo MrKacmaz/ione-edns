@@ -7,9 +7,12 @@ use Carbon\CarbonImmutable;
 use Dedoc\Scramble\Scramble;
 use Dedoc\Scramble\Support\Generator\OpenApi;
 use Dedoc\Scramble\Support\Generator\SecurityScheme;
+use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -29,6 +32,7 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->configureDefaults();
         $this->configureAuthorization();
+        $this->configureRateLimiting();
         $this->configureApiDocumentation();
     }
 
@@ -39,6 +43,17 @@ class AppServiceProvider extends ServiceProvider
     protected function configureAuthorization(): void
     {
         Gate::define('operate', static fn (User $user): bool => $user->is_operator);
+    }
+
+    /**
+     * Give every account one API request budget, shared by all of its tokens, so
+     * that issuing more tokens does not raise the limit.
+     */
+    protected function configureRateLimiting(): void
+    {
+        RateLimiter::for('api', static fn (Request $request): Limit => Limit::perMinute(
+            config()->integer('notifications.api.requests_per_minute'),
+        )->by($request->user()?->id ?: $request->ip()));
     }
 
     /**
