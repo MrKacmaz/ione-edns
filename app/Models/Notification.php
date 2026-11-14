@@ -214,13 +214,18 @@ class Notification extends Model
     }
 
     /**
-     * Fail a notification whose delivery job died while the notification was being processed.
+     * Fail a notification whose delivery job gave up before the notification was delivered.
+     *
+     * Covers a notification that was being processed when the job died, and one
+     * still queued when the job ran out of time, for example while its channel's
+     * circuit stayed open. No other job would pick a queued notification up, so
+     * without this it would stay queued forever.
      */
-    public static function markFailedIfStillProcessing(string $id, string $error): void
+    public static function markFailedIfUndelivered(string $id, string $error): void
     {
         $failedRows = static::query()
             ->whereKey($id)
-            ->where('status', NotificationStatus::Processing)
+            ->whereIn('status', [NotificationStatus::Queued, NotificationStatus::Processing])
             ->update([
                 'status' => NotificationStatus::Failed,
                 'last_error' => $error,

@@ -78,11 +78,12 @@ class SendNotificationJob implements ShouldQueue, TracingLinked
     }
 
     /**
-     * Fail the notification when the job itself gives up, for example after a timeout.
+     * Fail the notification when the job itself gives up, for example after a timeout,
+     * or when it runs out of time while its channel's circuit stays open.
      */
     public function failed(?Throwable $exception): void
     {
-        NotificationModel::markFailedIfStillProcessing(
+        NotificationModel::markFailedIfUndelivered(
             $this->notificationId,
             __('notifications.errors.job_failed', ['reason' => $exception?->getMessage() ?? '']),
         );
