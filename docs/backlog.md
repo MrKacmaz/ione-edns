@@ -5,8 +5,7 @@ Add an item here whenever something is postponed, and remove it once it ships.
 
 ## Planned
 
-- [ ] **Bonus features** — a fuller GitHub Actions pipeline.
-- [ ] **Delivery** — move every service to Docker Compose, write the README and the decision records in `docs/`, and finalize the OpenAPI specification.
+- [ ] **Continuous delivery** — build and publish the app image and deploy it. CI already runs formatting, linting, static analysis and the tests against PostgreSQL and Redis.
 
 ## Deferred
 
@@ -30,10 +29,7 @@ Notifications and batches are never deleted today, while the system is expected 
 
 ### API documentation
 
-- The OpenAPI document lists `403` for another user's notification, batch or template, while the API answers `404`.
-- A notification's `variables` is documented as an array of strings, while it is an object that maps variable names to text or number values.
-- Document the `Idempotency-Key` header, its `400`, `409` and `422` responses and the `Idempotent-Replayed` response header.
-- The batch request schema marks the whole `notifications` array as `uniqueItems`, while only each item's `idempotency_key` must be distinct.
+- The Postman collection generated from the spec (`postman/collections/EDNS API`) shares one example `Idempotency-Key` between its create requests, so sending one twice replays the first response. The generator also fills every optional query parameter with a placeholder; `composer postman:sync` trims the two list requests afterwards, but a new list endpoint needs the same step. The curated `EDNS Smoke Flow` collection is the runnable one.
 
 ### Delivery details
 
@@ -46,18 +42,22 @@ Notifications and batches are never deleted today, while the system is expected 
 
 - A batch whose notifications all reuse existing idempotency keys still creates a new, empty batch (`total` 0, `is_finished` true), while each notification keeps its original batch. Decide whether such a request should answer without creating a batch.
 
-### Continuous integration
+### Performance at volume
 
-- The GCRA rate limiter tests need Redis. Add a Redis service and the `redis` PHP extension to the tests workflow, next to the PostgreSQL service.
+- The metrics run `count(*)` and `percentile_cont` over the 5-minute and 1-hour windows of `notifications`. The snapshot is cached for `NOTIFICATIONS_METRICS_CACHE_SECONDS` and shared by the endpoint, the dashboard and the broadcast, so the queries run at most once per cache period; at millions of rows a day, Redis counters and latency histograms updated at delivery would replace them.
+- A batch is pushed onto the queue one job at a time, so a batch of 1000 makes 1000 Redis round trips inside the request. Pushing the jobs in one Redis pipeline would cut that to one.
+- The `Idempotency-Key` record stores the full response, which reaches several megabytes for a batch of 1000. Storing the batch id and rebuilding the response on replay would keep the rows small.
 
 ### Operations
 
 - The provider is a free webhook.site URL set in `NOTIFICATIONS_GATEWAY_URL` (local `.env` only). It answers every request with the same static `202` body, so every notification gets the same `messageId`; it expires after seven days, and its inbox shows a limit of 50 requests, which may cap or rotate what a load test can send. Create a new URL when it expires, and use a paid URL or a local stub provider for load tests.
 - The GCRA rate limiter requires the phpredis client (`REDIS_CLIENT=phpredis`); predis is not supported.
-- A notification whose job is lost from Redis (for example a restart without persistence) stays `queued`, because the stale-notification sweeper only covers `waiting` and `processing`. This includes scheduled notifications, whose delayed jobs wait in Redis for up to a minute. Enable Redis AOF persistence, or sweep `queued` notifications whose `queued_at` (or `scheduled_at`) is long past.
+- A notification whose job is lost from Redis (for example a restart without persistence) is pushed again by the stale sweep only after `NOTIFICATIONS_STALE_QUEUED_SECONDS` (25 hours by default), because a queued job may legitimately wait through its one-day retry window. Docker Compose runs Redis with AOF persistence, which makes such losses rare; a production Redis needs the same.
+- The half-open probe of a circuit is taken before the rate limiter. When the rate limiter then releases the probe job, the probe stays taken until `NOTIFICATIONS_CIRCUIT_PROBE_TIMEOUT_SECONDS` (20 by default) pass, so the channel recovers up to 20 seconds later. Handing the probe back when the job is released would remove the wait.
 - A delivery job gives up one day after it was dispatched (`retryUntil`), for example while a channel's circuit stays open; its notification then fails and can be retried through `POST /notifications/{id}/retry`. Decide whether such notifications should be retried automatically once the circuit closes.
 - The queue metric `oldest_pending_age_seconds` counts from when a job was first pushed, so it includes time the job spent delayed or released back. A "ready for" age would need the time a job became available, which Laravel's Redis queue does not record.
 - Every channel has its own circuit, although all channels currently share one provider URL, so an outage of that provider opens the three circuits one by one.
 
-- The Docker image is about 1.1 GB because it includes development dependencies so that tests can run in the container. Add a slimmer production target.
+- The app image is about 860 MB, mostly the Debian-based `php:8.5-fpm` with its compiled extensions; an Alpine base would shrink it. Development dependencies live only in the separate `tests` image.
+- Docker Compose runs with `APP_ENV=local`, so Horizon uses the small local worker counts. A production deployment needs `APP_ENV=production`, `HORIZON_NOTIFICATION_WORKERS` sized to the provider latency (about 90 workers for 3 × 100 messages a second at 300 ms) and real secrets instead of the generated ones in the `secrets` volume.
 - Tracing every notification is expensive at production volume. Add sampling (for example 10%) and an OpenTelemetry Collector in front of the tracing backend.
