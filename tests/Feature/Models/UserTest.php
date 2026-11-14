@@ -53,21 +53,12 @@ test('ignores an operator flag passed in mass-assigned attributes', function () 
     $this->assertDatabaseHas('users', ['id' => $user->id, 'is_operator' => false]);
 });
 
-test('exposes neither the password hash nor the remember token through the API', function () {
+test('exposes only the id, name, email and creation time of the account through the API', function () {
     $user = User::factory()->create();
     $token = $user->createToken('integration')->plainTextToken;
 
     $response = $this->withToken($token)->getJson(route('api.v1.user'));
 
-    $response->assertOk();
-    expect(array_keys($response->json()))->toEqualCanonicalizing([
-        'id',
-        'name',
-        'email',
-        'email_verified_at',
-        'is_operator',
-        'created_at',
-        'updated_at',
-        'deleted_at',
-    ]);
+    $response->assertOk()->assertJsonPath('data.id', $user->id);
+    expect(array_keys($response->json('data')))->toBe(['id', 'name', 'email', 'created_at']);
 });

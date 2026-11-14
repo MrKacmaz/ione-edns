@@ -11,6 +11,6 @@ scripts:
   - type: afterResponse
     code: |-
       pm.test('answers 200 for the token', () => pm.response.to.have.status(200));
-      pm.collectionVariables.set('userId', pm.response.json().id);
+      pm.collectionVariables.set('userId', pm.response.json().data.id);
     language: text/javascript
 order: 2000

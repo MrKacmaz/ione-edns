@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Resources\UserResource;
 use App\Models\User;
 use Dedoc\Scramble\Attributes\Endpoint;
 use Dedoc\Scramble\Attributes\Group;
@@ -17,8 +18,8 @@ class CurrentUserController extends Controller
      * carries the user's notification status updates.
      */
     #[Endpoint(title: 'Get the current user')]
-    public function __invoke(#[CurrentUser] User $user): User
+    public function __invoke(#[CurrentUser] User $user): UserResource
     {
-        return $user;
+        return UserResource::make($user);
     }
 }
