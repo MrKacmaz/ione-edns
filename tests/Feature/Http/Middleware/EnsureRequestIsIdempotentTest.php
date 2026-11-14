@@ -4,7 +4,9 @@ use App\Http\Middleware\EnsureRequestIsIdempotent;
 use App\Jobs\SendNotificationJob;
 use App\Models\User;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Exceptions;
 use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Testing\Fakes\QueueFake;
 use Laravel\Sanctum\Sanctum;
 
 test('replays the stored response when a completed request is retried with the same key', function () {
@@ -162,4 +164,24 @@ test('replays a completed batch request', function () {
     $this->assertDatabaseCount('notification_batches', 1);
     $this->assertDatabaseCount('notifications', 2);
     Queue::assertPushed(SendNotificationJob::class, 2);
+});
+
+test('accepts and replays a request while the queue is unreachable instead of creating the notification twice', function () {
+    Exceptions::fake();
+    Queue::swap(new class(app()) extends QueueFake
+    {
+        public function push($job, $data = '', $queue = null): never
+        {
+            throw new RuntimeException('Connection refused');
+        }
+    });
+    Sanctum::actingAs(User::factory()->create());
+    $headers = ['Idempotency-Key' => 'queue-outage'];
+
+    $first = $this->postJson(route('api.v1.notifications.store'), smsNotificationPayload(), $headers);
+    $retry = $this->postJson(route('api.v1.notifications.store'), smsNotificationPayload(), $headers);
+
+    $first->assertAccepted()->assertJsonPath('data.status', 'waiting');
+    $retry->assertAccepted()->assertHeader('Idempotent-Replayed', 'true');
+    $this->assertDatabaseCount('notifications', 1);
 });

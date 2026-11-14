@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use LogicException;
+use Throwable;
 
 class CreateNotificationsAction
 {
@@ -111,11 +112,9 @@ class CreateNotificationsAction
             // Queue the new notifications only once the outermost transaction has committed,
             // so a worker never looks for a notification that is not visible yet. Scheduled
             // notifications further ahead are left to notifications:dispatch-due.
-            DB::afterCommit(fn () => $this->dispatchNotifications->handle(
-                $notifications->filter(
-                    fn (Notification $notification): bool => $notification->wasRecentlyCreated && $notification->isDueForDispatch(),
-                )->values(),
-            ));
+            DB::afterCommit(fn () => $this->dispatch($notifications->filter(
+                fn (Notification $notification): bool => $notification->wasRecentlyCreated && $notification->isDueForDispatch(),
+            )->values()));
 
             return $notifications;
         });
@@ -162,6 +161,24 @@ class CreateNotificationsAction
 
         if (! $isSameNotification) {
             throw ValidationException::withMessages([$attribute => __('validation.notification_idempotency_key_reused')]);
+        }
+    }
+
+    /**
+     * Push the committed notifications onto their queues.
+     *
+     * A failure is reported but not thrown: the notifications are committed and
+     * stay waiting (or scheduled), and the sweeps push them once the queue is back.
+     * Failing the request here would make the client retry and create them twice.
+     *
+     * @param  Collection<int, Notification>  $notifications
+     */
+    private function dispatch(Collection $notifications): void
+    {
+        try {
+            $this->dispatchNotifications->handle($notifications);
+        } catch (Throwable $exception) {
+            report($exception);
         }
     }
 

@@ -2,13 +2,16 @@
 
 use App\Actions\CreateNotificationsAction;
 use App\Data\NewNotificationData;
+use App\Enums\NotificationStatus;
 use App\Jobs\SendNotificationJob;
 use App\Models\Notification;
 use App\Models\NotificationTemplate;
 use App\Models\User;
 use Illuminate\Support\Facades\Context;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Exceptions;
 use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Testing\Fakes\QueueFake;
 use Illuminate\Validation\ValidationException;
 
 test('returns the notifications in request order and flags only the new ones as created', function () {
@@ -178,6 +181,23 @@ test('resolves an idempotency key that a concurrent request inserted first to th
     $this->assertDatabaseCount('notifications', 2);
     expect(Queue::pushed(SendNotificationJob::class)->map(fn (SendNotificationJob $job): string => $job->notificationId)->all())
         ->toBe([$notifications[1]->id]);
+});
+
+test('keeps the committed notifications waiting and reports the error when the queue cannot be reached', function () {
+    Exceptions::fake();
+    Queue::swap(new class(app()) extends QueueFake
+    {
+        public function push($job, $data = '', $queue = null): never
+        {
+            throw new RuntimeException('Connection refused');
+        }
+    });
+    $user = User::factory()->create();
+
+    $notifications = app(CreateNotificationsAction::class)->handle($user, [NewNotificationData::fromValidated(smsNotificationPayload())]);
+
+    expect($notifications->sole()->refresh()->status)->toBe(NotificationStatus::Waiting);
+    Exceptions::assertReported(fn (RuntimeException $exception): bool => $exception->getMessage() === 'Connection refused');
 });
 
 test('refuses a reused idempotency key that comes with a different notification and creates nothing', function (array $difference) {
