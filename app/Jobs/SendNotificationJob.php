@@ -6,6 +6,7 @@ use App\Enums\DeliveryOutcome;
 use App\Enums\NotificationChannel;
 use App\Jobs\Middleware\CheckDeliveryChannelCircuit;
 use App\Jobs\Middleware\RateLimitDeliveryChannel;
+use App\Jobs\Middleware\ReleaseDuringInfrastructureOutage;
 use App\Models\Notification as NotificationModel;
 use App\Services\Delivery\DeliveryService;
 use DateTimeInterface;
@@ -37,8 +38,9 @@ class SendNotificationJob implements ShouldQueue, TracingLinked
     /**
      * Unexpected exceptions tolerated before the job fails.
      *
-     * Provider errors never get here, the delivery service handles them; these are
-     * outages of the database or Redis, which the backoff below gives time to pass.
+     * Provider errors never get here, the delivery service handles them, and neither
+     * do database or Redis outages, which ReleaseDuringInfrastructureOutage waits
+     * out without counting. What is left are genuine errors in the code.
      */
     public int $maxExceptions = 5;
 
@@ -50,8 +52,8 @@ class SendNotificationJob implements ShouldQueue, TracingLinked
     /**
      * Get the seconds to wait before running again after an unexpected exception.
      *
-     * Without a wait, a short outage would use up every tolerated exception within
-     * milliseconds and fail a notification the provider never saw. Retries the
+     * Without a wait, a short burst of errors would use up every tolerated exception
+     * within milliseconds and fail a notification the provider never saw. Retries the
      * delivery service schedules set their own delay and do not use these.
      *
      * @return list<int>
@@ -72,14 +74,15 @@ class SendNotificationJob implements ShouldQueue, TracingLinked
     /**
      * Get the middleware the job should pass through.
      *
-     * The circuit is checked first, so a job of a channel with an open circuit
-     * does not take up a rate-limit slot.
+     * The outage guard wraps the others, as the circuit breaker and the rate limiter
+     * read Redis too. The circuit is checked before the rate limit, so a job of a
+     * channel with an open circuit does not take up a send slot.
      *
      * @return list<object>
      */
     public function middleware(): array
     {
-        return [new CheckDeliveryChannelCircuit, new RateLimitDeliveryChannel];
+        return [new ReleaseDuringInfrastructureOutage, new CheckDeliveryChannelCircuit, new RateLimitDeliveryChannel];
     }
 
     /**
