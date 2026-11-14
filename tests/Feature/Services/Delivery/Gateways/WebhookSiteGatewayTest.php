@@ -47,6 +47,7 @@ test('treats server errors and rate limiting as retryable', function (int $statu
     'internal server error' => [500],
     'service unavailable' => [503],
     'too many requests' => [429],
+    'request timeout' => [408],
 ]);
 
 test('passes on the provider\'s Retry-After', function () {
@@ -104,18 +105,21 @@ test('reads the provider\'s Retry-After given in seconds or as an HTTP date', fu
     'no header' => [[], null],
 ]);
 
-test('accepts a successful answer that carries no usable message id', function (mixed $body) {
-    Http::fake(['gateway.test/*' => Http::response($body, 202)]);
+test('does not count a successful answer without a message id as sent', function (mixed $body, int $status) {
+    Http::fake(['gateway.test/*' => Http::response($body, $status)]);
 
     $response = app(WebhookSiteGateway::class)->send(Notification::factory()->create());
 
-    expect($response->outcome)->toBe(GatewayOutcome::Accepted)
-        ->and($response->httpStatus)->toBe(202)
-        ->and($response->providerMessageId)->toBeNull();
+    expect($response->outcome)->toBe(GatewayOutcome::PermanentFailure)
+        ->and($response->httpStatus)->toBe($status)
+        ->and($response->providerMessageId)->toBeNull()
+        ->and($response->error)->toBe("The provider responded with HTTP {$status} but without a messageId confirming the delivery.");
 })->with([
-    'empty JSON body' => [[]],
-    'numeric message id' => [['messageId' => 12345]],
-    'plain text body' => ['accepted'],
+    'empty JSON body' => [[], 202],
+    'numeric message id' => [['messageId' => 12345], 202],
+    'empty message id' => [['messageId' => ''], 202],
+    'plain text body' => ['accepted', 202],
+    'webhook.site default page' => ['<html>This URL has no default content configured.</html>', 200],
 ]);
 
 test('treats a timed-out request as retryable and keeps the reason', function () {

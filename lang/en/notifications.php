@@ -34,6 +34,7 @@ return [
 
     'errors' => [
         'http_status' => 'The provider responded with HTTP :status.',
+        'unconfirmed' => 'The provider responded with HTTP :status but without a messageId confirming the delivery.',
         'unreachable' => 'The provider could not be reached: :reason',
         'unexpected' => 'The delivery attempt failed unexpectedly: :reason',
         'job_failed' => 'The delivery job failed: :reason',

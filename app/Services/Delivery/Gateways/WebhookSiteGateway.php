@@ -18,6 +18,8 @@ use Illuminate\Http\Client\Response;
  *
  * Request:  POST {url} {"to": "...", "channel": "sms", "content": "..."}
  * Response: 202 {"messageId": "...", "status": "accepted", "timestamp": "..."}
+ *
+ * A 2xx answer counts as accepted only when it carries the message id.
  */
 final readonly class WebhookSiteGateway implements NotificationGateway
 {
@@ -68,18 +70,38 @@ final readonly class WebhookSiteGateway implements NotificationGateway
         }
 
         if ($response->successful()) {
-            $messageId = $response->json('messageId');
-
-            return GatewayResponseData::accepted($response->status(), is_string($messageId) ? $messageId : null);
+            return $this->acceptance($response);
         }
 
         $error = __('notifications.errors.http_status', ['status' => $response->status()]);
 
-        if ($response->tooManyRequests() || $response->serverError()) {
+        // 408 and 429 ask the client to try again later, as do server errors.
+        if ($response->status() === 408 || $response->tooManyRequests() || $response->serverError()) {
             return GatewayResponseData::retryable($error, $response->status(), $this->retryAfterSeconds($response));
         }
 
         return GatewayResponseData::permanent($error, $response->status());
+    }
+
+    /**
+     * Classify a 2xx answer: only one that carries the provider's message id confirms the delivery.
+     *
+     * A misconfigured endpoint can answer 2xx with anything, for example webhook.site's
+     * default HTML page; counting that as sent would hide that nothing was delivered.
+     * Retrying cannot fix a wrong endpoint, so the failure is permanent.
+     */
+    private function acceptance(Response $response): GatewayResponseData
+    {
+        $messageId = $response->json('messageId');
+
+        if (! is_string($messageId) || $messageId === '') {
+            return GatewayResponseData::permanent(
+                __('notifications.errors.unconfirmed', ['status' => $response->status()]),
+                $response->status(),
+            );
+        }
+
+        return GatewayResponseData::accepted($response->status(), $messageId);
     }
 
     /**
