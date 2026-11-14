@@ -40,7 +40,8 @@ class DispatchNotificationsAction
                 ->delay($notification->scheduled_at?->isFuture() ? $notification->scheduled_at : null);
         }
 
-        $queuedAt = now();
+        // Formatted with the model's date format, as the query builder alone would drop the microseconds.
+        $queuedAt = (new Notification)->freshTimestampString();
 
         Notification::query()
             ->whereKey($notifications->modelKeys())

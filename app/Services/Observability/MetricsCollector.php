@@ -123,8 +123,12 @@ final readonly class MetricsCollector
      */
     private function windowMetrics(string $window, int $seconds, CarbonImmutable $since): array
     {
+        // Formatted with the models' date format, as the query builder alone would drop the
+        // microseconds and widen the window by up to a second.
+        $from = (new NotificationAttempt)->fromDateTime($since);
+
         $attempts = NotificationAttempt::query()
-            ->where('created_at', '>=', $since)
+            ->where('created_at', '>=', $from)
             ->toBase()
             ->selectRaw('outcome, count(*) as aggregate')
             ->groupBy('outcome')
@@ -136,7 +140,7 @@ final readonly class MetricsCollector
 
         $failed = Notification::query()
             ->where('status', NotificationStatus::Failed)
-            ->where('failed_at', '>=', $since)
+            ->where('failed_at', '>=', $from)
             ->count();
 
         return [
@@ -152,14 +156,14 @@ final readonly class MetricsCollector
             'success_rate' => $accepted + $failed === 0 ? null : round($accepted / ($accepted + $failed), 4),
             'latency_ms' => [
                 'provider' => $this->percentiles(
-                    NotificationAttempt::query()->where('created_at', '>=', $since)->toBase(),
+                    NotificationAttempt::query()->where('created_at', '>=', $from)->toBase(),
                     'duration_ms',
                 ),
                 'end_to_end' => $this->percentiles(
                     NotificationAttempt::query()
                         ->join('notifications', 'notifications.id', '=', 'notification_attempts.notification_id')
                         ->where('notification_attempts.outcome', GatewayOutcome::Accepted)
-                        ->where('notification_attempts.created_at', '>=', $since)
+                        ->where('notification_attempts.created_at', '>=', $from)
                         ->toBase(),
                     'extract(epoch from (notification_attempts.created_at - coalesce(notifications.scheduled_at, notifications.created_at))) * 1000',
                 ),

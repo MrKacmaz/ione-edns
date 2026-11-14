@@ -135,7 +135,7 @@ class Notification extends Model
     protected function dueForDispatch(Builder $query): void
     {
         $query->where('status', NotificationStatus::Scheduled)
-            ->where('scheduled_at', '<=', now()->addSeconds(self::SCHEDULE_LOOKAHEAD_SECONDS));
+            ->where('scheduled_at', '<=', $this->fromDateTime(now()->addSeconds(self::SCHEDULE_LOOKAHEAD_SECONDS)));
     }
 
     /**
@@ -171,7 +171,7 @@ class Notification extends Model
                 ->whereIn('status', NotificationStatus::claimable())
                 ->orWhere(fn (Builder $query) => $query
                     ->where('status', NotificationStatus::Scheduled)
-                    ->where('scheduled_at', '<=', now())))
+                    ->where('scheduled_at', '<=', (new self)->freshTimestampString())))
             ->increment('attempts', 1, ['status' => NotificationStatus::Processing]);
 
         return $claimedRows === 1 ? static::query()->find($id) : null;
@@ -186,7 +186,7 @@ class Notification extends Model
             'status' => NotificationStatus::Sent,
             'provider_message_id' => $providerMessageId,
             'last_error' => null,
-            'sent_at' => now(),
+            'sent_at' => $this->freshTimestampString(),
         ]);
     }
 
@@ -209,7 +209,7 @@ class Notification extends Model
         $this->transitionFromProcessing([
             'status' => NotificationStatus::Failed,
             'last_error' => $error,
-            'failed_at' => now(),
+            'failed_at' => $this->freshTimestampString(),
         ]);
     }
 
@@ -224,7 +224,7 @@ class Notification extends Model
             ->update([
                 'status' => NotificationStatus::Failed,
                 'last_error' => $error,
-                'failed_at' => now(),
+                'failed_at' => (new self)->freshTimestampString(),
             ]);
 
         $notification = $failedRows === 1 ? static::query()->find($id) : null;
@@ -269,7 +269,7 @@ class Notification extends Model
             ->whereIn('status', NotificationStatus::cancellable())
             ->update([
                 'status' => NotificationStatus::Cancelled,
-                'cancelled_at' => now(),
+                'cancelled_at' => $this->freshTimestampString(),
             ]);
 
         $this->refresh();

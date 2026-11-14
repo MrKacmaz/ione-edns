@@ -89,7 +89,8 @@ class NotificationBatch extends Model
                 return 0;
             }
 
-            $cancelledAt = now();
+            // Formatted with the model's date format, as the query builder alone would drop the microseconds.
+            $cancelledAt = $this->freshTimestampString();
 
             $cancellation = [
                 'status' => NotificationStatus::Cancelled,
