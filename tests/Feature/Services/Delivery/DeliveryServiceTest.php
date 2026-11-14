@@ -66,6 +66,17 @@ test('puts the notification back in line with a backoff delay after a retryable 
         ->last_error->toBe('The provider responded with HTTP 503.');
 });
 
+test('records when the next attempt is due, so no other job for the notification can run it sooner', function () {
+    Http::fake(['gateway.test/*' => Http::response([], 503)]);
+    $this->travelTo('2026-11-14 10:00:00.000000');
+    $notification = Notification::factory()->queued()->create();
+
+    $result = app(DeliveryService::class)->deliver($notification->id);
+
+    expect($notification->refresh()->next_attempt_at?->format('Y-m-d H:i:s.u'))
+        ->toBe(now()->addSeconds((int) $result->retryDelaySeconds)->format('Y-m-d H:i:s.u'));
+});
+
 test('fails the notification when the last attempt fails', function () {
     Http::fake(['gateway.test/*' => Http::response([], 503)]);
     $notification = Notification::factory()->queued()->create(['attempts' => 4]);
@@ -102,6 +113,27 @@ test('skips a notification that is no longer claimable without calling the provi
     Http::assertNothingSent();
     $this->assertDatabaseCount('notification_attempts', 0);
 });
+
+test('defers a job that comes before the notification is due, without calling the provider or using an attempt', function (array $attributes, int $expectedDelaySeconds) {
+    Http::fake();
+    Log::spy();
+    $this->travelTo('2026-11-14 10:00:00.000000');
+    $notification = Notification::factory()->queued()->create(['attempts' => 1, ...$attributes]);
+
+    $result = app(DeliveryService::class)->deliver($notification->id);
+
+    expect($result->outcome)->toBe(DeliveryOutcome::Deferred)
+        ->and($result->retryDelaySeconds)->toBe($expectedDelaySeconds);
+    expect($notification->refresh())->status->toBe(NotificationStatus::Queued)->attempts->toBe(1);
+    Http::assertNothingSent();
+    Log::shouldHaveReceived('info')->once()->with('notification.delivery.deferred', [
+        'notification_id' => $notification->id,
+        'due_in_seconds' => $expectedDelaySeconds,
+    ]);
+})->with([
+    'a duplicate job during the backoff' => [['next_attempt_at' => '2026-11-14 10:00:20.000000'], 20],
+    'a job woken just before its scheduled time' => [['scheduled_at' => '2026-11-14 10:00:00.400000'], 1],
+]);
 
 test('delivers a scheduled notification whose time has come even before it was marked as queued', function () {
     Http::fake(['gateway.test/*' => Http::response(['messageId' => 'msg-123'], 202)]);

@@ -40,16 +40,21 @@ test('carries the channel on the job so the rate limiter needs no database read'
     Queue::assertPushed(SendNotificationJob::class, fn (SendNotificationJob $job): bool => $job->channel === $notification->channel);
 });
 
-test('delays a notification scheduled for the future until its delivery time', function () {
+test('delays a notification scheduled for the future until its delivery time', function (string $scheduledAt, string $expectedDelayUntil) {
     Queue::fake([SendNotificationJob::class]);
-    $notification = Notification::factory()->scheduled()->create(['scheduled_at' => now()->addSeconds(40)]);
+    $this->travelTo('2026-11-14 10:00:00.000000');
+    $notification = Notification::factory()->scheduled()->create(['scheduled_at' => $scheduledAt]);
 
     app(DispatchNotificationsAction::class)->handle(new Collection([$notification]));
 
     Queue::assertPushed(SendNotificationJob::class, fn (SendNotificationJob $job): bool => $job->delay instanceof DateTimeInterface
-        && $job->delay->getTimestamp() === $notification->scheduled_at?->getTimestamp());
+        && $job->delay->format('Y-m-d H:i:s.u') === $expectedDelayUntil);
     expect($notification->refresh()->status)->toBe(NotificationStatus::Queued);
-});
+})->with([
+    'on a whole second' => ['2026-11-14 10:00:40.000000', '2026-11-14 10:00:40.000000'],
+    // The queue keeps whole seconds; rounding down would run the job 250 ms early.
+    'within a second' => ['2026-11-14 10:00:40.250000', '2026-11-14 10:00:41.000000'],
+]);
 
 test('pushes an overdue scheduled notification without a delay', function () {
     Queue::fake([SendNotificationJob::class]);

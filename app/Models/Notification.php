@@ -7,6 +7,7 @@ use App\Enums\NotificationPriority;
 use App\Enums\NotificationStatus;
 use App\Events\NotificationStatusChanged;
 use Carbon\CarbonImmutable;
+use Carbon\CarbonInterface;
 use Database\Factories\NotificationFactory;
 use Illuminate\Database\Eloquent\Attributes\DateFormat;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -67,6 +68,17 @@ class Notification extends Model
     public const int SCHEDULE_LOOKAHEAD_SECONDS = 60;
 
     /**
+     * The changes that give a failed notification a fresh set of delivery attempts.
+     */
+    private const array REDELIVERY_RESET = [
+        'status' => NotificationStatus::Waiting,
+        'attempts' => 0,
+        'last_error' => null,
+        'failed_at' => null,
+        'next_attempt_at' => null,
+    ];
+
+    /**
      * Get the attributes that should be cast.
      *
      * @return array<string, string>
@@ -79,6 +91,7 @@ class Notification extends Model
             'status' => NotificationStatus::class,
             'attempts' => 'integer',
             'scheduled_at' => 'datetime',
+            'next_attempt_at' => 'datetime',
             'queued_at' => 'datetime',
             'sent_at' => 'datetime',
             'failed_at' => 'datetime',
@@ -162,19 +175,57 @@ class Notification extends Model
      * and a notification cancelled in the meantime is left alone. A scheduled
      * notification is claimable once its delivery time has come, so a job that
      * runs before the notification was marked as queued is not lost.
+     *
+     * No notification is claimed before it is due: not before its next attempt
+     * after a failure, and not before its scheduled time. A job that comes early,
+     * for example a duplicate pushed by the stale sweep, claims nothing.
      */
     public static function claimForDelivery(string $id): ?self
     {
         $claimedRows = static::query()
             ->whereKey($id)
-            ->where(fn (Builder $query) => $query
-                ->whereIn('status', NotificationStatus::claimable())
-                ->orWhere(fn (Builder $query) => $query
-                    ->where('status', NotificationStatus::Scheduled)
-                    ->where('scheduled_at', '<=', (new self)->freshTimestampString())))
+            ->whereIn('status', [...NotificationStatus::claimable(), NotificationStatus::Scheduled])
+            ->tap(self::whereDue(...))
             ->increment('attempts', 1, ['status' => NotificationStatus::Processing]);
 
         return $claimedRows === 1 ? static::query()->find($id) : null;
+    }
+
+    /**
+     * Get the seconds until a notification that is not due yet may be claimed.
+     *
+     * Null when the notification is due, or when no attempt is pending for it at
+     * all (it was cancelled, is being delivered or already finished).
+     */
+    public static function secondsUntilDue(string $id): ?int
+    {
+        $dueAt = static::query()
+            ->whereKey($id)
+            ->whereIn('status', [...NotificationStatus::claimable(), NotificationStatus::Scheduled])
+            ->selectRaw('coalesce(next_attempt_at, scheduled_at) as due_at')
+            ->toBase()
+            ->first()
+            ?->due_at;
+
+        if (! is_string($dueAt)) {
+            return null;
+        }
+
+        $secondsUntilDue = now()->diffInMicroseconds((new self)->asDateTime($dueAt)) / 1_000_000;
+
+        return $secondsUntilDue > 0 ? (int) ceil($secondsUntilDue) : null;
+    }
+
+    /**
+     * Limit a query to notifications whose next attempt and scheduled time have come.
+     *
+     * @param  Builder<self>  $query
+     */
+    private static function whereDue(Builder $query): void
+    {
+        $now = (new self)->freshTimestampString();
+
+        $query->whereRaw('coalesce(next_attempt_at, scheduled_at, ?) <= ?', [$now, $now]);
     }
 
     /**
@@ -191,13 +242,14 @@ class Notification extends Model
     }
 
     /**
-     * Put the notification back in line for another attempt.
+     * Put the notification back in line for another attempt, due at the given time.
      */
-    public function markRetryPending(string $error): void
+    public function markRetryPending(string $error, CarbonInterface $nextAttemptAt): void
     {
         $this->transitionFromProcessing([
             'status' => NotificationStatus::Queued,
             'last_error' => $error,
+            'next_attempt_at' => $this->fromDateTime($nextAttemptAt),
         ]);
     }
 
@@ -249,12 +301,7 @@ class Notification extends Model
         $resetRows = static::query()
             ->whereKey($this->getKey())
             ->where('status', NotificationStatus::Failed)
-            ->update([
-                'status' => NotificationStatus::Waiting,
-                'attempts' => 0,
-                'last_error' => null,
-                'failed_at' => null,
-            ]);
+            ->update(self::REDELIVERY_RESET);
 
         $this->refresh();
 

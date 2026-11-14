@@ -47,15 +47,38 @@ final readonly class DeliveryService
         $notification = Notification::claimForDelivery($notificationId);
 
         if ($notification === null) {
-            $this->logger->info('notification.delivery.skipped', ['notification_id' => $notificationId]);
-
-            return DeliveryResultData::skipped();
+            return $this->notClaimed($notificationId);
         }
 
         return Context::scope(
             fn (): DeliveryResultData => $this->attempt($notification),
             ['notification_id' => $notification->id, 'correlation_id' => $notification->correlation_id],
         );
+    }
+
+    /**
+     * Decide what a job does with a notification it could not claim.
+     *
+     * A notification that is only not due yet, because the job came before its next
+     * attempt or its scheduled time, is waited for. Anything else (cancelled, being
+     * delivered by another job, finished) needs nothing more from this job.
+     */
+    private function notClaimed(string $notificationId): DeliveryResultData
+    {
+        $secondsUntilDue = Notification::secondsUntilDue($notificationId);
+
+        if ($secondsUntilDue !== null) {
+            $this->logger->info('notification.delivery.deferred', [
+                'notification_id' => $notificationId,
+                'due_in_seconds' => $secondsUntilDue,
+            ]);
+
+            return DeliveryResultData::deferred($secondsUntilDue);
+        }
+
+        $this->logger->info('notification.delivery.skipped', ['notification_id' => $notificationId]);
+
+        return DeliveryResultData::skipped();
     }
 
     /**
@@ -160,9 +183,9 @@ final readonly class DeliveryService
 
     private function scheduleRetry(Notification $notification, GatewayResponseData $response, int $durationMilliseconds): DeliveryResultData
     {
-        $notification->markRetryPending((string) $response->error);
-
         $delaySeconds = $this->backoff->delayAfter($notification->attempts, $response->retryAfterSeconds);
+
+        $notification->markRetryPending((string) $response->error, now()->addSeconds($delaySeconds));
 
         $this->logger->warning('notification.delivery.retry_scheduled', [
             ...$this->logContext($notification, $response, $durationMilliseconds),

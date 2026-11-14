@@ -48,6 +48,28 @@ describe('claimForDelivery', function () {
         $this->assertDatabaseHas('notifications', ['id' => $notification->id, 'status' => 'scheduled', 'attempts' => 0]);
     });
 
+    test('does not claim a queued notification before it is due, so an early job neither skips the backoff nor sends ahead of the schedule', function (array $attributes) {
+        $this->travelTo('2026-11-14 10:00:00.000000');
+        $notification = Notification::factory()->queued()->create(['attempts' => 1, ...$attributes]);
+
+        $claimed = Notification::claimForDelivery($notification->id);
+
+        expect($claimed)->toBeNull();
+        $this->assertDatabaseHas('notifications', ['id' => $notification->id, 'status' => 'queued', 'attempts' => 1]);
+    })->with([
+        'waiting for its next attempt' => [['next_attempt_at' => '2026-11-14 10:00:30.000000']],
+        'scheduled 250 ms ahead' => [['scheduled_at' => '2026-11-14 10:00:00.250000']],
+    ]);
+
+    test('claims a queued notification once its next attempt is due', function () {
+        $this->travelTo('2026-11-14 10:00:30.000000');
+        $notification = Notification::factory()->queued()->create(['attempts' => 1, 'next_attempt_at' => '2026-11-14 10:00:30.000000']);
+
+        $claimed = Notification::claimForDelivery($notification->id);
+
+        expect($claimed)->status->toBe(NotificationStatus::Processing)->attempts->toBe(2);
+    });
+
     test('does not claim a notification that is being processed or finished', function (Closure $state, string $status) {
         /** @var Notification $notification */
         $notification = $state(Notification::factory())->create(['attempts' => 2]);
@@ -62,6 +84,37 @@ describe('claimForDelivery', function () {
         'failed' => [fn (NotificationFactory $factory) => $factory->failed(), 'failed'],
         'cancelled' => [fn (NotificationFactory $factory) => $factory->cancelled(), 'cancelled'],
     ]);
+});
+
+describe('secondsUntilDue', function () {
+    test('tells how long a pending notification still has to wait, rounded up to whole seconds', function (Closure $state, array $attributes, int $expectedSeconds) {
+        $this->travelTo('2026-11-14 10:00:00.000000');
+        /** @var Notification $notification */
+        $notification = $state(Notification::factory())->create($attributes);
+
+        expect(Notification::secondsUntilDue($notification->id))->toBe($expectedSeconds);
+    })->with([
+        'queued, next attempt ahead' => [fn (NotificationFactory $factory) => $factory->queued(), ['next_attempt_at' => '2026-11-14 10:00:44.100000'], 45],
+        'queued, scheduled within the second' => [fn (NotificationFactory $factory) => $factory->queued(), ['scheduled_at' => '2026-11-14 10:00:00.250000'], 1],
+        'scheduled' => [fn (NotificationFactory $factory) => $factory->scheduled(), ['scheduled_at' => '2026-11-14 10:05:00.000000'], 300],
+    ]);
+
+    test('has nothing to wait for when the notification is due or no attempt is pending', function (Closure $state, array $attributes) {
+        $this->travelTo('2026-11-14 10:00:00.000000');
+        /** @var Notification $notification */
+        $notification = $state(Notification::factory())->create($attributes);
+
+        expect(Notification::secondsUntilDue($notification->id))->toBeNull();
+    })->with([
+        'queued and due' => [fn (NotificationFactory $factory) => $factory->queued(), ['next_attempt_at' => '2026-11-14 09:59:59.000000']],
+        'waiting' => [fn (NotificationFactory $factory) => $factory, []],
+        'processing' => [fn (NotificationFactory $factory) => $factory->processing(), ['next_attempt_at' => '2026-11-14 10:01:00.000000']],
+        'cancelled' => [fn (NotificationFactory $factory) => $factory->cancelled(), ['scheduled_at' => '2026-11-14 10:05:00.000000']],
+    ]);
+
+    test('has nothing to wait for when the notification does not exist', function () {
+        expect(Notification::secondsUntilDue('0199a4f2-0000-7000-8000-000000000000'))->toBeNull();
+    });
 });
 
 describe('markSent, markFailed and markRetryPending', function () {
@@ -98,15 +151,17 @@ describe('markSent, markFailed and markRetryPending', function () {
             && $event->notification['status'] === 'failed');
     });
 
-    test('puts a processing notification back in line without announcing it', function () {
+    test('puts a processing notification back in line until its next attempt, without announcing it', function () {
+        $this->travelTo('2026-11-14 10:00:00.250000');
         $notification = Notification::factory()->processing()->create();
         Event::fake([NotificationStatusChanged::class]);
 
-        $notification->markRetryPending('The provider responded with HTTP 503.');
+        $notification->markRetryPending('The provider responded with HTTP 503.', now()->addSeconds(45));
 
         expect($notification)
             ->status->toBe(NotificationStatus::Queued)
-            ->last_error->toBe('The provider responded with HTTP 503.');
+            ->last_error->toBe('The provider responded with HTTP 503.')
+            ->next_attempt_at->toJSON()->toBe('2026-11-14T10:00:45.250000Z');
         $this->assertDatabaseHas('notifications', ['id' => $notification->id, 'status' => 'queued']);
         Event::assertNotDispatched(NotificationStatusChanged::class);
     });
@@ -133,7 +188,7 @@ describe('markSent, markFailed and markRetryPending', function () {
         ],
         'putting a failed notification back in line' => [
             fn (NotificationFactory $factory) => $factory->failed(),
-            fn (Notification $notification) => $notification->markRetryPending('The provider responded with HTTP 503.'),
+            fn (Notification $notification) => $notification->markRetryPending('The provider responded with HTTP 503.', now()),
             'failed',
         ],
     ]);
@@ -178,7 +233,7 @@ describe('markFailedIfUndelivered', function () {
 
 describe('resetForRedelivery', function () {
     test('gives a failed notification a fresh set of attempts and reports the reset', function () {
-        $notification = Notification::factory()->failed()->create();
+        $notification = Notification::factory()->failed()->create(['next_attempt_at' => now()->subMinute()]);
 
         $wasReset = $notification->resetForRedelivery();
 
@@ -187,7 +242,8 @@ describe('resetForRedelivery', function () {
             ->status->toBe(NotificationStatus::Waiting)
             ->attempts->toBe(0)
             ->last_error->toBeNull()
-            ->failed_at->toBeNull();
+            ->failed_at->toBeNull()
+            ->next_attempt_at->toBeNull();
         $this->assertDatabaseHas('notifications', ['id' => $notification->id, 'status' => 'waiting', 'attempts' => 0, 'last_error' => null, 'failed_at' => null]);
     });
 

@@ -24,6 +24,14 @@ final readonly class DeliveryResultData
         return new self(DeliveryOutcome::RetryScheduled, $delaySeconds);
     }
 
+    /**
+     * The notification is not due yet; the job waits the given seconds without an attempt.
+     */
+    public static function deferred(int $delaySeconds): self
+    {
+        return new self(DeliveryOutcome::Deferred, $delaySeconds);
+    }
+
     public static function failed(): self
     {
         return new self(DeliveryOutcome::Failed);

@@ -13,6 +13,9 @@ enum DeliveryOutcome: string
     /** The attempt failed and another attempt is due after a delay. */
     case RetryScheduled = 'retry_scheduled';
 
+    /** The job came before the notification was due (its next attempt or its scheduled time) and waits for it. */
+    case Deferred = 'deferred';
+
     /** The notification failed for good. */
     case Failed = 'failed';
 

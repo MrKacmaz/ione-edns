@@ -28,6 +28,18 @@ test('releases itself for the backoff delay when the attempt should be retried',
     $job->assertReleased(delay: 40);
 });
 
+test('releases itself until the notification is due when it comes early', function () {
+    Http::fake();
+    $this->travelTo('2026-11-14 10:00:00.000000');
+    $notification = Notification::factory()->queued()->create(['next_attempt_at' => '2026-11-14 10:00:25.000000']);
+    $job = (new SendNotificationJob($notification->id, $notification->channel))->withFakeQueueInteractions();
+
+    $job->handle(app(DeliveryService::class));
+
+    $job->assertReleased(delay: 25);
+    Http::assertNothingSent();
+});
+
 test('finishes without releasing once the notification is sent', function () {
     Http::fake(['gateway.test/*' => Http::response(['messageId' => 'msg-1'], 202)]);
     $notification = Notification::factory()->queued()->create();

@@ -35,9 +35,11 @@ class DispatchNotificationsAction
         }
 
         foreach ($notifications as $notification) {
+            // The queue keeps whole seconds and would round a delay down, waking the job
+            // before its time; rounding up never runs it early.
             SendNotificationJob::dispatch($notification->id, $notification->channel)
                 ->onQueue($notification->priority->queueFor($notification->channel))
-                ->delay($notification->scheduled_at?->isFuture() ? $notification->scheduled_at : null);
+                ->delay($notification->scheduled_at?->isFuture() ? $notification->scheduled_at->ceilSecond() : null);
         }
 
         // Formatted with the model's date format, as the query builder alone would drop the microseconds.

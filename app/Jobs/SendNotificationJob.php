@@ -89,7 +89,7 @@ class SendNotificationJob implements ShouldQueue, TracingLinked
     {
         $result = $deliveryService->deliver($this->notificationId);
 
-        if ($result->outcome === DeliveryOutcome::RetryScheduled) {
+        if (in_array($result->outcome, [DeliveryOutcome::RetryScheduled, DeliveryOutcome::Deferred], true)) {
             $this->release($result->retryDelaySeconds ?? 0);
         }
     }
