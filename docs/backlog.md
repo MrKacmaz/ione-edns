@@ -5,7 +5,8 @@ Add an item here whenever something is postponed, and remove it once it ships.
 
 ## Planned
 
-- [ ] **Continuous delivery** — build and publish the app image and deploy it. CI already runs formatting, linting, static analysis and the tests against PostgreSQL and Redis.
+- [ ] **Deployment** — CI publishes the images to GitHub Container Registry and creates releases, but nothing deploys them. A target (a server with Docker Compose, Kubernetes or Laravel Cloud) needs runtime configuration instead of the Compose defaults: real secrets, the public Reverb host baked into the frontend build, and sized Horizon supervisors.
+- [ ] **Multi-platform images** — the published images are `linux/amd64` only; add `linux/arm64` once a target needs it (QEMU builds are much slower).
 
 ## Deferred
 
