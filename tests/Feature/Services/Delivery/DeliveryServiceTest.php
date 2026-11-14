@@ -193,6 +193,7 @@ test('feeds the provider\'s answer to the channel\'s circuit breaker', function 
 })->with([
     'accepted' => [202, GatewayOutcome::Accepted],
     'retryable failure' => [503, GatewayOutcome::RetryableFailure],
+    'endpoint gone, for every message alike' => [404, GatewayOutcome::RetryableFailure],
     'permanent failure' => [400, GatewayOutcome::PermanentFailure],
 ]);
 

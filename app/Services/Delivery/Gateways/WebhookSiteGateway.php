@@ -34,6 +34,16 @@ final readonly class WebhookSiteGateway implements NotificationGateway
     private const string HTTP_DATE_FORMAT = 'D, d M Y H:i:s \\G\\M\\T';
 
     /**
+     * Answers that say the endpoint or its credentials are wrong, not the message.
+     *
+     * Every message would get the same answer, for example once a webhook.site URL
+     * has expired, so they are retried and count against the channel's circuit: it
+     * opens, the operators are alerted and the notifications wait for the fix
+     * instead of all failing quietly one by one.
+     */
+    private const array ENDPOINT_FAILURE_STATUSES = [401, 403, 404, 410];
+
+    /**
      * The cURL error number of a request that ran out of time.
      */
     private const int CURL_TIMEOUT_ERROR = 28;
@@ -84,6 +94,13 @@ final readonly class WebhookSiteGateway implements NotificationGateway
 
         if ($response->successful()) {
             return $this->acceptance($response);
+        }
+
+        if (in_array($response->status(), self::ENDPOINT_FAILURE_STATUSES, true)) {
+            return GatewayResponseData::retryable(
+                __('notifications.errors.endpoint_rejected', ['status' => $response->status()]),
+                $response->status(),
+            );
         }
 
         $error = __('notifications.errors.http_status', ['status' => $response->status()]);

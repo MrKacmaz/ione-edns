@@ -92,6 +92,21 @@ test('keeps the provider URL out of the stored error and logs the full reason in
     Log::shouldHaveReceived('warning')->once()->with('notification.gateway.unreachable', ['error' => $reason]);
 });
 
+test('retries answers that say the endpoint or its credentials are wrong, so they count against the circuit instead of failing each message', function (int $status) {
+    Http::fake(['gateway.test/*' => Http::response('Not Found', $status)]);
+
+    $response = app(WebhookSiteGateway::class)->send(Notification::factory()->create());
+
+    expect($response->outcome)->toBe(GatewayOutcome::RetryableFailure)
+        ->and($response->httpStatus)->toBe($status)
+        ->and($response->error)->toBe("The provider refused the request with HTTP {$status}; its URL or credentials may no longer be valid.");
+})->with([
+    'unauthorized' => [401],
+    'forbidden' => [403],
+    'expired webhook.site URL' => [404],
+    'gone' => [410],
+]);
+
 test('refuses to send without a configured URL', function () {
     config(['notifications.gateway.url' => null]);
 
