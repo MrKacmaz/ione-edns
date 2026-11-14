@@ -1,0 +1,19 @@
+$kind: http-request
+description: "Cancelling is safe to repeat: the cancelled notification comes back unchanged."
+url: "{{baseUrl}}/v1/notifications/{{notificationId}}/cancel"
+method: POST
+headers:
+  - key: "Accept"
+    value: "application/json"
+  - key: "X-Correlation-ID"
+    value: "{{$guid}}"
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('answers 200 with the notification as it was cancelled', () => {
+          pm.response.to.have.status(200);
+          pm.expect(pm.response.json().data.status).to.equal('cancelled');
+          pm.expect(pm.response.json().data.cancelled_at).to.equal(pm.collectionVariables.get('cancelledAt'));
+      });
+    language: text/javascript
+order: 9000

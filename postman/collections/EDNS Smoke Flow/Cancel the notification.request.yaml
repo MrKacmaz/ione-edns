@@ -13,5 +13,6 @@ scripts:
           pm.response.to.have.status(200);
           pm.expect(pm.response.json().data.status).to.equal('cancelled');
       });
+      pm.collectionVariables.set('cancelledAt', pm.response.json().data.cancelled_at);
     language: text/javascript
 order: 8000

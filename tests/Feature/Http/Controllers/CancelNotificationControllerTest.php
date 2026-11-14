@@ -18,14 +18,27 @@ test('cancels a notification that no worker has picked up yet', function () {
         ->cancelled_at->not->toBeNull();
 });
 
-test('returns 409 and leaves the notification untouched once it is processing or finished', function () {
-    $notification = Notification::factory()->processing()->create();
+test('returns 409 and leaves the notification untouched once it is processing or finished', function (string $state) {
+    $notification = Notification::factory()->{$state}()->create();
     Sanctum::actingAs($notification->user);
 
     $response = $this->postJson(route('api.v1.notifications.cancel', $notification));
 
-    $response->assertConflict()->assertJsonPath('message', 'The notification can no longer be cancelled because it is processing.');
-    expect($notification->refresh()->status->value)->toBe('processing');
+    $response->assertConflict()->assertJsonPath('message', "The notification can no longer be cancelled because it is {$state}.");
+    expect($notification->refresh()->status->value)->toBe($state);
+})->with(['processing', 'sent', 'failed']);
+
+test('answers a repeated cancellation with the notification as it was cancelled', function () {
+    Event::fake([NotificationStatusChanged::class]);
+    $notification = Notification::factory()->cancelled()->create(['cancelled_at' => '2026-11-14 09:00:00']);
+    Sanctum::actingAs($notification->user);
+
+    $response = $this->postJson(route('api.v1.notifications.cancel', $notification));
+
+    $response->assertOk()
+        ->assertJsonPath('data.status', 'cancelled')
+        ->assertJsonPath('data.cancelled_at', '2026-11-14T09:00:00.000000Z');
+    Event::assertNotDispatched(NotificationStatusChanged::class);
 });
 
 test('returns 404 and does not cancel another user\'s notification', function () {
