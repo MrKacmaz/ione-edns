@@ -59,19 +59,33 @@ class ListNotificationsRequest extends FormRequest
     }
 
     /**
-     * Get the earliest creation time to include.
+     * Get the earliest creation time to include, in UTC.
+     *
+     * A given offset is honoured; a bare date means the start of that day in UTC.
      */
     public function createdFrom(): ?CarbonInterface
     {
-        return $this->date('created_from');
+        return $this->date('created_from')?->utc();
     }
 
     /**
-     * Get the latest creation time to include.
+     * Get the latest creation time to include, in UTC.
+     *
+     * A given offset is honoured; a bare date includes that whole day in UTC.
      */
     public function createdTo(): ?CarbonInterface
     {
-        return $this->date('created_to');
+        $createdTo = $this->date('created_to')?->utc();
+
+        return $createdTo !== null && $this->isBareDate('created_to') ? $createdTo->endOfDay() : $createdTo;
+    }
+
+    /**
+     * Determine whether the input is a date without a time, such as "2026-11-12".
+     */
+    private function isBareDate(string $key): bool
+    {
+        return preg_match('/^\d{4}-\d{2}-\d{2}$/', $this->string($key)->trim()->toString()) === 1;
     }
 
     /**

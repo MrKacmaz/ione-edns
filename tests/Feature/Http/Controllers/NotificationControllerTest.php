@@ -175,6 +175,31 @@ describe('index', function () {
         $response->assertOk()->assertJsonPath('data.*.content', ['before']);
     });
 
+    test('honours the offset of a date filter', function () {
+        $user = User::factory()->create();
+        Notification::factory()->for($user)->count(2)->sequence(
+            ['created_at' => '2026-11-12 05:59:59', 'content' => 'before'],
+            ['created_at' => '2026-11-12 06:00:00', 'content' => 'from'],
+        )->create();
+        Sanctum::actingAs($user);
+
+        $response = $this->getJson(route('api.v1.notifications.index', ['created_from' => '2026-11-12T09:00:00+03:00']));
+
+        $response->assertOk()->assertJsonPath('data.*.content', ['from']);
+    });
+
+    test('includes the whole day of an end date given without a time', function () {
+        $user = User::factory()->create();
+        Notification::factory()->for($user)->count(2)->sequence(
+            ['created_at' => '2026-11-12 23:59:59.750000', 'content' => 'last moment of the day'],
+            ['created_at' => '2026-11-13 00:00:00', 'content' => 'next day'],
+        )->create();
+        Sanctum::actingAs($user);
+
+        $response = $this->getJson(route('api.v1.notifications.index', ['created_to' => '2026-11-12']));
+
+        $response->assertOk()->assertJsonPath('data.*.content', ['last moment of the day']);
+    });
 });
 
 describe('store', function () {

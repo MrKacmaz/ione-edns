@@ -29,8 +29,9 @@ class NotificationController extends Controller
             ->when($request->status(), fn (Builder $q, NotificationStatus $status) => $q->where('status', $status))
             ->when($request->channel(), fn (Builder $q, NotificationChannel $channel) => $q->where('channel', $channel))
             ->when($request->batchId(), fn (Builder $q, string $batchId) => $q->where('batch_id', $batchId))
-            ->when($request->createdFrom(), fn (Builder $q, CarbonInterface $from) => $q->where('created_at', '>=', $from))
-            ->when($request->createdTo(), fn (Builder $q, CarbonInterface $to) => $q->where('created_at', '<=', $to))
+            // Formatted by the model, so the bounds keep their microseconds.
+            ->when($request->createdFrom(), fn (Builder $q, CarbonInterface $from) => $q->where('created_at', '>=', $q->getModel()->fromDateTime($from)))
+            ->when($request->createdTo(), fn (Builder $q, CarbonInterface $to) => $q->where('created_at', '<=', $q->getModel()->fromDateTime($to)))
             ->orderByDesc('created_at')
             ->orderByDesc('id')
             ->cursorPaginate($request->perPage())
