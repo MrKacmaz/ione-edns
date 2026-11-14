@@ -3,6 +3,8 @@
 use App\Events\NotificationStatusChanged;
 use App\Models\Notification;
 use App\Models\NotificationBatch;
+use Illuminate\Database\Events\QueryExecuted;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 
 describe('statusCounts', function () {
@@ -52,6 +54,22 @@ describe('cancelPendingNotifications', function () {
         $this->assertDatabaseHas('notifications', ['id' => $failed->id, 'status' => 'failed']);
         $this->assertDatabaseHas('notifications', ['id' => $cancelledEarlier->id, 'status' => 'cancelled', 'cancelled_at' => '2026-11-14 09:00:00']);
         $this->assertDatabaseHas('notifications', ['id' => $inOtherBatch->id, 'status' => 'waiting']);
+    });
+
+    test('locks the notifications in id order, so concurrent cancellations of the batch cannot deadlock', function () {
+        $batch = NotificationBatch::factory()->create();
+        Notification::factory()->inBatch($batch)->count(3)->create();
+        $lockingQueries = [];
+        DB::listen(function (QueryExecuted $query) use (&$lockingQueries): void {
+            if (str_ends_with($query->sql, 'for update')) {
+                $lockingQueries[] = $query->sql;
+            }
+        });
+
+        $batch->cancelPendingNotifications();
+
+        expect($lockingQueries)->toHaveCount(1)
+            ->and($lockingQueries[0])->toContain('order by "id" asc for update');
     });
 
     test('announces each notification it cancels and none it leaves alone', function () {

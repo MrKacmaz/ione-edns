@@ -27,6 +27,11 @@ class NotificationBatch extends Model
     use HasFactory, HasUuids;
 
     /**
+     * How often a batch cancellation runs again when the database aborts it to break a deadlock.
+     */
+    private const int CANCEL_ATTEMPTS = 3;
+
+    /**
      * Get the user that owns the batch.
      *
      * @return BelongsTo<User, $this>
@@ -75,6 +80,11 @@ class NotificationBatch extends Model
      * worker that tries to claim one at the same moment waits and then finds it
      * cancelled. Each cancellation is announced to the owner once committed.
      *
+     * The rows are locked in id order, so two cancellations of the same batch
+     * queue up behind each other instead of deadlocking. A deadlock with another
+     * statement that changes many notifications at once, such as the stale
+     * sweep, runs the cancellation again.
+     *
      * @return int The number of notifications that were cancelled.
      */
     public function cancelPendingNotifications(): int
@@ -82,6 +92,7 @@ class NotificationBatch extends Model
         return DB::transaction(function (): int {
             $notifications = $this->notifications()
                 ->whereIn('status', NotificationStatus::cancellable())
+                ->orderBy('id')
                 ->lockForUpdate()
                 ->get();
 
@@ -107,6 +118,6 @@ class NotificationBatch extends Model
             }
 
             return $notifications->count();
-        });
+        }, attempts: self::CANCEL_ATTEMPTS);
     }
 }

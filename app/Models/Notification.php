@@ -319,7 +319,8 @@ class Notification extends Model
     /**
      * Give each of the failed notifications among the given ones a fresh set of delivery attempts.
      *
-     * Notifications that are not failed (any more) are left alone.
+     * Notifications that are not failed (any more) are left alone. The rows are
+     * locked in id order, like a batch cancellation, so the two cannot deadlock.
      *
      * @param  Collection<int, self>  $notifications
      * @return Collection<int, self> The notifications that were reset, now waiting.
@@ -330,6 +331,7 @@ class Notification extends Model
             $resetIds = self::query()
                 ->whereKey($notifications->modelKeys())
                 ->where('status', NotificationStatus::Failed)
+                ->orderBy('id')
                 ->lockForUpdate()
                 ->pluck('id')
                 ->all();
