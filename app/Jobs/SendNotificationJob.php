@@ -36,13 +36,30 @@ class SendNotificationJob implements ShouldQueue, TracingLinked
 
     /**
      * Unexpected exceptions tolerated before the job fails.
+     *
+     * Provider errors never get here, the delivery service handles them; these are
+     * outages of the database or Redis, which the backoff below gives time to pass.
      */
-    public int $maxExceptions = 3;
+    public int $maxExceptions = 5;
 
     public function __construct(
         public readonly string $notificationId,
         public readonly NotificationChannel $channel,
     ) {}
+
+    /**
+     * Get the seconds to wait before running again after an unexpected exception.
+     *
+     * Without a wait, a short outage would use up every tolerated exception within
+     * milliseconds and fail a notification the provider never saw. Retries the
+     * delivery service schedules set their own delay and do not use these.
+     *
+     * @return list<int>
+     */
+    public function backoff(): array
+    {
+        return [10, 30, 60, 120];
+    }
 
     /**
      * Get the time until which the job may be retried.
