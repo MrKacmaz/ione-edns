@@ -12,7 +12,7 @@ request:
       description: A UUID that ties the request to its log entries, jobs and provider calls. It is echoed in the response; a new one is created when it is missing or not a UUID.
   pathVariables:
     - key: template
-      value: 518102bb-bd42-5117-df09-cd2519ea1e97
+      value: a0640c13-c986-67fc-ba2f-1bd373520750
       disabled: false
       description: (Required) The template ID
   body:

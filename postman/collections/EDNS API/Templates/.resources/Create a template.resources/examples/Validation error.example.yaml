@@ -38,10 +38,6 @@ response:
           "key_1": [
             "string",
             "string"
-          ],
-          "key_2": [
-            "string",
-            "string"
           ]
         }
       }

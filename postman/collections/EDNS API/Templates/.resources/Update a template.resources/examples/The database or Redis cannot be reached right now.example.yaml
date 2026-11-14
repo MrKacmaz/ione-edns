@@ -1,0 +1,44 @@
+$kind: http-example
+request:
+  url: "{{baseUrl}}/v1/templates/:template"
+  method: PATCH
+  headers:
+    - key: Authorization
+      value: Bearer <token>
+      description: "Added as a part of security scheme: bearer"
+    - key: X-Correlation-ID
+      value: 0b9e8c1a-4d2f-4e7b-8a3c-6f1d2e9b7a54
+      disabled: false
+      description: A UUID that ties the request to its log entries, jobs and provider calls. It is echoed in the response; a new one is created when it is missing or not a UUID.
+    - key: Accept
+      value: application/json
+  pathVariables:
+    - key: template
+      value: a0640c13-c986-67fc-ba2f-1bd373520750
+      disabled: false
+      description: (Required) The template ID
+  body:
+    type: json
+    content: |-
+      {
+        "name": "string",
+        "channel": "string",
+        "content": "string"
+      }
+response:
+  statusCode: 503
+  statusText: Service Unavailable
+  headers:
+    - key: Retry-After
+      value: "10"
+      disabled: false
+      description: Seconds to wait before sending the request again.
+    - key: Content-Type
+      value: application/json
+  body:
+    type: json
+    content: |-
+      {
+        "message": "string"
+      }
+order: 6000

@@ -51,57 +51,60 @@ response:
       {
         "data": {
           "id": "string",
-          "total": 3783.5969892330468,
+          "total": 4803.649235982448,
           "status_counts": {
-            "key_0": 4886
+            "key_0": 5819,
+            "key_1": 3371,
+            "key_2": 5154,
+            "key_3": 6766
           },
           "is_finished": false,
-          "created_at": "1959-04-30T13:18:07.631Z"
+          "created_at": "1978-01-15T04:22:47.645Z"
         },
         "notifications": [
           {
             "id": "string",
             "batch_id": "string",
             "template_id": "string",
-            "channel": "sms",
-            "priority": "high",
+            "channel": "push",
+            "priority": "normal",
             "status": "queued",
             "recipient": "string",
             "content": "string",
             "idempotency_key": "string",
             "correlation_id": "string",
-            "attempts": 6603,
+            "attempts": 446,
             "provider_message_id": "string",
             "last_error": "string",
-            "scheduled_at": "2005-02-25T20:28:17.507Z",
-            "queued_at": "1972-08-19T21:09:27.609Z",
-            "sent_at": "1968-10-11T02:40:16.636Z",
-            "failed_at": "1991-12-13T08:31:26.485Z",
-            "cancelled_at": "1980-03-22T07:15:50.186Z",
-            "created_at": "1965-02-16T08:43:28.592Z",
-            "updated_at": "1973-02-06T17:58:25.467Z"
+            "scheduled_at": "2025-04-19T16:56:36.253Z",
+            "queued_at": "1994-05-27T12:15:30.948Z",
+            "sent_at": "1989-06-02T08:36:21.498Z",
+            "failed_at": "2019-05-01T13:59:49.148Z",
+            "cancelled_at": "1990-09-22T21:38:18.542Z",
+            "created_at": "1989-02-04T11:40:37.479Z",
+            "updated_at": "1988-02-09T20:06:45.534Z"
           },
           {
             "id": "string",
             "batch_id": "string",
             "template_id": "string",
-            "channel": "push",
-            "priority": "low",
-            "status": "cancelled",
+            "channel": "sms",
+            "priority": "high",
+            "status": "failed",
             "recipient": "string",
             "content": "string",
             "idempotency_key": "string",
             "correlation_id": "string",
-            "attempts": 5880,
+            "attempts": 9178,
             "provider_message_id": "string",
             "last_error": "string",
-            "scheduled_at": "2005-12-06T14:11:52.506Z",
-            "queued_at": "2011-11-05T04:50:44.818Z",
-            "sent_at": "1953-07-21T01:26:59.593Z",
-            "failed_at": "1974-08-30T13:02:25.752Z",
-            "cancelled_at": "2003-09-13T08:33:10.607Z",
-            "created_at": "2002-03-17T04:26:32.258Z",
-            "updated_at": "1985-06-12T15:54:35.601Z"
+            "scheduled_at": "1965-05-29T18:29:28.613Z",
+            "queued_at": "1969-07-29T10:12:08.842Z",
+            "sent_at": "2023-11-08T04:46:09.592Z",
+            "failed_at": "2026-08-23T04:37:18.512Z",
+            "cancelled_at": "1963-05-31T21:33:29.664Z",
+            "created_at": "1969-09-14T18:50:35.831Z",
+            "updated_at": "1971-04-27T12:03:41.623Z"
           }
         ]
       }

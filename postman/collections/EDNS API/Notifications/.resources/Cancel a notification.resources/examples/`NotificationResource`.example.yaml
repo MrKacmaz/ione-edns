@@ -14,7 +14,7 @@ request:
       value: application/json
   pathVariables:
     - key: notification
-      value: 518102bb-bd42-5117-df09-cd2519ea1e97
+      value: a0640c13-c986-67fc-ba2f-1bd373520750
       disabled: false
       description: (Required) The notification ID
   body:
@@ -33,23 +33,23 @@ response:
           "id": "string",
           "batch_id": "string",
           "template_id": "string",
-          "channel": "email",
+          "channel": "sms",
           "priority": "low",
-          "status": "waiting",
+          "status": "processing",
           "recipient": "string",
           "content": "string",
           "idempotency_key": "string",
           "correlation_id": "string",
-          "attempts": 1689,
+          "attempts": 7875,
           "provider_message_id": "string",
           "last_error": "string",
-          "scheduled_at": "2004-10-17T11:56:14.093Z",
-          "queued_at": "2022-02-22T00:23:34.692Z",
-          "sent_at": "1989-09-25T13:38:21.313Z",
-          "failed_at": "1996-12-22T13:39:55.592Z",
-          "cancelled_at": "1950-04-19T06:28:58.189Z",
-          "created_at": "1991-01-26T12:24:57.773Z",
-          "updated_at": "1959-05-02T13:25:10.556Z"
+          "scheduled_at": "2000-01-08T17:11:37.725Z",
+          "queued_at": "1947-03-03T10:51:11.710Z",
+          "sent_at": "1947-09-08T16:01:29.718Z",
+          "failed_at": "1949-12-17T06:24:53.529Z",
+          "cancelled_at": "2015-07-18T06:17:37.990Z",
+          "created_at": "1983-08-24T10:04:58.419Z",
+          "updated_at": "2011-11-07T20:39:19.823Z"
         }
       }
 order: 1000

@@ -32,14 +32,14 @@ response:
         "data": {
           "id": "string",
           "name": "string",
-          "channel": "email",
+          "channel": "sms",
           "content": "string",
           "variables": [
             "string",
             "string"
           ],
-          "created_at": "1990-01-19T05:46:07.666Z",
-          "updated_at": "1985-10-19T19:27:38.288Z"
+          "created_at": "2020-09-21T16:44:45.675Z",
+          "updated_at": "2011-02-06T07:44:30.885Z"
         }
       }
 order: 1000

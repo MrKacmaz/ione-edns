@@ -14,7 +14,7 @@ request:
       value: application/json
   pathVariables:
     - key: notification
-      value: 518102bb-bd42-5117-df09-cd2519ea1e97
+      value: a0640c13-c986-67fc-ba2f-1bd373520750
       disabled: false
       description: (Required) The notification ID
   body:

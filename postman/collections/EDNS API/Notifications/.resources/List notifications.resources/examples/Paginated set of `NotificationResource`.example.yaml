@@ -1,6 +1,6 @@
 $kind: http-example
 request:
-  url: "{{baseUrl}}/v1/notifications?status=scheduled&channel=push&batch_id=518102bb-bd42-5117-df09-cd2519ea1e97&created_from=1983-12-07T23:58:31.048Z&created_to=1983-12-07T23:58:31.048Z&per_page=55&cursor=string"
+  url: "{{baseUrl}}/v1/notifications?status=scheduled&channel=email&batch_id=a0640c13-c986-67fc-ba2f-1bd373520750&created_from=2002-09-24T18:01:12.947Z&created_to=2002-09-24T18:01:12.947Z&per_page=72&cursor=string"
   method: GET
   headers:
     - key: Authorization
@@ -14,11 +14,11 @@ request:
       value: application/json
   queryParams:
     status: scheduled
-    channel: push
-    batch_id: 518102bb-bd42-5117-df09-cd2519ea1e97
-    created_from: 1983-12-07T23:58:31.048Z
-    created_to: 1983-12-07T23:58:31.048Z
-    per_page: "55"
+    channel: email
+    batch_id: a0640c13-c986-67fc-ba2f-1bd373520750
+    created_from: 2002-09-24T18:01:12.947Z
+    created_to: 2002-09-24T18:01:12.947Z
+    per_page: "72"
     cursor: string
   body:
     type: text
@@ -38,44 +38,44 @@ response:
             "batch_id": "string",
             "template_id": "string",
             "channel": "sms",
-            "priority": "high",
-            "status": "queued",
+            "priority": "normal",
+            "status": "failed",
             "recipient": "string",
             "content": "string",
             "idempotency_key": "string",
             "correlation_id": "string",
-            "attempts": 9490,
+            "attempts": 5664,
             "provider_message_id": "string",
             "last_error": "string",
-            "scheduled_at": "1965-07-23T06:06:47.528Z",
-            "queued_at": "1981-04-17T21:50:02.611Z",
-            "sent_at": "1970-01-04T22:39:11.632Z",
-            "failed_at": "1980-08-18T15:29:01.804Z",
-            "cancelled_at": "1968-09-17T01:40:10.350Z",
-            "created_at": "1984-02-27T15:57:18.590Z",
-            "updated_at": "1984-01-20T16:47:51.848Z"
+            "scheduled_at": "2000-09-02T09:58:57.097Z",
+            "queued_at": "1950-03-17T00:35:31.156Z",
+            "sent_at": "2011-04-04T11:33:06.760Z",
+            "failed_at": "2025-11-15T21:09:08.457Z",
+            "cancelled_at": "1992-01-29T01:52:25.212Z",
+            "created_at": "1980-06-05T17:32:05.108Z",
+            "updated_at": "1973-03-21T09:10:36.295Z"
           },
           {
             "id": "string",
             "batch_id": "string",
             "template_id": "string",
             "channel": "email",
-            "priority": "high",
+            "priority": "normal",
             "status": "failed",
             "recipient": "string",
             "content": "string",
             "idempotency_key": "string",
             "correlation_id": "string",
-            "attempts": 8447,
+            "attempts": 2468,
             "provider_message_id": "string",
             "last_error": "string",
-            "scheduled_at": "1965-06-19T15:48:32.233Z",
-            "queued_at": "2025-07-14T23:38:05.871Z",
-            "sent_at": "2011-02-16T22:54:01.544Z",
-            "failed_at": "1984-05-17T10:07:47.674Z",
-            "cancelled_at": "1990-12-26T01:21:01.310Z",
-            "created_at": "1965-09-07T09:58:45.446Z",
-            "updated_at": "1978-05-06T19:05:36.106Z"
+            "scheduled_at": "1983-04-25T13:12:52.897Z",
+            "queued_at": "1970-06-23T14:00:22.620Z",
+            "sent_at": "2020-09-01T15:48:43.345Z",
+            "failed_at": "1990-11-22T01:26:40.468Z",
+            "cancelled_at": "2014-10-13T03:42:42.452Z",
+            "created_at": "1992-06-18T03:47:11.641Z",
+            "updated_at": "2012-01-05T20:29:54.669Z"
           }
         ],
         "links": {
@@ -86,7 +86,7 @@ response:
         },
         "meta": {
           "path": "string",
-          "per_page": 1734,
+          "per_page": 6358,
           "next_cursor": "string",
           "prev_cursor": "string"
         }

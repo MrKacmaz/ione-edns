@@ -14,7 +14,7 @@ request:
       value: application/json
   pathVariables:
     - key: batch
-      value: 518102bb-bd42-5117-df09-cd2519ea1e97
+      value: a0640c13-c986-67fc-ba2f-1bd373520750
       disabled: false
       description: (Required) The batch ID
   body:
@@ -31,13 +31,12 @@ response:
       {
         "data": {
           "id": "string",
-          "total": 948.1407236307859,
+          "total": 2744.871398899704,
           "status_counts": {
-            "key_0": 2743,
-            "key_1": 8323
+            "key_0": 7952
           },
           "is_finished": false,
-          "created_at": "1953-09-13T04:30:09.675Z"
+          "created_at": "2020-01-23T20:48:29.262Z"
         }
       }
 order: 1000

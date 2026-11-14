@@ -3,7 +3,7 @@ description: |-
   Responds with JSON, or with the Prometheus text exposition format when
   `format=prometheus`. The snapshot is cached for a few seconds. The numbers
   cover every user's notifications, so only operators may read them.
-url: "{{baseUrl}}/v1/metrics?format=json"
+url: "{{baseUrl}}/v1/metrics?format=prometheus"
 method: GET
 headers:
   - key: X-Correlation-ID
@@ -13,7 +13,7 @@ headers:
   - key: Accept
     value: application/json
 queryParams:
-  format: json
+  format: prometheus
 settings: {}
 examples: ./.resources/Get delivery metrics.resources/examples
 order: 1000

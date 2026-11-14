@@ -242,6 +242,33 @@
                                 "example": 30
                             }
                         }
+                    },
+                    "503": {
+                        "description": "The database or Redis cannot be reached right now",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "message"
+                                    ]
+                                }
+                            }
+                        },
+                        "headers": {
+                            "Retry-After": {
+                                "description": "Seconds to wait before sending the request again.",
+                                "schema": {
+                                    "type": "integer"
+                                },
+                                "example": 10
+                            }
+                        }
                     }
                 }
             },
@@ -402,6 +429,33 @@
                                 "example": 30
                             }
                         }
+                    },
+                    "503": {
+                        "description": "The database or Redis cannot be reached right now",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "message"
+                                    ]
+                                }
+                            }
+                        },
+                        "headers": {
+                            "Retry-After": {
+                                "description": "Seconds to wait before sending the request again.",
+                                "schema": {
+                                    "type": "integer"
+                                },
+                                "example": 10
+                            }
+                        }
                     }
                 }
             }
@@ -487,6 +541,33 @@
                                 "example": 30
                             }
                         }
+                    },
+                    "503": {
+                        "description": "The database or Redis cannot be reached right now",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "message"
+                                    ]
+                                }
+                            }
+                        },
+                        "headers": {
+                            "Retry-After": {
+                                "description": "Seconds to wait before sending the request again.",
+                                "schema": {
+                                    "type": "integer"
+                                },
+                                "example": 10
+                            }
+                        }
                     }
                 }
             }
@@ -494,7 +575,7 @@
         "/v1/notifications/{notification}/cancel": {
             "post": {
                 "operationId": "v1.notifications.cancel",
-                "description": "Responds with 409 when the notification is already processing or finished.",
+                "description": "Cancelling a notification that is already cancelled succeeds again and\nreturns it unchanged, so a client may safely repeat the request. Responds\nwith 409 when the notification is already processing, sent or failed.",
                 "summary": "Cancel a notification",
                 "tags": [
                     "Notifications"
@@ -589,6 +670,33 @@
                                     "type": "integer"
                                 },
                                 "example": 30
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "The database or Redis cannot be reached right now",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "message"
+                                    ]
+                                }
+                            }
+                        },
+                        "headers": {
+                            "Retry-After": {
+                                "description": "Seconds to wait before sending the request again.",
+                                "schema": {
+                                    "type": "integer"
+                                },
+                                "example": 10
                             }
                         }
                     }
@@ -693,6 +801,33 @@
                                     "type": "integer"
                                 },
                                 "example": 30
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "The database or Redis cannot be reached right now",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "message"
+                                    ]
+                                }
+                            }
+                        },
+                        "headers": {
+                            "Retry-After": {
+                                "description": "Seconds to wait before sending the request again.",
+                                "schema": {
+                                    "type": "integer"
+                                },
+                                "example": 10
                             }
                         }
                     }
@@ -856,6 +991,33 @@
                                 "example": 30
                             }
                         }
+                    },
+                    "503": {
+                        "description": "The database or Redis cannot be reached right now",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "message"
+                                    ]
+                                }
+                            }
+                        },
+                        "headers": {
+                            "Retry-After": {
+                                "description": "Seconds to wait before sending the request again.",
+                                "schema": {
+                                    "type": "integer"
+                                },
+                                "example": 10
+                            }
+                        }
                     }
                 }
             }
@@ -939,6 +1101,33 @@
                                     "type": "integer"
                                 },
                                 "example": 30
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "The database or Redis cannot be reached right now",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "message"
+                                    ]
+                                }
+                            }
+                        },
+                        "headers": {
+                            "Retry-After": {
+                                "description": "Seconds to wait before sending the request again.",
+                                "schema": {
+                                    "type": "integer"
+                                },
+                                "example": 10
                             }
                         }
                     }
@@ -1036,6 +1225,33 @@
                                     "type": "integer"
                                 },
                                 "example": 30
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "The database or Redis cannot be reached right now",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "message"
+                                    ]
+                                }
+                            }
+                        },
+                        "headers": {
+                            "Retry-After": {
+                                "description": "Seconds to wait before sending the request again.",
+                                "schema": {
+                                    "type": "integer"
+                                },
+                                "example": 10
                             }
                         }
                     }
@@ -1213,6 +1429,33 @@
                                 "example": 30
                             }
                         }
+                    },
+                    "503": {
+                        "description": "The database or Redis cannot be reached right now",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "message"
+                                    ]
+                                }
+                            }
+                        },
+                        "headers": {
+                            "Retry-After": {
+                                "description": "Seconds to wait before sending the request again.",
+                                "schema": {
+                                    "type": "integer"
+                                },
+                                "example": 10
+                            }
+                        }
                     }
                 }
             },
@@ -1301,6 +1544,33 @@
                                 "example": 30
                             }
                         }
+                    },
+                    "503": {
+                        "description": "The database or Redis cannot be reached right now",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "message"
+                                    ]
+                                }
+                            }
+                        },
+                        "headers": {
+                            "Retry-After": {
+                                "description": "Seconds to wait before sending the request again.",
+                                "schema": {
+                                    "type": "integer"
+                                },
+                                "example": 10
+                            }
+                        }
                     }
                 }
             }
@@ -1384,6 +1654,33 @@
                                     "type": "integer"
                                 },
                                 "example": 30
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "The database or Redis cannot be reached right now",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "message"
+                                    ]
+                                }
+                            }
+                        },
+                        "headers": {
+                            "Retry-After": {
+                                "description": "Seconds to wait before sending the request again.",
+                                "schema": {
+                                    "type": "integer"
+                                },
+                                "example": 10
                             }
                         }
                     }
@@ -1481,6 +1778,33 @@
                                 "example": 30
                             }
                         }
+                    },
+                    "503": {
+                        "description": "The database or Redis cannot be reached right now",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "message"
+                                    ]
+                                }
+                            }
+                        },
+                        "headers": {
+                            "Retry-After": {
+                                "description": "Seconds to wait before sending the request again.",
+                                "schema": {
+                                    "type": "integer"
+                                },
+                                "example": 10
+                            }
+                        }
                     }
                 }
             },
@@ -1549,6 +1873,33 @@
                                 "example": 30
                             }
                         }
+                    },
+                    "503": {
+                        "description": "The database or Redis cannot be reached right now",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "message"
+                                    ]
+                                }
+                            }
+                        },
+                        "headers": {
+                            "Retry-After": {
+                                "description": "Seconds to wait before sending the request again.",
+                                "schema": {
+                                    "type": "integer"
+                                },
+                                "example": 10
+                            }
+                        }
                     }
                 }
             }
@@ -1575,11 +1926,19 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "`User`",
+                        "description": "`UserResource`",
                         "content": {
                             "application/json": {
                                 "schema": {
-                                    "$ref": "#/components/schemas/User"
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/UserResource"
+                                        }
+                                    },
+                                    "required": [
+                                        "data"
+                                    ]
                                 }
                             }
                         }
@@ -1611,6 +1970,33 @@
                                     "type": "integer"
                                 },
                                 "example": 30
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "The database or Redis cannot be reached right now",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "message"
+                                    ]
+                                }
+                            }
+                        },
+                        "headers": {
+                            "Retry-After": {
+                                "description": "Seconds to wait before sending the request again.",
+                                "schema": {
+                                    "type": "integer"
+                                },
+                                "example": 10
                             }
                         }
                     }
@@ -1780,6 +2166,33 @@
                                     "type": "integer"
                                 },
                                 "example": 30
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "The database or Redis cannot be reached right now",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "message"
+                                    ]
+                                }
+                            }
+                        },
+                        "headers": {
+                            "Retry-After": {
+                                "description": "Seconds to wait before sending the request again.",
+                                "schema": {
+                                    "type": "integer"
+                                },
+                                "example": 10
                             }
                         }
                     }
@@ -2156,7 +2569,8 @@
                         "$ref": "#/components/schemas/NotificationChannel"
                     },
                     "content": {
-                        "type": "string"
+                        "type": "string",
+                        "maxLength": 10000
                     }
                 },
                 "required": [
@@ -2177,12 +2591,13 @@
                         "type": "string"
                     },
                     "content": {
-                        "type": "string"
+                        "type": "string",
+                        "maxLength": 10000
                     }
                 },
                 "title": "UpdateNotificationTemplateRequest"
             },
-            "User": {
+            "UserResource": {
                 "type": "object",
                 "properties": {
                     "id": {
@@ -2194,49 +2609,21 @@
                     "email": {
                         "type": "string"
                     },
-                    "email_verified_at": {
-                        "type": [
-                            "string",
-                            "null"
-                        ],
-                        "format": "date-time"
-                    },
                     "created_at": {
                         "type": [
                             "string",
                             "null"
                         ],
                         "format": "date-time"
-                    },
-                    "updated_at": {
-                        "type": [
-                            "string",
-                            "null"
-                        ],
-                        "format": "date-time"
-                    },
-                    "deleted_at": {
-                        "type": [
-                            "string",
-                            "null"
-                        ],
-                        "format": "date-time"
-                    },
-                    "is_operator": {
-                        "type": "boolean"
                     }
                 },
                 "required": [
                     "id",
                     "name",
                     "email",
-                    "email_verified_at",
-                    "created_at",
-                    "updated_at",
-                    "deleted_at",
-                    "is_operator"
+                    "created_at"
                 ],
-                "title": "User"
+                "title": "UserResource"
             }
         },
         "responses": {

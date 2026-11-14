@@ -14,7 +14,7 @@ request:
       value: application/json
   pathVariables:
     - key: template
-      value: 518102bb-bd42-5117-df09-cd2519ea1e97
+      value: a0640c13-c986-67fc-ba2f-1bd373520750
       disabled: false
       description: (Required) The template ID
   body:
@@ -32,14 +32,14 @@ response:
         "data": {
           "id": "string",
           "name": "string",
-          "channel": "email",
+          "channel": "sms",
           "content": "string",
           "variables": [
             "string",
             "string"
           ],
-          "created_at": "1990-01-19T05:46:07.666Z",
-          "updated_at": "1985-10-19T19:27:38.288Z"
+          "created_at": "2020-09-21T16:44:45.675Z",
+          "updated_at": "2011-02-06T07:44:30.885Z"
         }
       }
 order: 1000
