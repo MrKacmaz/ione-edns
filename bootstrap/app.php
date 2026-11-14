@@ -1,8 +1,11 @@
 <?php
 
+use App\Exceptions\ServiceTemporarilyUnavailableException;
 use App\Http\Controllers\HealthController;
 use App\Http\Middleware\AssignRequestContext;
 use App\Http\Middleware\HandleInertiaRequests;
+use App\Services\Observability\InfrastructureOutageDetector;
+use Illuminate\Contracts\Debug\ExceptionHandler;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -10,6 +13,7 @@ use Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Broadcast;
 use Illuminate\Support\Facades\Route;
+use Symfony\Component\HttpFoundation\Response;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -46,4 +50,14 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->shouldRenderJsonWhen(
             fn (Request $request) => $request->is('api/*') || $request->expectsJson(),
         );
+
+        // An unreachable database or Redis answers 503 with Retry-After instead of 500,
+        // as the same request may succeed a few seconds later. It is still reported.
+        $exceptions->render(function (Throwable $exception, Request $request): ?Response {
+            if (! app(InfrastructureOutageDetector::class)->isOutage($exception)) {
+                return null;
+            }
+
+            return app(ExceptionHandler::class)->render($request, ServiceTemporarilyUnavailableException::causedBy($exception));
+        });
     })->create();

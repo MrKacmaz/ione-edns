@@ -2,6 +2,7 @@
 
 namespace App\Http\ApiDocumentation;
 
+use App\Exceptions\ServiceTemporarilyUnavailableException;
 use Dedoc\Scramble\Contracts\OperationTransformer;
 use Dedoc\Scramble\Exceptions\OpenApiReferenceTargetNotFoundException;
 use Dedoc\Scramble\Support\Generator\Header;
@@ -26,6 +27,8 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
  *   for gates such as `operate`, which do answer 403.
  * - Every request may carry an `X-Correlation-ID`.
  * - A rate-limited route may answer 429, with the wait in `Retry-After`.
+ * - Every route may answer 503, with `Retry-After`, while the database or Redis
+ *   cannot be reached.
  */
 final class ApiOperationTransformer implements OperationTransformer
 {
@@ -41,6 +44,8 @@ final class ApiOperationTransformer implements OperationTransformer
         if ($this->isRateLimited($routeInfo)) {
             $operation->addResponse($this->tooManyRequestsResponse());
         }
+
+        $operation->addResponse($this->serviceUnavailableResponse());
 
         $operation->addParameters([
             Parameter::make('X-Correlation-ID', 'header')
@@ -86,6 +91,19 @@ final class ApiOperationTransformer implements OperationTransformer
                 ->setDescription('Seconds to wait before the account may make requests again.')
                 ->setSchema(Schema::fromType(new IntegerType))
                 ->setExample(30));
+    }
+
+    private function serviceUnavailableResponse(): Response
+    {
+        $body = (new ObjectType)->addProperty('message', new StringType)->setRequired(['message']);
+
+        return Response::make(HttpResponse::HTTP_SERVICE_UNAVAILABLE)
+            ->setDescription('The database or Redis cannot be reached right now')
+            ->setContent('application/json', Schema::fromType($body))
+            ->addHeader('Retry-After', (new Header)
+                ->setDescription('Seconds to wait before sending the request again.')
+                ->setSchema(Schema::fromType(new IntegerType))
+                ->setExample(ServiceTemporarilyUnavailableException::RETRY_AFTER_SECONDS));
     }
 
     private function statusOf(Response|Reference $response): ?int

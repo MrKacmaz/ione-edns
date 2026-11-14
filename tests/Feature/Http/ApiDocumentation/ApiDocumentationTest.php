@@ -50,6 +50,12 @@ test('documents the 429 of the API rate limit and its Retry-After header on ever
     expect($operations)->each->toHaveKey('responses.429.headers.Retry-After');
 });
 
+test('documents the 503 of an unreachable database or Redis and its Retry-After header on every operation', function () {
+    $operations = collect(apiDocument()['paths'])->flatMap(fn (array $methods): array => array_values($methods));
+
+    expect($operations)->each->toHaveKey('responses.503.headers.Retry-After');
+});
+
 test('describes template variables as an object of text or number values', function () {
     $schemas = apiDocument()['components']['schemas'];
 
