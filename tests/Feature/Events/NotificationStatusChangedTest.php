@@ -2,6 +2,8 @@
 
 use App\Events\NotificationStatusChanged;
 use App\Models\Notification;
+use Illuminate\Broadcasting\BroadcastEvent;
+use Illuminate\Support\Facades\Queue;
 
 test('broadcasts on the owner\'s private channel under a stable name', function () {
     $notification = Notification::factory()->sent()->create();
@@ -24,4 +26,13 @@ test('carries the delivery outcome but not the content, to keep messages small',
         ->attempts->toBe(5)
         ->last_error->toBe('Provider responded with HTTP 503.')
         ->and($payload)->not->toHaveKey('content');
+});
+
+test('tries the broadcast again after a short wait, so a brief Reverb outage does not lose it', function () {
+    Queue::fake([BroadcastEvent::class]);
+    $notification = Notification::factory()->sent()->create();
+
+    NotificationStatusChanged::dispatch($notification);
+
+    Queue::assertPushed(BroadcastEvent::class, fn (BroadcastEvent $job): bool => $job->tries === 3 && $job->backoff === [5, 30]);
 });

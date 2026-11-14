@@ -44,3 +44,13 @@ test('goes through the queue so a slow mail server does not hold up the delivery
 
     Queue::assertPushed(SendQueuedNotifications::class);
 });
+
+test('tries the mail again after a wait, so a brief mail server outage does not lose the alert', function () {
+    Queue::fake([SendQueuedNotifications::class]);
+
+    (new AnonymousNotifiable)
+        ->route('mail', 'ops@example.com')
+        ->notify(new DeliveryCircuitChangedNotification(NotificationChannel::Sms, CircuitState::Open));
+
+    Queue::assertPushed(SendQueuedNotifications::class, fn (SendQueuedNotifications $job): bool => $job->tries === 3 && $job->backoff() === [10, 60]);
+});

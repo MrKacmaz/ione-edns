@@ -20,6 +20,18 @@ class DeliveryCircuitChangedNotification extends Notification implements ShouldQ
     use Queueable;
 
     /**
+     * How often the mail is tried, so a short outage of the mail server does not lose the alert.
+     */
+    public int $tries = 3;
+
+    /**
+     * Seconds to wait before the second and third try.
+     *
+     * @var list<int>
+     */
+    public array $backoff = [10, 60];
+
+    /**
      * @param  CircuitState::Open|CircuitState::Closed  $state  A circuit only ever opens or closes through a call's outcome.
      */
     public function __construct(

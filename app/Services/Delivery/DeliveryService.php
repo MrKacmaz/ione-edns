@@ -120,21 +120,20 @@ final readonly class DeliveryService
     /**
      * Feed the outcome to the channel's circuit breaker and report when the circuit opened or closed.
      *
-     * The notification has already moved on at this point, so a circuit breaker
-     * error is only reported instead of failing the delivery.
+     * The notification has already moved on at this point, so a circuit breaker or
+     * reporting error is only reported instead of failing the delivery: the job would
+     * otherwise be retried, find the notification finished and never report again.
      */
     private function recordForCircuit(NotificationChannel $channel, GatewayOutcome $outcome): void
     {
         try {
             $state = $this->circuitBreaker->record($channel, $outcome);
+
+            if ($state !== null) {
+                $this->reportCircuitChange->handle($channel, $state);
+            }
         } catch (Throwable $exception) {
             report($exception);
-
-            return;
-        }
-
-        if ($state !== null) {
-            $this->reportCircuitChange->handle($channel, $state);
         }
     }
 

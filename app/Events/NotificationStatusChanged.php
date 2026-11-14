@@ -27,6 +27,18 @@ class NotificationStatusChanged implements ShouldBroadcast, ShouldDispatchAfterC
      */
     public string $queue = 'broadcasts';
 
+    /**
+     * How often the broadcast is tried, so a short Reverb outage does not lose it.
+     */
+    public int $tries = 3;
+
+    /**
+     * Seconds to wait before the second and third try.
+     *
+     * @var list<int>
+     */
+    public array $backoff = [5, 30];
+
     public readonly int $userId;
 
     /**

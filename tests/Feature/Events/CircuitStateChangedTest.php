@@ -21,3 +21,11 @@ test('sends the broadcast from the broadcasts queue, apart from the delivery que
 
     Queue::assertPushedOn('broadcasts', BroadcastEvent::class, fn (BroadcastEvent $job): bool => $job->event instanceof CircuitStateChanged);
 });
+
+test('tries the broadcast again after a short wait, so a brief Reverb outage does not lose it', function () {
+    Queue::fake([BroadcastEvent::class]);
+
+    CircuitStateChanged::dispatch(NotificationChannel::Sms, CircuitState::Open);
+
+    Queue::assertPushed(BroadcastEvent::class, fn (BroadcastEvent $job): bool => $job->tries === 3 && $job->backoff === [5, 30]);
+});

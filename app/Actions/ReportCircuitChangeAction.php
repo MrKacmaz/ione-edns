@@ -10,6 +10,7 @@ use Illuminate\Container\Attributes\Config;
 use Illuminate\Contracts\Cache\Repository as CacheRepository;
 use Illuminate\Notifications\AnonymousNotifiable;
 use Psr\Log\LoggerInterface;
+use Throwable;
 
 /**
  * Logs that a channel's circuit opened or closed, tells open dashboards and alerts the operators.
@@ -41,7 +42,13 @@ class ReportCircuitChangeAction
             $this->logger->info('notification.circuit.closed', ['channel' => $channel->value]);
         }
 
-        CircuitStateChanged::dispatch($channel, $state);
+        // Only the worker whose call changed the state learns of the change, so a failed
+        // broadcast must not also cost the operators their mail.
+        try {
+            CircuitStateChanged::dispatch($channel, $state);
+        } catch (Throwable $exception) {
+            report($exception);
+        }
 
         if ($this->alertMailTo === [] || ! $this->cache->add($this->throttleKey($channel, $state), true, now()->addMinutes($this->throttleMinutes))) {
             return;

@@ -1,5 +1,6 @@
 <?php
 
+use App\Actions\ReportCircuitChangeAction;
 use App\Data\CircuitPermitData;
 use App\Data\GatewayResponseData;
 use App\Enums\CircuitState;
@@ -222,6 +223,20 @@ test('alerts the operators when an attempt opens the channel\'s circuit', functi
             && $alert->state === CircuitState::Open
             && $notifiable->routes['mail'] === ['ops@example.com'],
     );
+});
+
+test('keeps the delivery result when reporting a circuit change fails', function () {
+    Exceptions::fake();
+    Http::fake(['gateway.test/*' => Http::response([], 503)]);
+    $this->app->instance(CircuitBreaker::class, new FakeCircuitBreaker(transition: CircuitState::Open));
+    $this->mock(ReportCircuitChangeAction::class)->shouldReceive('handle')->andThrow(new RuntimeException('Mail queue unreachable'));
+    $notification = Notification::factory()->queued()->create();
+
+    $result = app(DeliveryService::class)->deliver($notification->id);
+
+    expect($result->outcome)->toBe(DeliveryOutcome::RetryScheduled)
+        ->and($notification->refresh()->status)->toBe(NotificationStatus::Queued);
+    Exceptions::assertReported(fn (RuntimeException $exception): bool => $exception->getMessage() === 'Mail queue unreachable');
 });
 
 test('keeps the delivery result when the circuit breaker cannot record it', function () {

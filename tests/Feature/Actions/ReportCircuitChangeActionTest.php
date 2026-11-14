@@ -7,6 +7,7 @@ use App\Events\CircuitStateChanged;
 use App\Notifications\DeliveryCircuitChangedNotification;
 use Illuminate\Notifications\AnonymousNotifiable;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Exceptions;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Notification;
 
@@ -38,6 +39,17 @@ test('mails every operator address', function () {
         DeliveryCircuitChangedNotification::class,
         fn (DeliveryCircuitChangedNotification $alert, array $channels, AnonymousNotifiable $notifiable): bool => $notifiable->routes['mail'] === ['ops@example.com', 'oncall@example.com'],
     );
+});
+
+test('still mails the operators when telling the dashboards fails', function () {
+    Notification::fake();
+    Exceptions::fake();
+    Event::listen(CircuitStateChanged::class, fn () => throw new RuntimeException('Reverb is down'));
+
+    app(ReportCircuitChangeAction::class)->handle(NotificationChannel::Sms, CircuitState::Open);
+
+    Notification::assertSentOnDemand(DeliveryCircuitChangedNotification::class);
+    Exceptions::assertReported(fn (RuntimeException $exception): bool => $exception->getMessage() === 'Reverb is down');
 });
 
 test('mails the same change of a channel at most once per throttle window', function () {
