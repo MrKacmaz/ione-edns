@@ -18,4 +18,11 @@ if [ -z "${REVERB_APP_SECRET:-}" ] && [ -f "$SECRETS_DIR/reverb_app_secret" ]; t
     export REVERB_APP_SECRET
 fi
 
+# Cache the configuration, routes, events and views once per start. The cache is
+# built from the environment and the secrets above, and lives in this container only.
+# Not for init, which creates the secrets in the first place.
+if [ "${1:-}" != "init.sh" ]; then
+    php artisan optimize --quiet
+fi
+
 exec "$@"
