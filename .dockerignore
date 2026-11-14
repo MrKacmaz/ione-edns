@@ -23,8 +23,7 @@ opencode.json
 opencode.jsonc
 
 .env
-.env.backup
-.env.production
+.env.*
 auth.json
 
 /node_modules

@@ -1,6 +1,17 @@
 name: ione-edns
 
-# OpenTelemetry settings shared by every PHP service (api, horizon, scheduler, reverb).
+# Start everything with `docker compose up -d --build`:
+#   API and dashboard  http://localhost:8000 (sign in as test@example.com / password)
+#   Reverb WebSocket   ws://localhost:8080
+#   Jaeger traces      http://localhost:16686
+#   Mailpit (alerts)   http://localhost:8025
+# Run the test suite with `docker compose --profile test run --rm tests`.
+#
+# Host ports can be changed with APP_PORT, REVERB_HOST_PORT, JAEGER_UI_PORT and
+# MAILPIT_UI_PORT. NOTIFICATIONS_GATEWAY_URL (the webhook.site URL) is read from
+# the shell or from a local .env file; without it every delivery fails.
+
+# OpenTelemetry settings shared by every PHP service.
 # They must be real environment variables: the SDK boots during Composer autoload, before Laravel reads .env.
 x-otel-env: &otel-env
     OTEL_PHP_AUTOLOAD_ENABLED: 'true'
@@ -12,11 +23,193 @@ x-otel-env: &otel-env
     OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
     OTEL_PROPAGATORS: tracecontext,baggage
 
+# Settings shared by every PHP service. APP_KEY and REVERB_APP_SECRET are not
+# here: the init service creates them in the "secrets" volume on the first start.
+x-app-env: &app-env
+    <<: *otel-env
+    APP_NAME: EDNS
+    APP_ENV: local
+    APP_DEBUG: 'false'
+    APP_URL: http://localhost:${APP_PORT:-8000}
+    LOG_CHANNEL: stderr
+    LOG_LEVEL: info
+    DB_CONNECTION: pgsql
+    DB_HOST: postgres
+    DB_PORT: '5432'
+    DB_DATABASE: ione_edns
+    DB_USERNAME: ione_edns
+    DB_PASSWORD: secret
+    REDIS_CLIENT: phpredis
+    REDIS_HOST: redis
+    REDIS_PORT: '6379'
+    QUEUE_CONNECTION: redis
+    CACHE_STORE: redis
+    SESSION_DRIVER: database
+    BROADCAST_CONNECTION: reverb
+    REVERB_APP_ID: edns-local
+    REVERB_APP_KEY: edns-local-key
+    REVERB_HOST: reverb
+    REVERB_PORT: '8080'
+    REVERB_SCHEME: http
+    MAIL_MAILER: smtp
+    MAIL_HOST: mailpit
+    MAIL_PORT: '1025'
+    MAIL_FROM_ADDRESS: edns@example.com
+    MAIL_FROM_NAME: EDNS
+    NOTIFICATIONS_GATEWAY_URL: ${NOTIFICATIONS_GATEWAY_URL:-}
+    NOTIFICATIONS_ALERT_MAIL_TO: ${NOTIFICATIONS_ALERT_MAIL_TO:-ops@example.com}
+
+# The build every PHP service shares; the browser reaches Reverb on the host port.
+x-app-build: &app-build
+    context: .
+    target: app
+    args:
+        VITE_REVERB_APP_KEY: edns-local-key
+        VITE_REVERB_HOST: localhost
+        VITE_REVERB_PORT: ${REVERB_HOST_PORT:-8080}
+        VITE_REVERB_SCHEME: http
+
+x-app: &app
+    image: ione-edns-app
+    build: *app-build
+    environment: *app-env
+    volumes:
+        - secrets:/var/www/secrets:ro
+    depends_on:
+        init:
+            condition: service_completed_successfully
+    restart: unless-stopped
+
 services:
-    # Tracing backend: receives OTLP from the PHP services and serves the trace UI on http://localhost:16686.
+    # Creates the secrets on the first start, migrates and seeds; the other PHP services wait for it.
+    init:
+        <<: *app
+        command: ['init.sh']
+        volumes:
+            - secrets:/var/www/secrets
+        depends_on:
+            postgres:
+                condition: service_healthy
+            redis:
+                condition: service_healthy
+        restart: 'no'
+
+    # php-fpm behind nginx.
+    app:
+        <<: *app
+
+    web:
+        image: ione-edns-web
+        build:
+            <<: *app-build
+            target: web
+        ports:
+            - '${APP_PORT:-8000}:80'
+        depends_on:
+            - app
+        healthcheck:
+            test: ['CMD', 'wget', '-qO-', 'http://127.0.0.1/up']
+            interval: 10s
+            timeout: 5s
+            retries: 6
+        restart: unless-stopped
+
+    # Queue workers for the notification and broadcast queues.
+    horizon:
+        <<: *app
+        command: ['php', 'artisan', 'horizon']
+        stop_grace_period: 30s
+
+    # Sweeps, scheduled notifications and the 5-second metrics broadcast.
+    scheduler:
+        <<: *app
+        command: ['php', 'artisan', 'schedule:work']
+
+    reverb:
+        <<: *app
+        command:
+            ['php', 'artisan', 'reverb:start', '--host=0.0.0.0', '--port=8080']
+        ports:
+            - '${REVERB_HOST_PORT:-8080}:8080'
+        healthcheck:
+            test:
+                [
+                    'CMD',
+                    'php',
+                    '-r',
+                    'exit(@fsockopen("127.0.0.1", 8080) ? 0 : 1);',
+                ]
+            interval: 10s
+            timeout: 5s
+            retries: 6
+
+    postgres:
+        image: postgres:18.7-alpine
+        environment:
+            POSTGRES_DB: ione_edns
+            POSTGRES_USER: ione_edns
+            POSTGRES_PASSWORD: secret
+        volumes:
+            - postgres:/var/lib/postgresql
+            - ./docker/postgres/create-testing-database.sql:/docker-entrypoint-initdb.d/create-testing-database.sql:ro
+        healthcheck:
+            test: ['CMD', 'pg_isready', '-U', 'ione_edns', '-d', 'ione_edns']
+            interval: 5s
+            timeout: 5s
+            retries: 12
+        restart: unless-stopped
+
+    # Append-only persistence keeps queued and delayed jobs across restarts.
+    redis:
+        image: redis:8.10.3-alpine
+        command: ['redis-server', '--appendonly', 'yes']
+        volumes:
+            - redis:/data
+        healthcheck:
+            test: ['CMD', 'redis-cli', 'ping']
+            interval: 5s
+            timeout: 5s
+            retries: 12
+        restart: unless-stopped
+
+    # Catches the operator alert mails.
+    mailpit:
+        image: axllent/mailpit:v1.33.1
+        ports:
+            - '${MAILPIT_UI_PORT:-8025}:8025'
+        restart: unless-stopped
+
+    # Tracing backend: receives OTLP from the PHP services and serves the trace UI.
     # Traces are kept in memory and are lost when the container restarts.
     jaeger:
         image: jaegertracing/jaeger:2.23.0
         ports:
-            - '16686:16686'
+            - '${JAEGER_UI_PORT:-16686}:16686'
         restart: unless-stopped
+
+    # The test suite against its own database: docker compose --profile test run --rm tests
+    tests:
+        image: ione-edns-tests
+        build:
+            context: .
+            target: tests
+        profiles: ['test']
+        environment:
+            DB_HOST: postgres
+            DB_PORT: '5432'
+            DB_DATABASE: ione_edns_testing
+            DB_USERNAME: ione_edns
+            DB_PASSWORD: secret
+            REDIS_CLIENT: phpredis
+            REDIS_HOST: redis
+            REDIS_PORT: '6379'
+        depends_on:
+            postgres:
+                condition: service_healthy
+            redis:
+                condition: service_healthy
+
+volumes:
+    postgres:
+    redis:
+    secrets:
