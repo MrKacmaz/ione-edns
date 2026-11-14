@@ -292,7 +292,6 @@ A provider's `Retry-After` (delay seconds or an HTTP date, parsed strictly) is a
 - **A database or Redis outage** does not use up anything: the job goes back to the queue after 10 seconds, doubling up to five minutes, until the outage ends or the job's one-day lifetime is over. API requests that meet the outage are answered with `503` and `Retry-After: 10` instead of `500`. Other unexpected errors are retried by Laravel after 10, 30, 60 and 120 seconds, at most five times. When a job gives up, its notification is marked `failed` rather than left behind.
 - **Errors shown to clients are generic** ("The provider could not be reached."): the underlying exception names the provider URL, which with webhook.site is the secret that protects the messages. The full message is in the log.
 - **Manual retry:** `POST /api/v1/notifications/{id}/retry` gives a `failed` notification a fresh set of attempts and keeps its history.
-- **Bulk retry after an incident:** `php artisan notifications:retry-failed "2 hours ago"` does the same for every notification that failed since then (`--channel=sms` to narrow it, `--dry-run` to count first). In Docker: `docker compose exec app php artisan notifications:retry-failed "2 hours ago"`.
 
 ### When the provider is down: circuit breaker
 
@@ -551,7 +550,7 @@ Everything is set with environment variables (see `.env.example` and `config/not
 
 ## Tests and code quality
 
-812 Pest tests: unit tests for pure logic (data objects, enums, backoff, channels), feature tests per class and endpoint, and architecture rules (`tests/Unit/ArchitectureTest.php`). Redis-backed code (rate limiter, circuit breaker, queues) is tested against a real Redis. [CI](#cicd) runs every check below and the whole suite on each push and pull request.
+802 Pest tests: unit tests for pure logic (data objects, enums, backoff, channels), feature tests per class and endpoint, and architecture rules (`tests/Unit/ArchitectureTest.php`). Redis-backed code (rate limiter, circuit breaker, queues) is tested against a real Redis. [CI](#cicd) runs every check below and the whole suite on each push and pull request.
 
 Run the tests in Docker:
 

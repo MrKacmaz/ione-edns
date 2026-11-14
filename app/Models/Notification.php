@@ -13,13 +13,11 @@ use Illuminate\Database\Eloquent\Attributes\DateFormat;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Scope;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Support\Facades\DB;
 
 /**
  * @property string $id
@@ -314,32 +312,6 @@ class Notification extends Model
         $this->refresh();
 
         return $resetRows === 1;
-    }
-
-    /**
-     * Give each of the failed notifications among the given ones a fresh set of delivery attempts.
-     *
-     * Notifications that are not failed (any more) are left alone. The rows are
-     * locked in id order, like a batch cancellation, so the two cannot deadlock.
-     *
-     * @param  Collection<int, self>  $notifications
-     * @return Collection<int, self> The notifications that were reset, now waiting.
-     */
-    public static function resetForRedeliveryMany(Collection $notifications): Collection
-    {
-        return DB::transaction(function () use ($notifications): Collection {
-            $resetIds = self::query()
-                ->whereKey($notifications->modelKeys())
-                ->where('status', NotificationStatus::Failed)
-                ->orderBy('id')
-                ->lockForUpdate()
-                ->pluck('id')
-                ->all();
-
-            self::query()->whereKey($resetIds)->update(self::REDELIVERY_RESET);
-
-            return self::query()->whereKey($resetIds)->get();
-        });
     }
 
     /**

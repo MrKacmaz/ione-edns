@@ -13,7 +13,7 @@ The provider can time out, answer `5xx`, throttle with `429` (possibly with `Ret
 
 **Backoff** (`RetryBackoff`): after the n-th failed attempt the next attempt waits a random time between zero and `base * 2^(n-1)` seconds (30 seconds doubling, at most 300), with a minimum of one second. This is "full jitter", which spreads retries of notifications that failed together. A `Retry-After` from the provider is honoured as a lower bound, read strictly as delay seconds or an RFC 9110 HTTP date, and capped at one hour. After five attempts the notification fails.
 
-**Retries are job releases, not Laravel attempts.** The job releases itself with the backoff delay and the notification records when the next attempt is due (`next_attempt_at`), so no other job for it can run the attempt sooner; the notification's own attempt counter decides when to give up, so rate-limit waits and an open circuit never use up attempts. A database or Redis outage releases the job with a growing delay without counting as an exception (ADR 0004). Any other unexpected exception is retried by Laravel after 10, 30, 60 and 120 seconds, at most five times. `POST /notifications/{id}/retry` gives a failed notification a fresh set of attempts and keeps its history; after a provider incident, `php artisan notifications:retry-failed "<since>"` does the same for every notification that failed since a moment, optionally per channel.
+**Retries are job releases, not Laravel attempts.** The job releases itself with the backoff delay and the notification records when the next attempt is due (`next_attempt_at`), so no other job for it can run the attempt sooner; the notification's own attempt counter decides when to give up, so rate-limit waits and an open circuit never use up attempts. A database or Redis outage releases the job with a growing delay without counting as an exception (ADR 0004). Any other unexpected exception is retried by Laravel after 10, 30, 60 and 120 seconds, at most five times. `POST /notifications/{id}/retry` gives a failed notification a fresh set of attempts and keeps its history.
 
 **Circuit breaker** (`RedisCircuitBreaker`, one circuit per channel, shared in Redis):
 
@@ -41,5 +41,5 @@ The provider can time out, answer `5xx`, throttle with `429` (possibly with `Ret
 
 - All channels currently share one provider URL, so an outage opens the three circuits one by one rather than together.
 - A job still gives up one day after its first dispatch; if a circuit stays open longer, its notifications fail and need a manual retry.
-- Below 20 calls a minute a circuit cannot open, so with little traffic an expired provider URL still fails the notifications after their five attempts; `notifications:retry-failed` sends them again once the URL is fixed.
+- Below 20 calls a minute a circuit cannot open, so with little traffic an expired provider URL still fails the notifications after their five attempts; once the URL is fixed they are retried one by one with `POST /notifications/{id}/retry`.
 - The thresholds are global defaults; a provider with a different error profile needs tuning through `NOTIFICATIONS_CIRCUIT_*`.
