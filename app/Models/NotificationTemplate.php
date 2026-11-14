@@ -37,6 +37,16 @@ class NotificationTemplate extends Model
     use HasFactory, HasUuids;
 
     /**
+     * The most characters a template's content may have, placeholders included.
+     *
+     * As many as the channel with the longest content (email) accepts. The channel
+     * limit itself applies to the fixed text and to every rendered notification;
+     * this bounds what is stored, as placeholders alone could otherwise be
+     * repeated without end.
+     */
+    public const int MAX_CONTENT_LENGTH = 10_000;
+
+    /**
      * Matches one placeholder and captures its variable name.
      */
     private const string PLACEHOLDER_PATTERN = '/\{\{\s*([A-Za-z_][A-Za-z0-9_]*)\s*\}\}/';

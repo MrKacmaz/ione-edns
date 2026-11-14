@@ -32,7 +32,7 @@ class StoreNotificationTemplateRequest extends FormRequest
                 Rule::unique(NotificationTemplate::class)->where('user_id', $user->id),
             ],
             'channel' => ['required', Rule::enum(NotificationChannel::class)],
-            'content' => ['required', 'string', new NotificationTemplateContentRule($channels)],
+            'content' => ['required', 'string', 'max:'.NotificationTemplate::MAX_CONTENT_LENGTH, new NotificationTemplateContentRule($channels)],
         ];
     }
 }

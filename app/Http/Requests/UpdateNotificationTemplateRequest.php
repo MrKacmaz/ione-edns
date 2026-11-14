@@ -31,7 +31,7 @@ class UpdateNotificationTemplateRequest extends FormRequest
                 Rule::unique(NotificationTemplate::class)->where('user_id', $template->user_id)->ignore($template),
             ],
             'channel' => ['prohibited'],
-            'content' => ['sometimes', 'string', new NotificationTemplateContentRule($channels, $template->channel)],
+            'content' => ['sometimes', 'string', 'max:'.NotificationTemplate::MAX_CONTENT_LENGTH, new NotificationTemplateContentRule($channels, $template->channel)],
         ];
     }
 }

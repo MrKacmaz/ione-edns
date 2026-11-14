@@ -185,6 +185,11 @@ describe('store', function () {
         ],
         'unknown channel' => [['channel' => 'fax'], 'channel', 'The selected channel is invalid.'],
         'content that is not a string' => [['content' => ['Your order has shipped.']], 'content', 'The content field must be a string.'],
+        'content of placeholders alone beyond 10,000 characters' => [
+            ['content' => str_repeat('{{ name }}', 1_001)],
+            'content',
+            'The content field must not be greater than 10000 characters.',
+        ],
     ]);
 
     test('explains with 422 that the user already uses the name', function () {
@@ -363,6 +368,11 @@ describe('update', function () {
             ['content' => str_repeat('a', 161)],
             'content',
             'The content may not be greater than 160 characters for the sms channel, not counting its placeholders.',
+        ],
+        'content of placeholders alone beyond 10,000 characters' => [
+            ['content' => str_repeat('{{ name }}', 1_001)],
+            'content',
+            'The content field must not be greater than 10000 characters.',
         ],
     ]);
 
