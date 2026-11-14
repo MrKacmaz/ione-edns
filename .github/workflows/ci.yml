@@ -181,10 +181,7 @@ jobs:
     name: End-to-end (Docker)
     runs-on: ubuntu-latest
 
-    # Every docker compose command below runs the full stack with the mock provider.
-    env:
-      COMPOSE_FILE: docker-compose.yml:docker-compose.ci.yml
-
+    # Without a NOTIFICATIONS_GATEWAY_URL the stack delivers to its mock provider.
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
