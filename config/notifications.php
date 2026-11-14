@@ -57,7 +57,9 @@ return [
     |
     | "max_attempts" is how often the provider is tried before a notification
     | fails. Failed attempts wait a random time between zero and an exponential
-    | window ("base_seconds" doubling per attempt, at most "cap_seconds").
+    | window ("base_seconds" doubling per attempt, at most "cap_seconds"). A
+    | longer Retry-After from the provider is honoured up to
+    | "max_retry_after_seconds", so one odd header cannot park a notification.
     |
     | Each channel may send at most "rate_limit_per_second" messages, spaced
     | evenly. A worker waits up to "rate_limit_max_wait_ms" for its turn and
@@ -74,6 +76,7 @@ return [
         'backoff' => [
             'base_seconds' => max(1, (int) env('NOTIFICATIONS_BACKOFF_BASE_SECONDS', 30)),
             'cap_seconds' => max(1, (int) env('NOTIFICATIONS_BACKOFF_CAP_SECONDS', 300)),
+            'max_retry_after_seconds' => max(1, (int) env('NOTIFICATIONS_BACKOFF_MAX_RETRY_AFTER_SECONDS', 3600)),
         ],
 
         'rate_limit_per_second' => max(1, (int) env('NOTIFICATIONS_RATE_LIMIT_PER_SECOND', 100)),
