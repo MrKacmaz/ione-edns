@@ -10,284 +10,41 @@
             "url": "http://localhost:8000/api"
         }
     ],
+    "tags": [
+        {
+            "name": "Notifications",
+            "description": "Create, list, read, cancel and retry notifications."
+        },
+        {
+            "name": "Batches",
+            "description": "Create up to 1000 notifications at once and follow them as a batch."
+        },
+        {
+            "name": "Templates",
+            "description": "Reusable content with {{ variable }} placeholders."
+        },
+        {
+            "name": "Account",
+            "description": "The user the token belongs to."
+        },
+        {
+            "name": "Monitoring",
+            "description": "System-wide delivery metrics for operators."
+        }
+    ],
     "security": [
         {
             "http": []
         }
     ],
     "paths": {
-        "/v1/user": {
-            "get": {
-                "operationId": "v1.user",
-                "responses": {
-                    "200": {
-                        "description": "`User`",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/User"
-                                }
-                            }
-                        }
-                    },
-                    "401": {
-                        "$ref": "#/components/responses/AuthenticationException"
-                    }
-                }
-            }
-        },
-        "/v1/broadcasting/auth": {
-            "get": {
-                "operationId": "broadcast.authenticate",
-                "summary": "Authenticate the request for channel access",
-                "tags": [
-                    "Broadcast"
-                ],
-                "responses": {
-                    "200": {
-                        "description": "",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object"
-                                }
-                            }
-                        }
-                    },
-                    "401": {
-                        "$ref": "#/components/responses/AuthenticationException"
-                    }
-                }
-            }
-        },
-        "/v1/notifications/{notification}/cancel": {
-            "post": {
-                "operationId": "v1.notifications.cancel",
-                "description": "Responds with 409 when the notification is already processing or finished.",
-                "summary": "Cancel a notification that a worker has not picked up yet",
-                "tags": [
-                    "CancelNotification"
-                ],
-                "parameters": [
-                    {
-                        "name": "notification",
-                        "in": "path",
-                        "required": true,
-                        "description": "The notification ID",
-                        "schema": {
-                            "type": "string",
-                            "format": "uuid"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "`NotificationResource`",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "$ref": "#/components/schemas/NotificationResource"
-                                        }
-                                    },
-                                    "required": [
-                                        "data"
-                                    ]
-                                }
-                            }
-                        }
-                    },
-                    "409": {
-                        "description": "An error",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "message": {
-                                            "type": "string",
-                                            "description": "Error overview."
-                                        }
-                                    },
-                                    "required": [
-                                        "message"
-                                    ]
-                                }
-                            }
-                        }
-                    },
-                    "404": {
-                        "$ref": "#/components/responses/ModelNotFoundException"
-                    },
-                    "403": {
-                        "$ref": "#/components/responses/AuthorizationException"
-                    },
-                    "401": {
-                        "$ref": "#/components/responses/AuthenticationException"
-                    }
-                }
-            }
-        },
-        "/v1/batches/{batch}/cancel": {
-            "post": {
-                "operationId": "v1.notification-batches.cancel",
-                "description": "Notifications that are already processing or finished are left untouched;\n`meta.cancelled` reports how many notifications this request cancelled.",
-                "summary": "Cancel every notification in the batch that a worker has not picked up yet",
-                "tags": [
-                    "CancelNotificationBatch"
-                ],
-                "parameters": [
-                    {
-                        "name": "batch",
-                        "in": "path",
-                        "required": true,
-                        "description": "The batch ID",
-                        "schema": {
-                            "type": "string",
-                            "format": "uuid"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "`NotificationBatchResource`",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "$ref": "#/components/schemas/NotificationBatchResource"
-                                        },
-                                        "meta": {
-                                            "type": "object",
-                                            "properties": {
-                                                "cancelled": {
-                                                    "type": "integer"
-                                                }
-                                            },
-                                            "required": [
-                                                "cancelled"
-                                            ]
-                                        }
-                                    },
-                                    "required": [
-                                        "data",
-                                        "meta"
-                                    ]
-                                }
-                            }
-                        }
-                    },
-                    "404": {
-                        "$ref": "#/components/responses/ModelNotFoundException"
-                    },
-                    "403": {
-                        "$ref": "#/components/responses/AuthorizationException"
-                    },
-                    "401": {
-                        "$ref": "#/components/responses/AuthenticationException"
-                    }
-                }
-            }
-        },
-        "/v1/metrics": {
-            "get": {
-                "operationId": "v1.metrics",
-                "description": "Responds with JSON, or with the Prometheus text exposition format when\n`format=prometheus`. The snapshot is cached for a few seconds. The numbers\ncover every user's notifications, so only operators may read them.",
-                "summary": "Report queue depth, in-flight notifications, success rates and latency",
-                "tags": [
-                    "Metrics"
-                ],
-                "parameters": [
-                    {
-                        "name": "format",
-                        "in": "query",
-                        "schema": {
-                            "type": "string",
-                            "enum": [
-                                "json",
-                                "prometheus"
-                            ]
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "type": "object",
-                                            "properties": {
-                                                "generated_at": {
-                                                    "type": "string"
-                                                },
-                                                "queues": {
-                                                    "type": "array",
-                                                    "items": {}
-                                                },
-                                                "notifications_in_flight": {
-                                                    "type": "object",
-                                                    "additionalProperties": {
-                                                        "type": "integer"
-                                                    }
-                                                },
-                                                "windows": {
-                                                    "type": "array",
-                                                    "items": {}
-                                                },
-                                                "circuits": {
-                                                    "type": "object",
-                                                    "additionalProperties": {
-                                                        "type": "string"
-                                                    }
-                                                }
-                                            },
-                                            "required": [
-                                                "generated_at",
-                                                "queues",
-                                                "notifications_in_flight",
-                                                "windows",
-                                                "circuits"
-                                            ]
-                                        }
-                                    },
-                                    "required": [
-                                        "data"
-                                    ]
-                                }
-                            },
-                            "text/plain; version=0.0.4; charset=utf-8": {
-                                "schema": {
-                                    "type": "string"
-                                }
-                            }
-                        }
-                    },
-                    "422": {
-                        "$ref": "#/components/responses/ValidationException"
-                    },
-                    "403": {
-                        "$ref": "#/components/responses/AuthorizationException"
-                    },
-                    "401": {
-                        "$ref": "#/components/responses/AuthenticationException"
-                    }
-                }
-            }
-        },
         "/v1/notifications": {
             "get": {
                 "operationId": "v1.notifications.index",
-                "summary": "List the authenticated user's notifications, newest first",
+                "description": "The authenticated user's notifications, newest first, with optional filters and cursor pagination.",
+                "summary": "List notifications",
                 "tags": [
-                    "Notification"
+                    "Notifications"
                 ],
                 "parameters": [
                     {
@@ -315,6 +72,7 @@
                     {
                         "name": "created_from",
                         "in": "query",
+                        "description": "The earliest creation time (ISO 8601). An offset such as `+03:00` is honoured; a date alone means the start of that day in UTC.",
                         "schema": {
                             "type": "string",
                             "format": "date-time"
@@ -323,6 +81,7 @@
                     {
                         "name": "created_to",
                         "in": "query",
+                        "description": "The latest creation time (ISO 8601). An offset is honoured; a date alone, such as `2026-11-12`, includes that whole day in UTC.",
                         "schema": {
                             "type": "string",
                             "format": "date-time"
@@ -343,6 +102,16 @@
                         "schema": {
                             "type": "string"
                         }
+                    },
+                    {
+                        "name": "X-Correlation-ID",
+                        "in": "header",
+                        "description": "A UUID that ties the request to its log entries, jobs and provider calls. It is echoed in the response; a new one is created when it is missing or not a UUID.",
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        },
+                        "example": "0b9e8c1a-4d2f-4e7b-8a3c-6f1d2e9b7a54"
                     }
                 ],
                 "responses": {
@@ -446,15 +215,63 @@
                     },
                     "422": {
                         "$ref": "#/components/responses/ValidationException"
+                    },
+                    "429": {
+                        "description": "Too many requests from this account",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "message"
+                                    ]
+                                }
+                            }
+                        },
+                        "headers": {
+                            "Retry-After": {
+                                "description": "Seconds to wait before the account may make requests again.",
+                                "schema": {
+                                    "type": "integer"
+                                },
+                                "example": 30
+                            }
+                        }
                     }
                 }
             },
             "post": {
                 "operationId": "v1.notifications.store",
                 "description": "Responds with 202 when the notification is created, or with 200 and the\nexisting notification when its idempotency key was already used.",
-                "summary": "Accept a notification for asynchronous delivery",
+                "summary": "Create a notification",
                 "tags": [
-                    "Notification"
+                    "Notifications"
+                ],
+                "parameters": [
+                    {
+                        "name": "Idempotency-Key",
+                        "in": "header",
+                        "description": "Makes a retried request safe: a repeat with the same key and payload within 24 hours replays the first response instead of creating notifications again. A different payload with the same key answers 422.",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "example": "8d3f1c7e-2b4a-4f0e-9c61-5a7b2e9d1f30"
+                    },
+                    {
+                        "name": "X-Correlation-ID",
+                        "in": "header",
+                        "description": "A UUID that ties the request to its log entries, jobs and provider calls. It is echoed in the response; a new one is created when it is missing or not a UUID.",
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        },
+                        "example": "0b9e8c1a-4d2f-4e7b-8a3c-6f1d2e9b7a54"
+                    }
                 ],
                 "requestBody": {
                     "required": true,
@@ -483,6 +300,14 @@
                                     ]
                                 }
                             }
+                        },
+                        "headers": {
+                            "Idempotent-Replayed": {
+                                "description": "Present with the value \"true\" when the response is a replay of an earlier request with the same Idempotency-Key.",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            }
                         }
                     },
                     "200": {
@@ -508,6 +333,69 @@
                     },
                     "422": {
                         "$ref": "#/components/responses/ValidationException"
+                    },
+                    "400": {
+                        "description": "The Idempotency-Key header is empty or longer than 255 characters.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "message"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "A request with the same Idempotency-Key is still being processed. Retry later.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "message"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "Too many requests from this account",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "message"
+                                    ]
+                                }
+                            }
+                        },
+                        "headers": {
+                            "Retry-After": {
+                                "description": "Seconds to wait before the account may make requests again.",
+                                "schema": {
+                                    "type": "integer"
+                                },
+                                "example": 30
+                            }
+                        }
                     }
                 }
             }
@@ -515,9 +403,10 @@
         "/v1/notifications/{notification}": {
             "get": {
                 "operationId": "v1.notifications.show",
-                "summary": "Show the notification and its delivery status",
+                "description": "The notification and its delivery status. Another user's notification answers 404.",
+                "summary": "Get a notification",
                 "tags": [
-                    "Notification"
+                    "Notifications"
                 ],
                 "parameters": [
                     {
@@ -529,6 +418,16 @@
                             "type": "string",
                             "format": "uuid"
                         }
+                    },
+                    {
+                        "name": "X-Correlation-ID",
+                        "in": "header",
+                        "description": "A UUID that ties the request to its log entries, jobs and provider calls. It is echoed in the response; a new one is created when it is missing or not a UUID.",
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        },
+                        "example": "0b9e8c1a-4d2f-4e7b-8a3c-6f1d2e9b7a54"
                     }
                 ],
                 "responses": {
@@ -553,11 +452,243 @@
                     "404": {
                         "$ref": "#/components/responses/ModelNotFoundException"
                     },
-                    "403": {
-                        "$ref": "#/components/responses/AuthorizationException"
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    },
+                    "429": {
+                        "description": "Too many requests from this account",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "message"
+                                    ]
+                                }
+                            }
+                        },
+                        "headers": {
+                            "Retry-After": {
+                                "description": "Seconds to wait before the account may make requests again.",
+                                "schema": {
+                                    "type": "integer"
+                                },
+                                "example": 30
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/notifications/{notification}/cancel": {
+            "post": {
+                "operationId": "v1.notifications.cancel",
+                "description": "Responds with 409 when the notification is already processing or finished.",
+                "summary": "Cancel a notification",
+                "tags": [
+                    "Notifications"
+                ],
+                "parameters": [
+                    {
+                        "name": "notification",
+                        "in": "path",
+                        "required": true,
+                        "description": "The notification ID",
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
+                    {
+                        "name": "X-Correlation-ID",
+                        "in": "header",
+                        "description": "A UUID that ties the request to its log entries, jobs and provider calls. It is echoed in the response; a new one is created when it is missing or not a UUID.",
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        },
+                        "example": "0b9e8c1a-4d2f-4e7b-8a3c-6f1d2e9b7a54"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "`NotificationResource`",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/NotificationResource"
+                                        }
+                                    },
+                                    "required": [
+                                        "data"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "An error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "description": "Error overview."
+                                        }
+                                    },
+                                    "required": [
+                                        "message"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ModelNotFoundException"
                     },
                     "401": {
                         "$ref": "#/components/responses/AuthenticationException"
+                    },
+                    "429": {
+                        "description": "Too many requests from this account",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "message"
+                                    ]
+                                }
+                            }
+                        },
+                        "headers": {
+                            "Retry-After": {
+                                "description": "Seconds to wait before the account may make requests again.",
+                                "schema": {
+                                    "type": "integer"
+                                },
+                                "example": 30
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/notifications/{notification}/retry": {
+            "post": {
+                "operationId": "v1.notifications.retry",
+                "description": "Earlier attempts stay in the delivery history. Responds with 409 when the\nnotification has not failed.",
+                "summary": "Retry a failed notification",
+                "tags": [
+                    "Notifications"
+                ],
+                "parameters": [
+                    {
+                        "name": "notification",
+                        "in": "path",
+                        "required": true,
+                        "description": "The notification ID",
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
+                    {
+                        "name": "X-Correlation-ID",
+                        "in": "header",
+                        "description": "A UUID that ties the request to its log entries, jobs and provider calls. It is echoed in the response; a new one is created when it is missing or not a UUID.",
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        },
+                        "example": "0b9e8c1a-4d2f-4e7b-8a3c-6f1d2e9b7a54"
+                    }
+                ],
+                "responses": {
+                    "202": {
+                        "description": "The notification is queued for delivery again.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/NotificationResource"
+                                        }
+                                    },
+                                    "required": [
+                                        "data"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "An error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "description": "Error overview."
+                                        }
+                                    },
+                                    "required": [
+                                        "message"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ModelNotFoundException"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    },
+                    "429": {
+                        "description": "Too many requests from this account",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "message"
+                                    ]
+                                }
+                            }
+                        },
+                        "headers": {
+                            "Retry-After": {
+                                "description": "Seconds to wait before the account may make requests again.",
+                                "schema": {
+                                    "type": "integer"
+                                },
+                                "example": 30
+                            }
+                        }
                     }
                 }
             }
@@ -566,9 +697,30 @@
             "post": {
                 "operationId": "v1.notification-batches.store",
                 "description": "A batch holds at most `notifications.batch.max_size` notifications (1000 by default).\n`notifications` lists the result for every requested notification in request\norder; a notification whose idempotency key was already used is returned as the\nexisting notification and keeps its original batch.",
-                "summary": "Accept a batch of notifications for asynchronous delivery",
+                "summary": "Create a batch",
                 "tags": [
-                    "NotificationBatch"
+                    "Batches"
+                ],
+                "parameters": [
+                    {
+                        "name": "Idempotency-Key",
+                        "in": "header",
+                        "description": "Makes a retried request safe: a repeat with the same key and payload within 24 hours replays the first response instead of creating notifications again. A different payload with the same key answers 422.",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "example": "8d3f1c7e-2b4a-4f0e-9c61-5a7b2e9d1f30"
+                    },
+                    {
+                        "name": "X-Correlation-ID",
+                        "in": "header",
+                        "description": "A UUID that ties the request to its log entries, jobs and provider calls. It is echoed in the response; a new one is created when it is missing or not a UUID.",
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        },
+                        "example": "0b9e8c1a-4d2f-4e7b-8a3c-6f1d2e9b7a54"
+                    }
                 ],
                 "requestBody": {
                     "required": true,
@@ -604,6 +756,14 @@
                                     ]
                                 }
                             }
+                        },
+                        "headers": {
+                            "Idempotent-Replayed": {
+                                "description": "Present with the value \"true\" when the response is a replay of an earlier request with the same Idempotency-Key.",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            }
                         }
                     },
                     "401": {
@@ -611,6 +771,69 @@
                     },
                     "422": {
                         "$ref": "#/components/responses/ValidationException"
+                    },
+                    "400": {
+                        "description": "The Idempotency-Key header is empty or longer than 255 characters.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "message"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "A request with the same Idempotency-Key is still being processed. Retry later.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "message"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "Too many requests from this account",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "message"
+                                    ]
+                                }
+                            }
+                        },
+                        "headers": {
+                            "Retry-After": {
+                                "description": "Seconds to wait before the account may make requests again.",
+                                "schema": {
+                                    "type": "integer"
+                                },
+                                "example": 30
+                            }
+                        }
                     }
                 }
             }
@@ -618,9 +841,10 @@
         "/v1/batches/{batch}": {
             "get": {
                 "operationId": "v1.notification-batches.show",
-                "summary": "Show how many of the batch's notifications are in each status",
+                "description": "How many of the batch's notifications are in each status, and whether all of them are finished.",
+                "summary": "Get a batch",
                 "tags": [
-                    "NotificationBatch"
+                    "Batches"
                 ],
                 "parameters": [
                     {
@@ -632,6 +856,16 @@
                             "type": "string",
                             "format": "uuid"
                         }
+                    },
+                    {
+                        "name": "X-Correlation-ID",
+                        "in": "header",
+                        "description": "A UUID that ties the request to its log entries, jobs and provider calls. It is echoed in the response; a new one is created when it is missing or not a UUID.",
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        },
+                        "example": "0b9e8c1a-4d2f-4e7b-8a3c-6f1d2e9b7a54"
                     }
                 ],
                 "responses": {
@@ -656,11 +890,132 @@
                     "404": {
                         "$ref": "#/components/responses/ModelNotFoundException"
                     },
-                    "403": {
-                        "$ref": "#/components/responses/AuthorizationException"
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    },
+                    "429": {
+                        "description": "Too many requests from this account",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "message"
+                                    ]
+                                }
+                            }
+                        },
+                        "headers": {
+                            "Retry-After": {
+                                "description": "Seconds to wait before the account may make requests again.",
+                                "schema": {
+                                    "type": "integer"
+                                },
+                                "example": 30
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/batches/{batch}/cancel": {
+            "post": {
+                "operationId": "v1.notification-batches.cancel",
+                "description": "Notifications that are already processing or finished are left untouched;\n`meta.cancelled` reports how many notifications this request cancelled.",
+                "summary": "Cancel a batch",
+                "tags": [
+                    "Batches"
+                ],
+                "parameters": [
+                    {
+                        "name": "batch",
+                        "in": "path",
+                        "required": true,
+                        "description": "The batch ID",
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
+                    {
+                        "name": "X-Correlation-ID",
+                        "in": "header",
+                        "description": "A UUID that ties the request to its log entries, jobs and provider calls. It is echoed in the response; a new one is created when it is missing or not a UUID.",
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        },
+                        "example": "0b9e8c1a-4d2f-4e7b-8a3c-6f1d2e9b7a54"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "`NotificationBatchResource`",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/NotificationBatchResource"
+                                        },
+                                        "meta": {
+                                            "type": "object",
+                                            "properties": {
+                                                "cancelled": {
+                                                    "type": "integer"
+                                                }
+                                            },
+                                            "required": [
+                                                "cancelled"
+                                            ]
+                                        }
+                                    },
+                                    "required": [
+                                        "data",
+                                        "meta"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ModelNotFoundException"
                     },
                     "401": {
                         "$ref": "#/components/responses/AuthenticationException"
+                    },
+                    "429": {
+                        "description": "Too many requests from this account",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "message"
+                                    ]
+                                }
+                            }
+                        },
+                        "headers": {
+                            "Retry-After": {
+                                "description": "Seconds to wait before the account may make requests again.",
+                                "schema": {
+                                    "type": "integer"
+                                },
+                                "example": 30
+                            }
+                        }
                     }
                 }
             }
@@ -668,9 +1023,10 @@
         "/v1/templates": {
             "get": {
                 "operationId": "v1.notification-templates.index",
-                "summary": "List the authenticated user's templates by name",
+                "description": "The authenticated user's templates by name, with cursor pagination.",
+                "summary": "List templates",
                 "tags": [
-                    "NotificationTemplate"
+                    "Templates"
                 ],
                 "parameters": [
                     {
@@ -695,6 +1051,16 @@
                         "schema": {
                             "type": "string"
                         }
+                    },
+                    {
+                        "name": "X-Correlation-ID",
+                        "in": "header",
+                        "description": "A UUID that ties the request to its log entries, jobs and provider calls. It is echoed in the response; a new one is created when it is missing or not a UUID.",
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        },
+                        "example": "0b9e8c1a-4d2f-4e7b-8a3c-6f1d2e9b7a54"
                     }
                 ],
                 "responses": {
@@ -798,6 +1164,33 @@
                     },
                     "422": {
                         "$ref": "#/components/responses/ValidationException"
+                    },
+                    "429": {
+                        "description": "Too many requests from this account",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "message"
+                                    ]
+                                }
+                            }
+                        },
+                        "headers": {
+                            "Retry-After": {
+                                "description": "Seconds to wait before the account may make requests again.",
+                                "schema": {
+                                    "type": "integer"
+                                },
+                                "example": 30
+                            }
+                        }
                     }
                 }
             },
@@ -806,7 +1199,19 @@
                 "description": "Placeholders take the form `{{ name }}`. Notifications created from the\ntemplate give their values in `variables`.",
                 "summary": "Create a template",
                 "tags": [
-                    "NotificationTemplate"
+                    "Templates"
+                ],
+                "parameters": [
+                    {
+                        "name": "X-Correlation-ID",
+                        "in": "header",
+                        "description": "A UUID that ties the request to its log entries, jobs and provider calls. It is echoed in the response; a new one is created when it is missing or not a UUID.",
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        },
+                        "example": "0b9e8c1a-4d2f-4e7b-8a3c-6f1d2e9b7a54"
+                    }
                 ],
                 "requestBody": {
                     "required": true,
@@ -842,6 +1247,33 @@
                     },
                     "422": {
                         "$ref": "#/components/responses/ValidationException"
+                    },
+                    "429": {
+                        "description": "Too many requests from this account",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "message"
+                                    ]
+                                }
+                            }
+                        },
+                        "headers": {
+                            "Retry-After": {
+                                "description": "Seconds to wait before the account may make requests again.",
+                                "schema": {
+                                    "type": "integer"
+                                },
+                                "example": 30
+                            }
+                        }
                     }
                 }
             }
@@ -849,9 +1281,10 @@
         "/v1/templates/{template}": {
             "get": {
                 "operationId": "v1.notification-templates.show",
-                "summary": "Show the template",
+                "description": "The template and the variables a notification created from it must give a value to.",
+                "summary": "Get a template",
                 "tags": [
-                    "NotificationTemplate"
+                    "Templates"
                 ],
                 "parameters": [
                     {
@@ -863,6 +1296,16 @@
                             "type": "string",
                             "format": "uuid"
                         }
+                    },
+                    {
+                        "name": "X-Correlation-ID",
+                        "in": "header",
+                        "description": "A UUID that ties the request to its log entries, jobs and provider calls. It is echoed in the response; a new one is created when it is missing or not a UUID.",
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        },
+                        "example": "0b9e8c1a-4d2f-4e7b-8a3c-6f1d2e9b7a54"
                     }
                 ],
                 "responses": {
@@ -887,20 +1330,44 @@
                     "404": {
                         "$ref": "#/components/responses/ModelNotFoundException"
                     },
-                    "403": {
-                        "$ref": "#/components/responses/AuthorizationException"
-                    },
                     "401": {
                         "$ref": "#/components/responses/AuthenticationException"
+                    },
+                    "429": {
+                        "description": "Too many requests from this account",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "message"
+                                    ]
+                                }
+                            }
+                        },
+                        "headers": {
+                            "Retry-After": {
+                                "description": "Seconds to wait before the account may make requests again.",
+                                "schema": {
+                                    "type": "integer"
+                                },
+                                "example": 30
+                            }
+                        }
                     }
                 }
             },
             "patch": {
                 "operationId": "v1.notification-templates.update",
                 "description": "Notifications already created from the template keep the content they were created with.",
-                "summary": "Update the template's name or content",
+                "summary": "Update a template",
                 "tags": [
-                    "NotificationTemplate"
+                    "Templates"
                 ],
                 "parameters": [
                     {
@@ -912,6 +1379,16 @@
                             "type": "string",
                             "format": "uuid"
                         }
+                    },
+                    {
+                        "name": "X-Correlation-ID",
+                        "in": "header",
+                        "description": "A UUID that ties the request to its log entries, jobs and provider calls. It is echoed in the response; a new one is created when it is missing or not a UUID.",
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        },
+                        "example": "0b9e8c1a-4d2f-4e7b-8a3c-6f1d2e9b7a54"
                     }
                 ],
                 "requestBody": {
@@ -945,23 +1422,47 @@
                     "404": {
                         "$ref": "#/components/responses/ModelNotFoundException"
                     },
-                    "403": {
-                        "$ref": "#/components/responses/AuthorizationException"
-                    },
                     "401": {
                         "$ref": "#/components/responses/AuthenticationException"
                     },
                     "422": {
                         "$ref": "#/components/responses/ValidationException"
+                    },
+                    "429": {
+                        "description": "Too many requests from this account",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "message"
+                                    ]
+                                }
+                            }
+                        },
+                        "headers": {
+                            "Retry-After": {
+                                "description": "Seconds to wait before the account may make requests again.",
+                                "schema": {
+                                    "type": "integer"
+                                },
+                                "example": 30
+                            }
+                        }
                     }
                 }
             },
             "delete": {
                 "operationId": "v1.notification-templates.destroy",
                 "description": "Notifications created from the template keep their content.",
-                "summary": "Delete the template",
+                "summary": "Delete a template",
                 "tags": [
-                    "NotificationTemplate"
+                    "Templates"
                 ],
                 "parameters": [
                     {
@@ -973,6 +1474,16 @@
                             "type": "string",
                             "format": "uuid"
                         }
+                    },
+                    {
+                        "name": "X-Correlation-ID",
+                        "in": "header",
+                        "description": "A UUID that ties the request to its log entries, jobs and provider calls. It is echoed in the response; a new one is created when it is missing or not a UUID.",
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        },
+                        "example": "0b9e8c1a-4d2f-4e7b-8a3c-6f1d2e9b7a54"
                     }
                 ],
                 "responses": {
@@ -982,64 +1493,18 @@
                     "404": {
                         "$ref": "#/components/responses/ModelNotFoundException"
                     },
-                    "403": {
-                        "$ref": "#/components/responses/AuthorizationException"
-                    },
                     "401": {
                         "$ref": "#/components/responses/AuthenticationException"
-                    }
-                }
-            }
-        },
-        "/v1/notifications/{notification}/retry": {
-            "post": {
-                "operationId": "v1.notifications.retry",
-                "description": "Earlier attempts stay in the delivery history. Responds with 409 when the\nnotification has not failed.",
-                "summary": "Send a failed notification again with a fresh set of delivery attempts",
-                "tags": [
-                    "RetryNotification"
-                ],
-                "parameters": [
-                    {
-                        "name": "notification",
-                        "in": "path",
-                        "required": true,
-                        "description": "The notification ID",
-                        "schema": {
-                            "type": "string",
-                            "format": "uuid"
-                        }
-                    }
-                ],
-                "responses": {
-                    "202": {
-                        "description": "The notification is queued for delivery again.",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "$ref": "#/components/schemas/NotificationResource"
-                                        }
-                                    },
-                                    "required": [
-                                        "data"
-                                    ]
-                                }
-                            }
-                        }
                     },
-                    "409": {
-                        "description": "An error",
+                    "429": {
+                        "description": "Too many requests from this account",
                         "content": {
                             "application/json": {
                                 "schema": {
                                     "type": "object",
                                     "properties": {
                                         "message": {
-                                            "type": "string",
-                                            "description": "Error overview."
+                                            "type": "string"
                                         }
                                     },
                                     "required": [
@@ -1047,16 +1512,249 @@
                                     ]
                                 }
                             }
+                        },
+                        "headers": {
+                            "Retry-After": {
+                                "description": "Seconds to wait before the account may make requests again.",
+                                "schema": {
+                                    "type": "integer"
+                                },
+                                "example": 30
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/user": {
+            "get": {
+                "operationId": "v1.user",
+                "description": "Its id names the private WebSocket channel `App.Models.User.{id}` that\ncarries the user's notification status updates.",
+                "summary": "Get the current user",
+                "tags": [
+                    "Account"
+                ],
+                "parameters": [
+                    {
+                        "name": "X-Correlation-ID",
+                        "in": "header",
+                        "description": "A UUID that ties the request to its log entries, jobs and provider calls. It is echoed in the response; a new one is created when it is missing or not a UUID.",
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        },
+                        "example": "0b9e8c1a-4d2f-4e7b-8a3c-6f1d2e9b7a54"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "`User`",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/User"
+                                }
+                            }
                         }
                     },
-                    "404": {
-                        "$ref": "#/components/responses/ModelNotFoundException"
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    },
+                    "429": {
+                        "description": "Too many requests from this account",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "message"
+                                    ]
+                                }
+                            }
+                        },
+                        "headers": {
+                            "Retry-After": {
+                                "description": "Seconds to wait before the account may make requests again.",
+                                "schema": {
+                                    "type": "integer"
+                                },
+                                "example": 30
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/metrics": {
+            "get": {
+                "operationId": "v1.metrics",
+                "description": "Responds with JSON, or with the Prometheus text exposition format when\n`format=prometheus`. The snapshot is cached for a few seconds. The numbers\ncover every user's notifications, so only operators may read them.",
+                "summary": "Get delivery metrics",
+                "tags": [
+                    "Monitoring"
+                ],
+                "parameters": [
+                    {
+                        "name": "format",
+                        "in": "query",
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "json",
+                                "prometheus"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "X-Correlation-ID",
+                        "in": "header",
+                        "description": "A UUID that ties the request to its log entries, jobs and provider calls. It is echoed in the response; a new one is created when it is missing or not a UUID.",
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        },
+                        "example": "0b9e8c1a-4d2f-4e7b-8a3c-6f1d2e9b7a54"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "anyOf": [
+                                                {
+                                                    "type": "object",
+                                                    "properties": {
+                                                        "generated_at": {
+                                                            "type": "string"
+                                                        },
+                                                        "queues": {
+                                                            "type": "array",
+                                                            "items": {
+                                                                "type": "object"
+                                                            }
+                                                        },
+                                                        "notifications_in_flight": {
+                                                            "type": "object",
+                                                            "additionalProperties": {
+                                                                "type": "integer"
+                                                            }
+                                                        },
+                                                        "windows": {
+                                                            "type": "array",
+                                                            "items": {
+                                                                "type": "object"
+                                                            }
+                                                        },
+                                                        "circuits": {
+                                                            "type": "object",
+                                                            "additionalProperties": {
+                                                                "type": "string"
+                                                            }
+                                                        }
+                                                    },
+                                                    "required": [
+                                                        "generated_at",
+                                                        "queues",
+                                                        "notifications_in_flight",
+                                                        "windows",
+                                                        "circuits"
+                                                    ]
+                                                },
+                                                {
+                                                    "type": "object",
+                                                    "properties": {
+                                                        "generated_at": {
+                                                            "type": "string"
+                                                        },
+                                                        "queues": {
+                                                            "type": "array",
+                                                            "items": {}
+                                                        },
+                                                        "notifications_in_flight": {
+                                                            "type": "object",
+                                                            "additionalProperties": {
+                                                                "type": "integer"
+                                                            }
+                                                        },
+                                                        "windows": {
+                                                            "type": "array",
+                                                            "items": {}
+                                                        },
+                                                        "circuits": {
+                                                            "type": "object",
+                                                            "additionalProperties": {
+                                                                "type": "string"
+                                                            }
+                                                        }
+                                                    },
+                                                    "required": [
+                                                        "generated_at",
+                                                        "queues",
+                                                        "notifications_in_flight",
+                                                        "windows",
+                                                        "circuits"
+                                                    ]
+                                                }
+                                            ]
+                                        }
+                                    },
+                                    "required": [
+                                        "data"
+                                    ]
+                                }
+                            },
+                            "text/plain; version=0.0.4; charset=utf-8": {
+                                "schema": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationException"
                     },
                     "403": {
                         "$ref": "#/components/responses/AuthorizationException"
                     },
                     "401": {
                         "$ref": "#/components/responses/AuthenticationException"
+                    },
+                    "429": {
+                        "description": "Too many requests from this account",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "message"
+                                    ]
+                                }
+                            }
+                        },
+                        "headers": {
+                            "Retry-After": {
+                                "description": "Seconds to wait before the account may make requests again.",
+                                "schema": {
+                                    "type": "integer"
+                                },
+                                "example": 30
+                            }
+                        }
                     }
                 }
             }
@@ -1307,6 +2005,24 @@
             },
             "StoreNotificationBatchRequest": {
                 "type": "object",
+                "examples": [
+                    {
+                        "notifications": [
+                            {
+                                "channel": "sms",
+                                "recipient": "+905551234567",
+                                "content": "Your order has shipped.",
+                                "priority": "high"
+                            },
+                            {
+                                "channel": "email",
+                                "recipient": "customer@example.com",
+                                "content": "Your invoice is ready.",
+                                "priority": "low"
+                            }
+                        ]
+                    }
+                ],
                 "properties": {
                     "notifications": {
                         "type": "array",
@@ -1328,9 +2044,13 @@
                                     "maxLength": 100
                                 },
                                 "variables": {
-                                    "type": "array",
-                                    "items": {
-                                        "type": "string"
+                                    "type": "object",
+                                    "description": "The values of the template's placeholders, by variable name. Only with `template`.",
+                                    "additionalProperties": {
+                                        "type": [
+                                            "string",
+                                            "number"
+                                        ]
                                     }
                                 },
                                 "priority": {
@@ -1357,8 +2077,7 @@
                             ]
                         },
                         "minItems": 1,
-                        "maxItems": 1000,
-                        "uniqueItems": true
+                        "maxItems": 1000
                     }
                 },
                 "required": [
@@ -1368,6 +2087,14 @@
             },
             "StoreNotificationRequest": {
                 "type": "object",
+                "examples": [
+                    {
+                        "channel": "sms",
+                        "recipient": "+905551234567",
+                        "content": "Your order has shipped.",
+                        "priority": "high"
+                    }
+                ],
                 "properties": {
                     "channel": {
                         "$ref": "#/components/schemas/NotificationChannel"
@@ -1384,9 +2111,13 @@
                         "maxLength": 100
                     },
                     "variables": {
-                        "type": "array",
-                        "items": {
-                            "type": "string"
+                        "type": "object",
+                        "description": "The values of the template's placeholders, by variable name. Only with `template`.",
+                        "additionalProperties": {
+                            "type": [
+                                "string",
+                                "number"
+                            ]
                         }
                     },
                     "priority": {
@@ -1415,6 +2146,13 @@
             },
             "StoreNotificationTemplateRequest": {
                 "type": "object",
+                "examples": [
+                    {
+                        "name": "order-shipped",
+                        "channel": "sms",
+                        "content": "Hi {{ name }}, your order {{ order_id }} has shipped."
+                    }
+                ],
                 "properties": {
                     "name": {
                         "type": "string",
