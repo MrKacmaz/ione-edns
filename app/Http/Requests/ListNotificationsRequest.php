@@ -4,11 +4,13 @@ namespace App\Http\Requests;
 
 use App\Enums\NotificationChannel;
 use App\Enums\NotificationStatus;
+use App\Rules\Iso8601DateRule;
 use App\Rules\PaginationCursorRule;
 use Carbon\CarbonInterface;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator;
 
 class ListNotificationsRequest extends FormRequest
 {
@@ -28,11 +30,41 @@ class ListNotificationsRequest extends FormRequest
             'channel' => ['sometimes', Rule::enum(NotificationChannel::class)],
             'batch_id' => ['sometimes', 'uuid'],
             /** The earliest creation time (ISO 8601). An offset such as `+03:00` is honoured; a date alone means the start of that day in UTC. */
-            'created_from' => ['sometimes', 'date'],
+            'created_from' => ['sometimes', 'date', new Iso8601DateRule],
             /** The latest creation time (ISO 8601). An offset is honoured; a date alone, such as `2026-11-12`, includes that whole day in UTC. */
-            'created_to' => ['sometimes', 'date', 'after_or_equal:created_from'],
+            'created_to' => ['sometimes', 'date', new Iso8601DateRule],
             'per_page' => ['sometimes', 'integer', 'between:1,'.self::MAX_PER_PAGE],
             'cursor' => ['sometimes', 'string', new PaginationCursorRule(['created_at' => ['required', 'date'], 'id' => ['required', 'uuid']])],
+        ];
+    }
+
+    /**
+     * Get the "after" validation callables for the request.
+     *
+     * The range is checked on the times the filter uses, not on the raw input:
+     * an end date without a time covers its whole day, so it may name the day
+     * the start time falls on.
+     *
+     * @return list<callable(Validator): void>
+     */
+    public function after(): array
+    {
+        return [
+            function (Validator $validator): void {
+                if ($validator->errors()->hasAny(['created_from', 'created_to'])) {
+                    return;
+                }
+
+                $createdFrom = $this->createdFrom();
+                $createdTo = $this->createdTo();
+
+                if ($createdFrom !== null && $createdTo !== null && $createdTo->lt($createdFrom)) {
+                    $validator->errors()->add('created_to', __('validation.after_or_equal', [
+                        'attribute' => $validator->getDisplayableAttribute('created_to'),
+                        'date' => $validator->getDisplayableAttribute('created_from'),
+                    ]));
+                }
+            },
         ];
     }
 

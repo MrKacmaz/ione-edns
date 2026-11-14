@@ -7,6 +7,7 @@ use App\Enums\NotificationChannel;
 use App\Enums\NotificationPriority;
 use App\Models\NotificationTemplate;
 use App\Models\User;
+use App\Rules\Iso8601DateRule;
 use App\Rules\NotificationContentLengthRule;
 use App\Rules\NotificationRecipientRule;
 use App\Rules\NotificationTemplateRule;
@@ -35,8 +36,8 @@ trait HasNotificationRules
      * Get the rules for the attributes of one notification.
      *
      * A notification either carries its `content`, or names a `template` and gives
-     * its placeholders a value in `variables`. A scheduled_at must lie in the
-     * future, at most $maxScheduleDays ahead.
+     * its placeholders a value in `variables`. A scheduled_at is an ISO 8601
+     * date-time in the future, at most $maxScheduleDays ahead.
      *
      * @return array<string, list<ValidationRule|string|object>>
      */
@@ -59,6 +60,7 @@ trait HasNotificationRules
                 'sometimes',
                 'nullable',
                 'date',
+                new Iso8601DateRule,
                 'after:now',
                 'before_or_equal:'.now()->addDays($maxScheduleDays)->toIso8601String(),
             ],

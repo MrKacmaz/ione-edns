@@ -146,8 +146,18 @@ describe('index', function () {
         'batch id that is not a uuid' => [['batch_id' => '42'], 'batch_id', 'The batch id field must be a valid UUID.'],
         'start that is not a date' => [['created_from' => 'not-a-date'], 'created_from', 'The created from field must be a valid date.'],
         'end that is not a date' => [['created_to' => 'not-a-date'], 'created_to', 'The created to field must be a valid date.'],
+        'start given as a relative phrase' => [
+            ['created_from' => 'yesterday'],
+            'created_from',
+            'The created from must be an ISO 8601 date or date-time, such as 2026-11-14 or 2026-11-14T09:30:00Z.',
+        ],
         'range that ends before it starts' => [
             ['created_from' => '2026-11-12', 'created_to' => '2026-11-11'],
+            'created_to',
+            'The created to field must be a date after or equal to created from.',
+        ],
+        'range that ends earlier on the same day' => [
+            ['created_from' => '2026-11-12T10:00:00Z', 'created_to' => '2026-11-12T09:59:59Z'],
             'created_to',
             'The created to field must be a date after or equal to created from.',
         ],
@@ -186,6 +196,20 @@ describe('index', function () {
         $response = $this->getJson(route('api.v1.notifications.index', ['created_from' => '2026-11-12T09:00:00+03:00']));
 
         $response->assertOk()->assertJsonPath('data.*.content', ['from']);
+    });
+
+    test('accepts an end date without a time on the day the start time falls on', function () {
+        $user = User::factory()->create();
+        Notification::factory()->for($user)->count(3)->sequence(
+            ['created_at' => '2026-11-12 09:59:59', 'content' => 'before the start'],
+            ['created_at' => '2026-11-12 18:00:00', 'content' => 'later that day'],
+            ['created_at' => '2026-11-13 00:00:00', 'content' => 'next day'],
+        )->create();
+        Sanctum::actingAs($user);
+
+        $response = $this->getJson(route('api.v1.notifications.index', ['created_from' => '2026-11-12T10:00:00Z', 'created_to' => '2026-11-12']));
+
+        $response->assertOk()->assertJsonPath('data.*.content', ['later that day']);
     });
 
     test('includes the whole day of an end date given without a time', function () {
@@ -517,6 +541,7 @@ describe('store', function () {
         $this->assertDatabaseCount('notifications', 0);
     })->with([
         'not a date' => ['not-a-date', 'The scheduled at field must be a valid date.'],
+        'a relative phrase' => ['tomorrow', 'The scheduled at must be an ISO 8601 date or date-time, such as 2026-11-14 or 2026-11-14T09:30:00Z.'],
         'in the past' => ['2026-11-14T08:59:00Z', 'The scheduled at field must be a date after now.'],
         'right now' => ['2026-11-14T09:00:00Z', 'The scheduled at field must be a date after now.'],
         'beyond the configured maximum' => [

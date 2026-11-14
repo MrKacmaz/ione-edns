@@ -18,6 +18,8 @@ return [
 
     'notification_idempotency_key_reused' => 'This idempotency key was already used for a different notification.',
 
+    'iso8601_date' => 'The :attribute must be an ISO 8601 date or date-time, such as 2026-11-14 or 2026-11-14T09:30:00Z.',
+
     'pagination_cursor' => 'The :attribute is invalid. Use the cursor from the links of the previous page.',
 
     'notification_template_placeholders' => 'The :attribute may only use placeholders like {{ name }}, whose names consist of letters, digits and underscores.',
