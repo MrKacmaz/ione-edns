@@ -6,12 +6,12 @@ use App\Data\GatewayResponseData;
 use App\Exceptions\GatewayNotConfiguredException;
 use App\Models\Notification;
 use App\Services\Delivery\Contracts\NotificationGateway;
-use Carbon\CarbonImmutable;
+use DateTimeImmutable;
+use DateTimeZone;
 use Illuminate\Container\Attributes\Config;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Factory as HttpFactory;
 use Illuminate\Http\Client\Response;
-use Throwable;
 
 /**
  * Delivers notifications to a webhook.site endpoint that simulates the provider.
@@ -21,6 +21,11 @@ use Throwable;
  */
 final readonly class WebhookSiteGateway implements NotificationGateway
 {
+    /**
+     * The IMF-fixdate form of an HTTP date, for example "Sun, 06 Nov 1994 08:49:37 GMT".
+     */
+    private const string HTTP_DATE_FORMAT = 'D, d M Y H:i:s \\G\\M\\T';
+
     public function __construct(
         private HttpFactory $http,
         #[Config('notifications.gateway.url')] private ?string $url,
@@ -78,7 +83,10 @@ final readonly class WebhookSiteGateway implements NotificationGateway
     }
 
     /**
-     * Read the provider's Retry-After header, given either in seconds or as an HTTP date.
+     * Read the provider's Retry-After header, as delay seconds or as an HTTP date (RFC 9110).
+     *
+     * Anything else, such as a relative date ("+1 year") that a lenient date parser
+     * would accept, is ignored and the regular backoff applies.
      */
     private function retryAfterSeconds(Response $response): ?int
     {
@@ -89,13 +97,17 @@ final readonly class WebhookSiteGateway implements NotificationGateway
         }
 
         if (ctype_digit($retryAfter)) {
+            // A number too large for an int becomes PHP_INT_MAX; the backoff caps it.
             return (int) $retryAfter;
         }
 
-        try {
-            return max(0, (int) ceil(now()->diffInSeconds(CarbonImmutable::parse($retryAfter), false)));
-        } catch (Throwable) {
+        $retryAt = DateTimeImmutable::createFromFormat('!'.self::HTTP_DATE_FORMAT, $retryAfter, new DateTimeZone('UTC'));
+
+        // Formatting the parsed date back exposes overflowing values such as "31 Nov".
+        if ($retryAt === false || $retryAt->format(self::HTTP_DATE_FORMAT) !== $retryAfter) {
             return null;
         }
+
+        return max(0, $retryAt->getTimestamp() - now()->getTimestamp());
     }
 }
