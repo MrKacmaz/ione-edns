@@ -6,8 +6,10 @@ use App\Models\IdempotencyKey;
 use App\Models\User;
 use Closure;
 use Illuminate\Container\Attributes\Config;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
@@ -17,6 +19,13 @@ use Symfony\Component\HttpFoundation\Response;
  * Follows draft-ietf-httpapi-idempotency-key-header: a key reused with a
  * different payload is rejected with 422, and a key whose first request is
  * still in progress is rejected with 409.
+ *
+ * The lock only answers concurrent retries quickly. Correctness rests on the
+ * database: the request runs in one transaction together with storing its
+ * response, under the unique (user, key) index. A request that outlasted the lock
+ * and lost the race to a retry is rolled back and answered with the retry's
+ * response, and a process that dies after the commit cannot leave the work done
+ * without the key that would replay it.
  */
 class EnsureRequestIsIdempotent
 {
@@ -69,27 +78,52 @@ class EnsureRequestIsIdempotent
         try {
             $fingerprint = $this->fingerprint($request);
 
-            $completed = $user->idempotencyKeys()
-                ->where('key', $key)
-                ->where('expires_at', '>', now())
-                ->first();
+            $completed = $this->completedRequest($user, $key);
 
             if ($completed !== null) {
-                return hash_equals($completed->request_fingerprint, $fingerprint)
-                    ? $this->replay($completed)
-                    : response()->json([
-                        'message' => __('idempotency.payload_mismatch', ['header' => self::KEY_HEADER]),
-                    ], Response::HTTP_UNPROCESSABLE_ENTITY);
+                return $this->replayOrReject($completed, $fingerprint);
             }
 
-            $response = $next($request);
+            try {
+                return DB::transaction(function () use ($request, $next, $user, $key, $fingerprint): Response {
+                    $response = $next($request);
 
-            $this->remember($user, $key, $fingerprint, $response);
+                    $this->remember($user, $key, $fingerprint, $response);
 
-            return $response;
+                    return $response;
+                });
+            } catch (UniqueConstraintViolationException $exception) {
+                // Another request with the same key committed first; this one's work was rolled back.
+                $completed = $this->completedRequest($user, $key) ?? throw $exception;
+
+                return $this->replayOrReject($completed, $fingerprint);
+            }
         } finally {
             $lock->release();
         }
+    }
+
+    /**
+     * Find the stored response of the user's completed request with the key, while it is replayable.
+     */
+    private function completedRequest(User $user, string $key): ?IdempotencyKey
+    {
+        return $user->idempotencyKeys()
+            ->where('key', $key)
+            ->where('expires_at', '>', now())
+            ->first();
+    }
+
+    /**
+     * Replay a completed request with the same payload, and refuse the key for any other payload.
+     */
+    private function replayOrReject(IdempotencyKey $completed, string $fingerprint): Response
+    {
+        return hash_equals($completed->request_fingerprint, $fingerprint)
+            ? $this->replay($completed)
+            : response()->json([
+                'message' => __('idempotency.payload_mismatch', ['header' => self::KEY_HEADER]),
+            ], Response::HTTP_UNPROCESSABLE_ENTITY);
     }
 
     /**
@@ -104,6 +138,10 @@ class EnsureRequestIsIdempotent
      * Store a successful response so retries of the same request can replay it.
      *
      * Failed requests are not stored, so the client may correct and retry them with the same key.
+     * An expired response is replaced. The key is inserted rather than updated, so that two
+     * requests racing for it collide on the unique index instead of both being kept.
+     *
+     * @throws UniqueConstraintViolationException when another request stored the key first
      */
     private function remember(User $user, string $key, string $fingerprint, Response $response): void
     {
@@ -113,7 +151,10 @@ class EnsureRequestIsIdempotent
             return;
         }
 
-        $user->idempotencyKeys()->updateOrCreate(['key' => $key], [
+        $user->idempotencyKeys()->where('key', $key)->where('expires_at', '<=', now())->delete();
+
+        $user->idempotencyKeys()->create([
+            'key' => $key,
             'request_fingerprint' => $fingerprint,
             'response_status' => $response->getStatusCode(),
             'response_body' => $body,

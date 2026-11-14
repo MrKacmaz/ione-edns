@@ -3,7 +3,10 @@
 use App\Http\Middleware\EnsureRequestIsIdempotent;
 use App\Jobs\SendNotificationJob;
 use App\Models\User;
+use Illuminate\Database\Events\QueryExecuted;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Exceptions;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Testing\Fakes\QueueFake;
@@ -164,6 +167,64 @@ test('replays a completed batch request', function () {
     $this->assertDatabaseCount('notification_batches', 1);
     $this->assertDatabaseCount('notifications', 2);
     Queue::assertPushed(SendNotificationJob::class, 2);
+});
+
+test('rolls back a request that lost the race for its key and answers with the winner\'s response', function () {
+    Queue::fake([SendNotificationJob::class]);
+    User::query()->count();
+
+    // The competing request runs on a second connection, so that what it stores is
+    // committed and visible while this request is still in its transaction.
+    config(['database.connections.competing' => config('database.connections.'.config('database.default'))]);
+    $competing = DB::connection('competing');
+    $userId = $competing->table('users')->insertGetId([
+        'name' => 'Racing User',
+        'email' => 'racing-user@example.com',
+        'password' => 'not-used',
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+
+    try {
+        Sanctum::actingAs(User::query()->findOrFail($userId));
+        $payload = smsNotificationPayload();
+        $fingerprint = (fn (Request $request): string => $this->fingerprint($request))->call(
+            app(EnsureRequestIsIdempotent::class),
+            Request::create('/api/v1/notifications', 'POST', server: ['CONTENT_TYPE' => 'application/json'], content: json_encode($payload, JSON_THROW_ON_ERROR)),
+        );
+
+        // The winner commits its response with the same key after this request has stored its notification.
+        $winnerStored = false;
+        DB::listen(function (QueryExecuted $query) use ($competing, $userId, $fingerprint, &$winnerStored): void {
+            if ($winnerStored || $query->connectionName === 'competing' || ! str_starts_with($query->sql, 'insert into "notifications"')) {
+                return;
+            }
+
+            $winnerStored = true;
+            $competing->table('idempotency_keys')->insert([
+                'user_id' => $userId,
+                'key' => 'raced-key',
+                'request_fingerprint' => $fingerprint,
+                'response_status' => 202,
+                'response_body' => '{"data":{"id":"stored-by-the-winner"}}',
+                'expires_at' => now()->addDay(),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        });
+
+        $response = $this->postJson(route('api.v1.notifications.store'), $payload, ['Idempotency-Key' => 'raced-key']);
+
+        expect($winnerStored)->toBeTrue();
+        $response->assertAccepted()
+            ->assertHeader('Idempotent-Replayed', 'true')
+            ->assertExactJson(['data' => ['id' => 'stored-by-the-winner']]);
+        $this->assertDatabaseCount('notifications', 0);
+        Queue::assertNothingPushed();
+    } finally {
+        $competing->table('users')->where('id', $userId)->delete();
+        DB::purge('competing');
+    }
 });
 
 test('accepts and replays a request while the queue is unreachable instead of creating the notification twice', function () {
