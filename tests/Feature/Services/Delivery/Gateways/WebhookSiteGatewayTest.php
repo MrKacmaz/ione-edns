@@ -84,3 +84,60 @@ test('refuses to send without a configured URL', function () {
 
     app(WebhookSiteGateway::class)->send(Notification::factory()->create());
 })->throws(GatewayNotConfiguredException::class, 'The notification gateway URL is not configured.');
+
+test('reads the provider\'s Retry-After given in seconds or as an HTTP date', function (array $headers, ?int $retryAfterSeconds) {
+    $this->travelTo('2026-11-14T12:00:00Z');
+    Http::fake(['gateway.test/*' => Http::response([], 503, $headers)]);
+
+    $response = app(WebhookSiteGateway::class)->send(Notification::factory()->create());
+
+    expect($response->retryAfterSeconds)->toBe($retryAfterSeconds);
+})->with([
+    'HTTP date 90 seconds ahead' => [['Retry-After' => 'Sat, 14 Nov 2026 12:01:30 GMT'], 90],
+    'HTTP date in the past' => [['Retry-After' => 'Sat, 14 Nov 2026 11:59:00 GMT'], 0],
+    'seconds surrounded by spaces' => [['Retry-After' => ' 30 '], 30],
+    'unreadable value' => [['Retry-After' => 'soon'], null],
+    'relative date a lenient parser would accept' => [['Retry-After' => '+1 year'], null],
+    'date in another format' => [['Retry-After' => '2026-11-14T12:01:30Z'], null],
+    'HTTP date with a day the month does not have' => [['Retry-After' => 'Tue, 31 Nov 2026 12:00:00 GMT'], null],
+    'number too large for an int' => [['Retry-After' => '99999999999999999999'], PHP_INT_MAX],
+    'no header' => [[], null],
+]);
+
+test('accepts a successful answer that carries no usable message id', function (mixed $body) {
+    Http::fake(['gateway.test/*' => Http::response($body, 202)]);
+
+    $response = app(WebhookSiteGateway::class)->send(Notification::factory()->create());
+
+    expect($response->outcome)->toBe(GatewayOutcome::Accepted)
+        ->and($response->httpStatus)->toBe(202)
+        ->and($response->providerMessageId)->toBeNull();
+})->with([
+    'empty JSON body' => [[]],
+    'numeric message id' => [['messageId' => 12345]],
+    'plain text body' => ['accepted'],
+]);
+
+test('treats a timed-out request as retryable and keeps the reason', function () {
+    Http::fake(['gateway.test/*' => Http::failedConnection('cURL error 28: Operation timed out after 10001 milliseconds')]);
+
+    $response = app(WebhookSiteGateway::class)->send(Notification::factory()->create());
+
+    expect($response->outcome)->toBe(GatewayOutcome::RetryableFailure)
+        ->and($response->error)->toBe('The provider could not be reached: cURL error 28: Operation timed out after 10001 milliseconds');
+});
+
+test('sends no correlation header when the notification has no correlation id', function () {
+    Http::fake(['gateway.test/*' => Http::response(['messageId' => 'msg-123'], 202)]);
+    $notification = Notification::factory()->queued()->create(['correlation_id' => null]);
+
+    app(WebhookSiteGateway::class)->send($notification);
+
+    Http::assertSent(fn (Request $request): bool => ! $request->hasHeader('X-Correlation-ID'));
+});
+
+test('refuses to send when the configured URL is empty', function () {
+    config(['notifications.gateway.url' => '']);
+
+    app(WebhookSiteGateway::class)->send(Notification::factory()->create());
+})->throws(GatewayNotConfiguredException::class, 'The notification gateway URL is not configured.');

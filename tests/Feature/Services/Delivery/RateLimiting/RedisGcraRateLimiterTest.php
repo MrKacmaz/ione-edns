@@ -2,6 +2,9 @@
 
 use App\Enums\NotificationChannel;
 use App\Services\Delivery\RateLimiting\RedisGcraRateLimiter;
+use Illuminate\Contracts\Redis\Factory as RedisFactory;
+use Illuminate\Redis\Connections\Connection;
+use Illuminate\Redis\Connections\PhpRedisConnection;
 use Illuminate\Support\Facades\Redis;
 
 beforeEach(function () {
@@ -58,3 +61,28 @@ test('schedules the send after the limit at least a full second after the first 
     // A few milliseconds of tolerance cover the Redis round trip of each reservation.
     expect($sendTimes[100] - $sendTimes[0])->toBeGreaterThanOrEqual(995);
 });
+
+test('refuses to work with a Redis client other than phpredis', function () {
+    $redis = Mockery::mock(RedisFactory::class);
+    $redis->shouldReceive('connection')->andReturn(Mockery::mock(Connection::class));
+    $rateLimiter = new RedisGcraRateLimiter($redis, perSecond: 10, maxWaitMilliseconds: 1000);
+
+    $rateLimiter->reserve(NotificationChannel::Sms);
+})->throws(UnexpectedValueException::class, 'The rate limiter requires the phpredis Redis client.');
+
+test('throws when Redis answers a reservation with an unexpected reply', function () {
+    $connection = new class extends PhpRedisConnection
+    {
+        public function __construct() {}
+
+        public function eval($script, $numberOfKeys, ...$arguments): bool
+        {
+            return false;
+        }
+    };
+    $redis = Mockery::mock(RedisFactory::class);
+    $redis->shouldReceive('connection')->andReturn($connection);
+    $rateLimiter = new RedisGcraRateLimiter($redis, perSecond: 10, maxWaitMilliseconds: 1000);
+
+    $rateLimiter->reserve(NotificationChannel::Sms);
+})->throws(UnexpectedValueException::class, 'The rate limiter returned an unexpected reply.');
