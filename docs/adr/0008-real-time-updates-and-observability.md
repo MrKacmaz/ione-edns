@@ -25,7 +25,7 @@ At millions of notifications a day, broadcasting every status change would multi
 
 **Metrics and health.**
 
-- `GET /api/v1/metrics` (operators only, JSON or Prometheus text) reports queue depth per priority from Redis, notifications per unfinished status, and, over five-minute and one-hour windows from `notification_attempts`, attempts per outcome, success rate and p50/p95/p99 provider and end-to-end latency. It also reports each channel's circuit state. The snapshot is cached for five seconds.
+- `GET /api/v1/metrics` (operators only) reports queue depth per priority from Redis, notifications per unfinished status, and, over five-minute and one-hour windows from `notification_attempts`, attempts per outcome, success rate and p50/p95/p99 provider and end-to-end latency. It also reports each channel's circuit state. The snapshot is cached for five seconds.
 - `GET /health` (public) runs tagged checks for the database, Redis, Horizon (running and not paused), the gateway URL and the delivery circuits. It answers `200` with `ok`, `200` with `warn` while a circuit is open, and `503` with `fail`.
 - Logs are structured JSON with the notification and correlation ids.
 
@@ -34,7 +34,7 @@ At millions of notifications a day, broadcasting every status change would multi
 1. **Broadcast every status change.** Three or four events per notification, most of them uninteresting to clients.
 2. **Polling only.** Simple, but pushes the load onto the API and delays outcomes.
 3. **A system-wide live feed of all notifications on the dashboard.** Unreadable at full volume; the dashboard shows aggregates and the operator's own notifications instead.
-4. **Metrics in a separate store (Prometheus pushgateway, StatsD).** More moving parts; computing them from the delivery history keeps one source of truth, with Prometheus format available for scraping.
+4. **Metrics in a separate store (Prometheus pushgateway, StatsD).** More moving parts; computing them from the delivery history keeps one source of truth.
 
 ## Consequences
 

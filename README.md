@@ -38,7 +38,7 @@ A Laravel 13 / PHP 8.5 service that accepts notification requests over a REST AP
 | Content validation                                           | Per-channel recipient formats and length limits — `Services/Delivery/Channels/*Channel`                                                                                                                 |
 | Idempotency                                                  | `Idempotency-Key` header, per-notification `idempotency_key`, atomic claim ([ADR 0004](docs/adr/0004-delivery-guarantees-and-idempotency.md))                                                           |
 | Delivery and retry logic                                     | Retryable vs permanent failures, exponential backoff with full jitter, `Retry-After`, manual retry ([section](#delivery-and-retry-logic), [ADR 0005](docs/adr/0005-retries-and-failure-handling.md))    |
-| Real-time metrics                                            | `GET /api/v1/metrics` (JSON or Prometheus): queue depth, success rate, latency percentiles                                                                                                              |
+| Real-time metrics                                            | `GET /api/v1/metrics`: queue depth, success rate, latency percentiles                                                                                                                                   |
 | Structured logs with correlation ids                         | JSON logs, `X-Correlation-ID` carried into jobs and to the provider                                                                                                                                     |
 | Health check                                                 | `GET /health`                                                                                                                                                                                           |
 | webhook.site provider                                        | `WebhookSiteGateway`, URL in `NOTIFICATIONS_GATEWAY_URL` ([setup](#provider-setup-webhooksite)); a local mock provider until it is set                                                                  |
@@ -511,7 +511,7 @@ The operator dashboard at http://localhost:8000 shows queue depth, success rate,
 
 ## Observability
 
-- **Metrics:** `GET /api/v1/metrics` (operators only) returns queue depth per channel and priority, notifications per unfinished status, attempts, success rate and p50/p95/p99 provider and end-to-end latency over the last 5 minutes and hour, and each channel's circuit state. Add `?format=prometheus` for the Prometheus text format.
+- **Metrics:** `GET /api/v1/metrics` (operators only) returns queue depth per channel and priority, notifications per unfinished status, attempts, success rate and p50/p95/p99 provider and end-to-end latency over the last 5 minutes and hour, and each channel's circuit state.
 - **Health:** `GET /health` (no token) checks the database, Redis, Horizon, the gateway configuration and the delivery circuits. It answers `200` with `ok`, `200` with `warn` while a circuit is open, and `503` with `fail`. It reports whether the system delivers notifications, so it fails, for example, while Horizon is down although the API still answers. A load balancer or orchestrator deciding whether a container is alive should use Laravel's `GET /up`, which only checks that the application boots (the Compose `web` health check does).
 - **Logs:** JSON lines (`LOG_FORMAT=line` for plain text) such as `notification.delivery.sent`, `notification.delivery.retry_scheduled` and `notification.circuit.opened`, each with the notification and correlation ids and the trace id. Every delivery job carries its notification's id and correlation id from the moment it is pushed, also when the stale sweep or the scheduler pushes it, so waits for a send slot or an open circuit can be found by either id too. A delivery job logs its own trace id and keeps the creating request's as `request_trace_id`. In Docker: `docker compose logs -f horizon`.
 - **Traces:** OpenTelemetry traces of requests, queries, HTTP calls and jobs in Jaeger (service `ione-edns`). Each delivery job has its own trace, linked to the request that created it. The provider call carries the job's trace context in the W3C `traceparent` header, so a provider that traces too continues the same trace.
@@ -555,7 +555,7 @@ Everything is set with environment variables (see `.env.example` and `config/not
 
 ## Tests and code quality
 
-833 Pest tests: unit tests for pure logic (data objects, enums, backoff, channels, Prometheus format), feature tests per class and endpoint, and architecture rules (`tests/Unit/ArchitectureTest.php`). Redis-backed code (rate limiter, circuit breaker, queues) is tested against a real Redis. [CI](#cicd) runs every check below and the whole suite on each push and pull request.
+822 Pest tests: unit tests for pure logic (data objects, enums, backoff, channels), feature tests per class and endpoint, and architecture rules (`tests/Unit/ArchitectureTest.php`). Redis-backed code (rate limiter, circuit breaker, queues) is tested against a real Redis. [CI](#cicd) runs every check below and the whole suite on each push and pull request.
 
 Run the tests in Docker:
 
@@ -633,7 +633,7 @@ app/
 ├── Rules/              validation rules
 └── Services/
     ├── Delivery/       channels, gateway, rate limiter, backoff, circuit breaker
-    └── Observability/  metrics, Prometheus format, health checks
+    └── Observability/  metrics, health checks
 .github/                CI/CD workflow and Dependabot configuration
 docker/                 nginx, PHP, entrypoint and init scripts, mock provider
 docker-compose.yml      the full stack, with a mock provider until a provider URL is set

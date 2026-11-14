@@ -1,7 +1,7 @@
 $kind: http-example
 name: ""
 request:
-  url: "{{baseUrl}}/v1/metrics?format=prometheus"
+  url: "{{baseUrl}}/v1/metrics"
   method: GET
   headers:
     - key: Authorization
@@ -13,8 +13,6 @@ request:
       description: A UUID that ties the request to its log entries, jobs and provider calls. It is echoed in the response; a new one is created when it is missing or not a UUID.
     - key: Accept
       value: application/json
-  queryParams:
-    format: prometheus
   body:
     type: text
     content: ""

@@ -2006,23 +2006,12 @@
         "/v1/metrics": {
             "get": {
                 "operationId": "v1.metrics",
-                "description": "Responds with JSON, or with the Prometheus text exposition format when\n`format=prometheus`. The snapshot is cached for a few seconds. The numbers\ncover every user's notifications, so only operators may read them.",
+                "description": "The snapshot is cached for a few seconds. The numbers cover every user's\nnotifications, so only operators may read them.",
                 "summary": "Get delivery metrics",
                 "tags": [
                     "Monitoring"
                 ],
                 "parameters": [
-                    {
-                        "name": "format",
-                        "in": "query",
-                        "schema": {
-                            "type": "string",
-                            "enum": [
-                                "json",
-                                "prometheus"
-                            ]
-                        }
-                    },
                     {
                         "name": "X-Correlation-ID",
                         "in": "header",
@@ -2125,16 +2114,8 @@
                                         "data"
                                     ]
                                 }
-                            },
-                            "text/plain; version=0.0.4; charset=utf-8": {
-                                "schema": {
-                                    "type": "string"
-                                }
                             }
                         }
-                    },
-                    "422": {
-                        "$ref": "#/components/responses/ValidationException"
                     },
                     "403": {
                         "$ref": "#/components/responses/AuthorizationException"
@@ -2646,6 +2627,25 @@
                     }
                 }
             },
+            "AuthorizationException": {
+                "description": "Authorization error",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string",
+                                    "description": "Error overview."
+                                }
+                            },
+                            "required": [
+                                "message"
+                            ]
+                        }
+                    }
+                }
+            },
             "ValidationException": {
                 "description": "Validation error",
                 "content": {
@@ -2671,25 +2671,6 @@
                             "required": [
                                 "message",
                                 "errors"
-                            ]
-                        }
-                    }
-                }
-            },
-            "AuthorizationException": {
-                "description": "Authorization error",
-                "content": {
-                    "application/json": {
-                        "schema": {
-                            "type": "object",
-                            "properties": {
-                                "message": {
-                                    "type": "string",
-                                    "description": "Error overview."
-                                }
-                            },
-                            "required": [
-                                "message"
                             ]
                         }
                     }
