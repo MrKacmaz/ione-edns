@@ -32,3 +32,26 @@ test('makes an existing user with the operator email an operator', function () {
 
     expect(User::query()->sole()->is_operator)->toBeTrue();
 });
+
+test('prints a demo API token that expires after a week and clears the expired ones', function () {
+    $this->travelTo('2026-11-14 12:00:00');
+    $this->seed();
+    $this->travel(8)->days();
+
+    $this->artisan('db:seed')
+        ->expectsOutputToContain('API token for test@example.com (valid for 7 days): ')
+        ->assertSuccessful();
+
+    expect(User::query()->sole()->tokens()->pluck('expires_at')->map->toDateTimeString()->all())
+        ->toBe(['2026-11-29 12:00:00']);
+});
+
+test('creates and prints no API token in production, where the output ends up in the logs', function () {
+    $this->app->detectEnvironment(fn (): string => 'production');
+
+    $this->artisan('db:seed', ['--force' => true])
+        ->doesntExpectOutputToContain('API token')
+        ->assertSuccessful();
+
+    expect(User::query()->sole()->tokens()->count())->toBe(0);
+});
