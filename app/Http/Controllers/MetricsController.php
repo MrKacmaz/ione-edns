@@ -4,12 +4,15 @@ namespace App\Http\Controllers;
 
 use App\Services\Observability\MetricsCollector;
 use App\Services\Observability\PrometheusFormatter;
+use Dedoc\Scramble\Attributes\Endpoint;
+use Dedoc\Scramble\Attributes\Group;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Routing\Attributes\Controllers\Authorize;
 use Illuminate\Validation\Rule;
 
+#[Group('Monitoring', 'System-wide delivery metrics for operators.', weight: 5)]
 class MetricsController extends Controller
 {
     /**
@@ -20,6 +23,7 @@ class MetricsController extends Controller
      * cover every user's notifications, so only operators may read them.
      */
     #[Authorize('operate')]
+    #[Endpoint(title: 'Get delivery metrics')]
     public function __invoke(Request $request, MetricsCollector $collector, PrometheusFormatter $formatter): JsonResponse|Response
     {
         $validated = $request->validate([

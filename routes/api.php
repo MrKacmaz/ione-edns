@@ -12,18 +12,17 @@
 
 use App\Http\Controllers\CancelNotificationBatchController;
 use App\Http\Controllers\CancelNotificationController;
+use App\Http\Controllers\CurrentUserController;
 use App\Http\Controllers\MetricsController;
 use App\Http\Controllers\NotificationBatchController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\NotificationTemplateController;
 use App\Http\Controllers\RetryNotificationController;
 use App\Http\Middleware\EnsureRequestIsIdempotent;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
-Route::get('user', static function (Request $request) {
-    return $request->user();
-})->name('user');
+Route::get('user', CurrentUserController::class)
+    ->name('user');
 
 Route::get('metrics', MetricsController::class)
     ->name('metrics');

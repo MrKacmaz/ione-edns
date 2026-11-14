@@ -2,6 +2,8 @@
 
 namespace App\Providers;
 
+use App\Http\ApiDocumentation\ApiOperationTransformer;
+use App\Http\ApiDocumentation\NotificationRequestSchemaTransformer;
 use App\Http\Pagination\CursorPaginator;
 use App\Models\User;
 use Carbon\CarbonImmutable;
@@ -11,6 +13,7 @@ use Dedoc\Scramble\Support\Generator\SecurityScheme;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\CursorPaginator as BaseCursorPaginator;
+use Illuminate\Routing\Route;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
@@ -60,13 +63,22 @@ class AppServiceProvider extends ServiceProvider
     }
 
     /**
-     * Document that every API endpoint expects a Sanctum bearer token.
+     * Document the application's API endpoints, which all expect a Sanctum bearer token.
+     *
+     * Only the named `api.v1.*` routes are documented; the WebSocket authorization
+     * endpoint belongs to the broadcasting protocol and is described in the README.
      */
     protected function configureApiDocumentation(): void
     {
-        Scramble::configure()->withDocumentTransformers(function (OpenApi $openApi): void {
-            $openApi->secure(SecurityScheme::http('bearer'));
-        });
+        Scramble::configure()
+            ->routes(fn (Route $route): bool => str_starts_with((string) $route->getName(), 'api.v1.'))
+            ->withDocumentTransformers([
+                function (OpenApi $openApi): void {
+                    $openApi->secure(SecurityScheme::http('bearer'));
+                },
+                NotificationRequestSchemaTransformer::class,
+            ])
+            ->withOperationTransformers(ApiOperationTransformer::class);
     }
 
     /**

@@ -4,8 +4,11 @@ namespace App\Http\Controllers;
 
 use App\Http\Resources\NotificationBatchResource;
 use App\Models\NotificationBatch;
+use Dedoc\Scramble\Attributes\Endpoint;
+use Dedoc\Scramble\Attributes\Group;
 use Illuminate\Routing\Attributes\Controllers\Authorize;
 
+#[Group('Batches', weight: 2)]
 class CancelNotificationBatchController extends Controller
 {
     /**
@@ -15,6 +18,7 @@ class CancelNotificationBatchController extends Controller
      * `meta.cancelled` reports how many notifications this request cancelled.
      */
     #[Authorize('cancel', 'batch')]
+    #[Endpoint(title: 'Cancel a batch')]
     public function __invoke(NotificationBatch $batch): NotificationBatchResource
     {
         $cancelledCount = $batch->cancelPendingNotifications();

@@ -27,7 +27,9 @@ class ListNotificationsRequest extends FormRequest
             'status' => ['sometimes', Rule::enum(NotificationStatus::class)],
             'channel' => ['sometimes', Rule::enum(NotificationChannel::class)],
             'batch_id' => ['sometimes', 'uuid'],
+            /** The earliest creation time (ISO 8601). An offset such as `+03:00` is honoured; a date alone means the start of that day in UTC. */
             'created_from' => ['sometimes', 'date'],
+            /** The latest creation time (ISO 8601). An offset is honoured; a date alone, such as `2026-11-12`, includes that whole day in UTC. */
             'created_to' => ['sometimes', 'date', 'after_or_equal:created_from'],
             'per_page' => ['sometimes', 'integer', 'between:1,'.self::MAX_PER_PAGE],
             'cursor' => ['sometimes', 'string', new PaginationCursorRule(['created_at' => ['required', 'date'], 'id' => ['required', 'uuid']])],

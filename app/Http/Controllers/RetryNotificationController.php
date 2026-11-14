@@ -5,11 +5,14 @@ namespace App\Http\Controllers;
 use App\Actions\DispatchNotificationsAction;
 use App\Http\Resources\NotificationResource;
 use App\Models\Notification;
+use Dedoc\Scramble\Attributes\Endpoint;
+use Dedoc\Scramble\Attributes\Group;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Routing\Attributes\Controllers\Authorize;
 use Symfony\Component\HttpFoundation\Response;
 
+#[Group('Notifications', weight: 1)]
 class RetryNotificationController extends Controller
 {
     /**
@@ -19,6 +22,7 @@ class RetryNotificationController extends Controller
      * notification has not failed.
      */
     #[Authorize('retry', 'notification')]
+    #[Endpoint(title: 'Retry a failed notification')]
     public function __invoke(Notification $notification, DispatchNotificationsAction $dispatchNotifications): JsonResponse
     {
         if (! $notification->resetForRedelivery()) {
