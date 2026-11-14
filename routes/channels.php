@@ -14,9 +14,10 @@ use Illuminate\Support\Facades\Gate;
 |
 */
 
-// A user's own notifications reaching a final status.
-Broadcast::channel('App.Models.User.{id}', function (User $user, int $id): bool {
-    return $user->id === $id;
+// A user's own notifications reaching a final status. The id arrives as text from the
+// channel name, so a name like "App.Models.User.abc" is refused instead of failing.
+Broadcast::channel('App.Models.User.{id}', function (User $user, string $id): bool {
+    return (string) $user->id === $id;
 });
 
 // Metrics snapshots and circuit changes for the operator dashboard.
