@@ -51,12 +51,16 @@ class RedispatchStaleNotificationsCommand extends Command
             ->where('status', NotificationStatus::Processing)
             ->where('updated_at', '<', now()->subSeconds($processingAfterSeconds))
             ->chunkById(self::CHUNK_SIZE, function (Collection $notifications) use ($dispatchNotifications, &$requeued): void {
+                // Back to waiting, not queued: the dispatch pushes the job before it marks the
+                // notification queued, so a failed push leaves it waiting for the next sweep.
                 Notification::query()
                     ->whereKey($notifications->modelKeys())
                     ->where('status', NotificationStatus::Processing)
-                    ->update(['status' => NotificationStatus::Queued]);
+                    ->update(['status' => NotificationStatus::Waiting]);
 
-                $dispatchNotifications->handle($notifications);
+                $dispatchNotifications->handle($notifications->each(
+                    fn (Notification $notification) => $notification->forceFill(['status' => NotificationStatus::Waiting])->syncOriginal(),
+                ));
                 $requeued += $notifications->count();
             });
 
