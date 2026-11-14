@@ -6,6 +6,7 @@ use App\Models\Notification;
 use App\Services\Delivery\Gateways\WebhookSiteGateway;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 beforeEach(function () {
     config(['notifications.gateway.url' => 'https://gateway.test/notify']);
@@ -77,7 +78,18 @@ test('treats an unreachable provider as retryable', function () {
 
     expect($response->outcome)->toBe(GatewayOutcome::RetryableFailure)
         ->and($response->httpStatus)->toBeNull()
-        ->and($response->error)->toStartWith('The provider could not be reached:');
+        ->and($response->error)->toBe('The provider could not be reached.');
+});
+
+test('keeps the provider URL out of the stored error and logs the full reason instead', function () {
+    Log::spy();
+    $reason = 'cURL error 7: Failed to connect to gateway.test port 443 (see https://curl.haxx.se/libcurl/c/libcurl-errors.html) for https://gateway.test/notify';
+    Http::fake(['gateway.test/*' => Http::failedConnection($reason)]);
+
+    $response = app(WebhookSiteGateway::class)->send(Notification::factory()->create());
+
+    expect($response->error)->not->toContain('gateway.test');
+    Log::shouldHaveReceived('warning')->once()->with('notification.gateway.unreachable', ['error' => $reason]);
 });
 
 test('refuses to send without a configured URL', function () {
@@ -122,13 +134,13 @@ test('does not count a successful answer without a message id as sent', function
     'webhook.site default page' => ['<html>This URL has no default content configured.</html>', 200],
 ]);
 
-test('treats a timed-out request as retryable and keeps the reason', function () {
-    Http::fake(['gateway.test/*' => Http::failedConnection('cURL error 28: Operation timed out after 10001 milliseconds')]);
+test('treats a timed-out request as retryable and says that it timed out', function () {
+    Http::fake(['gateway.test/*' => Http::failedConnection('cURL error 28: Operation timed out after 10001 milliseconds for https://gateway.test/notify')]);
 
     $response = app(WebhookSiteGateway::class)->send(Notification::factory()->create());
 
     expect($response->outcome)->toBe(GatewayOutcome::RetryableFailure)
-        ->and($response->error)->toBe('The provider could not be reached: cURL error 28: Operation timed out after 10001 milliseconds');
+        ->and($response->error)->toBe('The provider did not answer in time.');
 });
 
 test('sends no correlation header when the notification has no correlation id', function () {

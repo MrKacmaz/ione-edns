@@ -35,9 +35,10 @@ return [
     'errors' => [
         'http_status' => 'The provider responded with HTTP :status.',
         'unconfirmed' => 'The provider responded with HTTP :status but without a messageId confirming the delivery.',
-        'unreachable' => 'The provider could not be reached: :reason',
-        'unexpected' => 'The delivery attempt failed unexpectedly: :reason',
-        'job_failed' => 'The delivery job failed: :reason',
+        'unreachable' => 'The provider could not be reached.',
+        'timeout' => 'The provider did not answer in time.',
+        'unexpected' => 'The delivery attempt failed with an internal error.',
+        'job_failed' => 'The delivery job stopped before the notification was delivered.',
         'gateway_url_missing' => 'The notification gateway URL is not configured.',
         'rate_limiter_reply' => 'The rate limiter returned an unexpected reply.',
         'rate_limiter_client' => 'The rate limiter requires the phpredis Redis client.',

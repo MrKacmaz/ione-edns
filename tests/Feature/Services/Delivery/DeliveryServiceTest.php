@@ -178,7 +178,7 @@ test('treats an unexpected gateway error as retryable instead of leaving the not
     expect($result->outcome)->toBe(DeliveryOutcome::RetryScheduled);
     expect($notification->refresh())
         ->status->toBe(NotificationStatus::Queued)
-        ->last_error->toBe('The delivery attempt failed unexpectedly: Gateway exploded');
+        ->last_error->toBe('The delivery attempt failed with an internal error.');
 });
 
 test('feeds the provider\'s answer to the channel\'s circuit breaker', function (int $status, GatewayOutcome $outcome) {

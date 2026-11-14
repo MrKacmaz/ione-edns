@@ -151,9 +151,7 @@ final readonly class DeliveryService
         } catch (Throwable $exception) {
             report($exception);
 
-            return GatewayResponseData::retryable(
-                __('notifications.errors.unexpected', ['reason' => $exception->getMessage()]),
-            );
+            return GatewayResponseData::retryable(__('notifications.errors.unexpected'));
         }
     }
 

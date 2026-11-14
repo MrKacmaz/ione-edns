@@ -12,6 +12,7 @@ use Illuminate\Container\Attributes\Config;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Factory as HttpFactory;
 use Illuminate\Http\Client\Response;
+use Psr\Log\LoggerInterface;
 
 /**
  * Delivers notifications to a webhook.site endpoint that simulates the provider.
@@ -20,6 +21,10 @@ use Illuminate\Http\Client\Response;
  * Response: 202 {"messageId": "...", "status": "accepted", "timestamp": "..."}
  *
  * A 2xx answer counts as accepted only when it carries the message id.
+ *
+ * Errors stored on the notification never quote the underlying exception: its
+ * message names the provider URL, which with webhook.site is the only secret that
+ * protects every tenant's messages. The full message goes to the log.
  */
 final readonly class WebhookSiteGateway implements NotificationGateway
 {
@@ -28,11 +33,17 @@ final readonly class WebhookSiteGateway implements NotificationGateway
      */
     private const string HTTP_DATE_FORMAT = 'D, d M Y H:i:s \\G\\M\\T';
 
+    /**
+     * The cURL error number of a request that ran out of time.
+     */
+    private const int CURL_TIMEOUT_ERROR = 28;
+
     public function __construct(
         private HttpFactory $http,
         #[Config('notifications.gateway.url')] private ?string $url,
         #[Config('notifications.gateway.timeout_seconds')] private int $timeoutSeconds,
         #[Config('notifications.gateway.connect_timeout_seconds')] private int $connectTimeoutSeconds,
+        private LoggerInterface $logger,
     ) {}
 
     /**
@@ -64,8 +75,10 @@ final readonly class WebhookSiteGateway implements NotificationGateway
                     'content' => $notification->content,
                 ]);
         } catch (ConnectionException $exception) {
+            $this->logger->warning('notification.gateway.unreachable', ['error' => $exception->getMessage()]);
+
             return GatewayResponseData::retryable(
-                __('notifications.errors.unreachable', ['reason' => $exception->getMessage()]),
+                __($this->timedOut($exception) ? 'notifications.errors.timeout' : 'notifications.errors.unreachable'),
             );
         }
 
@@ -81,6 +94,14 @@ final readonly class WebhookSiteGateway implements NotificationGateway
         }
 
         return GatewayResponseData::permanent($error, $response->status());
+    }
+
+    /**
+     * Determine whether the connection error is a request that ran out of time.
+     */
+    private function timedOut(ConnectionException $exception): bool
+    {
+        return str_contains($exception->getMessage(), 'cURL error '.self::CURL_TIMEOUT_ERROR.':');
     }
 
     /**

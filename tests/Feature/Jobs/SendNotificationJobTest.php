@@ -58,7 +58,7 @@ test('fails the notification when the job gives up while it is being processed',
 
     expect($notification->refresh())
         ->status->toBe(NotificationStatus::Failed)
-        ->last_error->toBe('The delivery job failed: Job timed out');
+        ->last_error->toBe('The delivery job stopped before the notification was delivered.');
 });
 
 test('finishes without releasing when the notification is not to be tried again', function (Closure $state, int $status) {
