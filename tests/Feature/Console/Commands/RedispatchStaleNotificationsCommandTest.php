@@ -95,7 +95,7 @@ test('reports how many notifications it requeued and redispatched', function () 
     $stuck->forceFill(['updated_at' => now()->subMinutes(10)])->saveQuietly();
 
     $this->artisan('notifications:redispatch-stale')
-        ->expectsOutput('Requeued 1 stuck processing and 1 stale waiting notifications.')
+        ->expectsOutput('Requeued 1 stuck processing, 0 lost queued and 1 stale waiting notifications.')
         ->assertSuccessful();
 });
 
@@ -129,4 +129,33 @@ test('leaves a notification stuck in processing waiting when its job cannot be p
     expect(fn () => $this->artisan('notifications:redispatch-stale')->run())
         ->toThrow(RuntimeException::class, 'The queue is unavailable.');
     expect($stuck->refresh()->status)->toBe(NotificationStatus::Waiting);
+});
+
+test('pushes a queued notification again once it has outlived any job, as its job was lost', function () {
+    Queue::fake([SendNotificationJob::class]);
+    config(['notifications.delivery.stale_after_seconds.queued' => 90_000]);
+    $this->travelTo('2026-11-14T12:00:00Z');
+    $lost = Notification::factory()->queued()->create();
+    $lost->forceFill(['updated_at' => now()->subSeconds(90_001)])->saveQuietly();
+    $stillWaitingForItsJob = Notification::factory()->queued()->create();
+    $stillWaitingForItsJob->forceFill(['updated_at' => now()->subSeconds(90_000)])->saveQuietly();
+
+    $this->artisan('notifications:redispatch-stale')->assertSuccessful();
+
+    expect(Queue::pushed(SendNotificationJob::class)->map(fn (SendNotificationJob $job): string => $job->notificationId)->all())
+        ->toBe([$lost->id]);
+    expect($lost->refresh()->status)->toBe(NotificationStatus::Queued)
+        ->and($stillWaitingForItsJob->refresh()->status)->toBe(NotificationStatus::Queued);
+});
+
+test('keeps the lost-job threshold above the one day a delivery job lives, whatever the environment says', function () {
+    putenv('NOTIFICATIONS_STALE_QUEUED_SECONDS=60');
+
+    try {
+        $threshold = (require base_path('config/notifications.php'))['delivery']['stale_after_seconds']['queued'];
+    } finally {
+        putenv('NOTIFICATIONS_STALE_QUEUED_SECONDS');
+    }
+
+    expect($threshold)->toBe(86_401);
 });

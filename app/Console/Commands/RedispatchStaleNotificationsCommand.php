@@ -14,8 +14,10 @@ use Illuminate\Database\Eloquent\Collection;
  *
  * - Waiting too long: the job was never pushed (for example Redis was down).
  * - Processing too long: the worker died while delivering.
+ * - Queued for longer than a job lives: the job was lost (for example Redis
+ *   restarted without persistence), since a live job would have run or failed.
  *
- * Both are pushed again. A duplicate job is harmless because a notification can
+ * All are pushed again. A duplicate job is harmless because a notification can
  * only be claimed once; the provider receives the notification id as its
  * idempotency key in case a dead worker had already sent it.
  */
@@ -33,7 +35,7 @@ class RedispatchStaleNotificationsCommand extends Command
      *
      * @var string
      */
-    protected $description = 'Push notifications stuck in waiting or processing back onto their queues';
+    protected $description = 'Push notifications stuck in waiting, processing or queued back onto their queues';
 
     private const int CHUNK_SIZE = 500;
 
@@ -44,18 +46,46 @@ class RedispatchStaleNotificationsCommand extends Command
         DispatchNotificationsAction $dispatchNotifications,
         #[Config('notifications.delivery.stale_after_seconds.waiting')] int $waitingAfterSeconds,
         #[Config('notifications.delivery.stale_after_seconds.processing')] int $processingAfterSeconds,
+        #[Config('notifications.delivery.stale_after_seconds.queued')] int $queuedAfterSeconds,
     ): int {
+        $stuckProcessing = $this->requeue($dispatchNotifications, NotificationStatus::Processing, $processingAfterSeconds);
+        $lostQueued = $this->requeue($dispatchNotifications, NotificationStatus::Queued, $queuedAfterSeconds);
+
+        $staleWaiting = 0;
+
+        Notification::query()
+            ->where('status', NotificationStatus::Waiting)
+            ->where('created_at', '<', now()->subSeconds($waitingAfterSeconds))
+            ->chunkById(self::CHUNK_SIZE, function (Collection $notifications) use ($dispatchNotifications, &$staleWaiting): void {
+                $dispatchNotifications->handle($notifications);
+                $staleWaiting += $notifications->count();
+            });
+
+        $this->info("Requeued {$stuckProcessing} stuck processing, {$lostQueued} lost queued and {$staleWaiting} stale waiting notifications.");
+
+        return self::SUCCESS;
+    }
+
+    /**
+     * Push the notifications left in the given status for too long onto their queues again.
+     *
+     * They go back to waiting first, not straight to queued: the dispatch pushes the
+     * job before it marks the notification queued, so a failed push leaves them
+     * waiting for the next sweep.
+     *
+     * @return int The number of notifications pushed again.
+     */
+    private function requeue(DispatchNotificationsAction $dispatchNotifications, NotificationStatus $status, int $afterSeconds): int
+    {
         $requeued = 0;
 
         Notification::query()
-            ->where('status', NotificationStatus::Processing)
-            ->where('updated_at', '<', now()->subSeconds($processingAfterSeconds))
-            ->chunkById(self::CHUNK_SIZE, function (Collection $notifications) use ($dispatchNotifications, &$requeued): void {
-                // Back to waiting, not queued: the dispatch pushes the job before it marks the
-                // notification queued, so a failed push leaves it waiting for the next sweep.
+            ->where('status', $status)
+            ->where('updated_at', '<', now()->subSeconds($afterSeconds))
+            ->chunkById(self::CHUNK_SIZE, function (Collection $notifications) use ($dispatchNotifications, $status, &$requeued): void {
                 Notification::query()
                     ->whereKey($notifications->modelKeys())
-                    ->where('status', NotificationStatus::Processing)
+                    ->where('status', $status)
                     ->update(['status' => NotificationStatus::Waiting]);
 
                 $dispatchNotifications->handle($notifications->each(
@@ -64,18 +94,6 @@ class RedispatchStaleNotificationsCommand extends Command
                 $requeued += $notifications->count();
             });
 
-        $redispatched = 0;
-
-        Notification::query()
-            ->where('status', NotificationStatus::Waiting)
-            ->where('created_at', '<', now()->subSeconds($waitingAfterSeconds))
-            ->chunkById(self::CHUNK_SIZE, function (Collection $notifications) use ($dispatchNotifications, &$redispatched): void {
-                $dispatchNotifications->handle($notifications);
-                $redispatched += $notifications->count();
-            });
-
-        $this->info("Requeued {$requeued} stuck processing and {$redispatched} stale waiting notifications.");
-
-        return self::SUCCESS;
+        return $requeued;
     }
 }

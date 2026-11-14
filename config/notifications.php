@@ -67,6 +67,8 @@ return [
     |
     | Notifications stuck in "waiting" or "processing" longer than the given
     | seconds are dispatched again by the notifications:redispatch-stale command.
+    | So are "queued" ones whose job was lost: keep that threshold above the one
+    | day a delivery job lives, so only notifications without a job match it.
     |
     */
 
@@ -85,6 +87,7 @@ return [
         'stale_after_seconds' => [
             'waiting' => max(1, (int) env('NOTIFICATIONS_STALE_WAITING_SECONDS', 120)),
             'processing' => max(1, (int) env('NOTIFICATIONS_STALE_PROCESSING_SECONDS', 300)),
+            'queued' => max(86_400 + 1, (int) env('NOTIFICATIONS_STALE_QUEUED_SECONDS', 90_000)),
         ],
     ],
 
