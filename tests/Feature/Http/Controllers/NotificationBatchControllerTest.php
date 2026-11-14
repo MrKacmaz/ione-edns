@@ -171,6 +171,21 @@ describe('store', function () {
         $this->assertDatabaseCount('notifications', 0);
     });
 
+    test('answers a body larger than PHP accepts with a JSON 413 instead of an empty request', function () {
+        Queue::fake([SendNotificationJob::class]);
+        Sanctum::actingAs(User::factory()->create());
+        $content = json_encode(['notifications' => [smsNotificationPayload()]], JSON_THROW_ON_ERROR);
+
+        // The test client computes Content-Length itself, so the declared length is set on the server variables.
+        $response = $this->call('POST', route('api.v1.notification-batches.store'), server: [
+            'CONTENT_TYPE' => 'application/json',
+            'CONTENT_LENGTH' => (string) (ini_parse_quantity((string) ini_get('post_max_size')) + 1),
+        ], content: $content);
+
+        $response->assertStatus(413)->assertJsonPath('message', 'The POST data is too large.');
+        $this->assertDatabaseCount('notifications', 0);
+    });
+
     test('returns the existing notification for an idempotency key that was already used', function () {
         Queue::fake([SendNotificationJob::class]);
         $user = User::factory()->create();
