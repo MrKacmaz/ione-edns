@@ -7,6 +7,11 @@ use App\Services\Delivery\Gateways\WebhookSiteGateway;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use OpenTelemetry\API\Trace\Propagation\TraceContextPropagator;
+use OpenTelemetry\API\Trace\Span;
+use OpenTelemetry\API\Trace\SpanContext;
+use OpenTelemetry\API\Trace\TraceFlags;
+use OpenTelemetry\Context\Propagation\TextMapPropagatorInterface;
 
 beforeEach(function () {
     config(['notifications.gateway.url' => 'https://gateway.test/notify']);
@@ -34,6 +39,30 @@ test('passes the notification\'s correlation id on to the provider', function ()
     app(WebhookSiteGateway::class)->send($notification);
 
     Http::assertSent(fn (Request $request): bool => $request->header('X-Correlation-ID') === ['0f8fad5b-d9cb-469f-a165-70867728950e']);
+});
+
+test('passes the delivery\'s trace context on to the provider, so a tracing provider continues the trace', function () {
+    Http::fake(['gateway.test/*' => Http::response(['messageId' => 'msg-123'], 202)]);
+    $this->app->instance(TextMapPropagatorInterface::class, TraceContextPropagator::getInstance());
+    $notification = Notification::factory()->queued()->create();
+    $scope = Span::wrap(SpanContext::create('0af7651916cd43dd8448eb211c80319c', 'b7ad6b7169203331', TraceFlags::SAMPLED))->activate();
+
+    try {
+        app(WebhookSiteGateway::class)->send($notification);
+    } finally {
+        $scope->detach();
+    }
+
+    Http::assertSent(fn (Request $request): bool => $request->header('traceparent') === ['00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01']);
+});
+
+test('sends no trace context outside a trace', function () {
+    Http::fake(['gateway.test/*' => Http::response(['messageId' => 'msg-123'], 202)]);
+    $this->app->instance(TextMapPropagatorInterface::class, TraceContextPropagator::getInstance());
+
+    app(WebhookSiteGateway::class)->send(Notification::factory()->queued()->create());
+
+    Http::assertSent(fn (Request $request): bool => ! $request->hasHeader('traceparent'));
 });
 
 test('treats server errors and rate limiting as retryable', function (int $status) {

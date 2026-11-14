@@ -9,9 +9,11 @@ use App\Services\Observability\HealthChecks\GatewayHealthCheck;
 use App\Services\Observability\HealthChecks\HorizonHealthCheck;
 use App\Services\Observability\HealthChecks\RedisHealthCheck;
 use Illuminate\Support\ServiceProvider;
+use OpenTelemetry\API\Globals;
+use OpenTelemetry\Context\Propagation\TextMapPropagatorInterface;
 
 /**
- * Wires the health checks and metrics into the container.
+ * Wires the health checks, metrics and trace propagation into the container.
  */
 class ObservabilityServiceProvider extends ServiceProvider
 {
@@ -29,5 +31,8 @@ class ObservabilityServiceProvider extends ServiceProvider
             GatewayHealthCheck::class,
             DeliveryCircuitsHealthCheck::class,
         ], HealthChecker::TAG);
+
+        // The propagators named in OTEL_PROPAGATORS, or one that adds nothing while tracing is off.
+        $this->app->bind(TextMapPropagatorInterface::class, fn (): TextMapPropagatorInterface => Globals::propagator());
     }
 }

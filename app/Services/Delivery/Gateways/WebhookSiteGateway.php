@@ -12,6 +12,7 @@ use Illuminate\Container\Attributes\Config;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Factory as HttpFactory;
 use Illuminate\Http\Client\Response;
+use OpenTelemetry\Context\Propagation\TextMapPropagatorInterface;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -21,6 +22,9 @@ use Psr\Log\LoggerInterface;
  * Response: 202 {"messageId": "...", "status": "accepted", "timestamp": "..."}
  *
  * A 2xx answer counts as accepted only when it carries the message id.
+ *
+ * With tracing enabled, the request carries the delivery's W3C trace context
+ * (traceparent), so a provider that traces too continues the same trace.
  *
  * Errors stored on the notification never quote the underlying exception: its
  * message names the provider URL, which with webhook.site is the only secret that
@@ -54,6 +58,7 @@ final readonly class WebhookSiteGateway implements NotificationGateway
         #[Config('notifications.gateway.timeout_seconds')] private int $timeoutSeconds,
         #[Config('notifications.gateway.connect_timeout_seconds')] private int $connectTimeoutSeconds,
         private LoggerInterface $logger,
+        private TextMapPropagatorInterface $propagator,
     ) {}
 
     /**
@@ -75,10 +80,13 @@ final readonly class WebhookSiteGateway implements NotificationGateway
                 ->connectTimeout($this->connectTimeoutSeconds)
                 ->timeout($this->timeoutSeconds)
                 ->acceptJson()
-                ->withHeaders(array_filter([
-                    'Idempotency-Key' => $notification->id,
-                    'X-Correlation-ID' => $notification->correlation_id,
-                ]))
+                ->withHeaders([
+                    ...array_filter([
+                        'Idempotency-Key' => $notification->id,
+                        'X-Correlation-ID' => $notification->correlation_id,
+                    ]),
+                    ...$this->traceHeaders(),
+                ])
                 ->post($this->url, [
                     'to' => $notification->recipient,
                     'channel' => $notification->channel->value,
@@ -111,6 +119,20 @@ final readonly class WebhookSiteGateway implements NotificationGateway
         }
 
         return GatewayResponseData::permanent($error, $response->status());
+    }
+
+    /**
+     * Get the headers that carry the current trace to the provider, none while tracing is off.
+     *
+     * @return array<string, string>
+     */
+    private function traceHeaders(): array
+    {
+        $headers = [];
+
+        $this->propagator->inject($headers);
+
+        return $headers;
     }
 
     /**
