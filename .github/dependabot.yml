@@ -45,7 +45,7 @@ updates:
         patterns:
           - "*"
 
-  # Service images in docker-compose.yml (PostgreSQL, Redis, Mailpit, Jaeger).
+  # Service images in docker-compose.yml (PostgreSQL, Redis, Jaeger, nginx for the mock provider).
   - package-ecosystem: "docker-compose"
     directory: "/"
     schedule:

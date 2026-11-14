@@ -12,7 +12,6 @@ use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\Resources\Json\JsonResource;
-use Illuminate\Notifications\Notification;
 use Illuminate\Support\ServiceProvider;
 
 arch()->preset()->php();
@@ -137,11 +136,6 @@ arch('Eloquent models live only in the models namespace')
 arch('policies have a Policy suffix')
     ->expect('App\Policies')
     ->toHaveSuffix('Policy');
-
-arch('notifications extend Notification and have a Notification suffix')
-    ->expect('App\Notifications')
-    ->toExtend(Notification::class)
-    ->toHaveSuffix('Notification');
 
 arch('exceptions are throwable and have an Exception suffix')
     ->expect('App\Exceptions')

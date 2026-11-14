@@ -117,22 +117,6 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Operator Alerts
-    |--------------------------------------------------------------------------
-    |
-    | Operators are mailed at "mail_to" (comma separated) when a channel's
-    | circuit opens or closes, at most once per "throttle_minutes" for each
-    | channel and change. Without an address only the log records it.
-    |
-    */
-
-    'alerts' => [
-        'mail_to' => array_values(array_filter(array_map('trim', explode(',', (string) env('NOTIFICATIONS_ALERT_MAIL_TO', ''))))),
-        'throttle_minutes' => max(1, (int) env('NOTIFICATIONS_ALERT_THROTTLE_MINUTES', 10)),
-    ],
-
-    /*
-    |--------------------------------------------------------------------------
     | Gateway
     |--------------------------------------------------------------------------
     |

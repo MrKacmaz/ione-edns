@@ -8,20 +8,18 @@ use App\Enums\DeliveryOutcome;
 use App\Enums\GatewayOutcome;
 use App\Enums\NotificationChannel;
 use App\Enums\NotificationStatus;
+use App\Events\CircuitStateChanged;
 use App\Events\NotificationStatusChanged;
 use App\Models\Notification;
-use App\Notifications\DeliveryCircuitChangedNotification;
 use App\Services\Delivery\Contracts\CircuitBreaker;
 use App\Services\Delivery\Contracts\NotificationGateway;
 use App\Services\Delivery\DeliveryService;
-use Illuminate\Notifications\AnonymousNotifiable;
 use Illuminate\Support\Facades\Context;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Exceptions;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Notification as NotificationFacade;
 use Tests\Support\FakeCircuitBreaker;
 
 beforeEach(function () {
@@ -208,35 +206,30 @@ test('leaves the circuit breaker alone when the notification is skipped', functi
     expect($circuitBreaker->recorded)->toBe([]);
 });
 
-test('alerts the operators when an attempt opens the channel\'s circuit', function () {
-    NotificationFacade::fake();
-    config(['notifications.alerts.mail_to' => ['ops@example.com']]);
+test('reports the change when an attempt opens the channel\'s circuit', function () {
+    Event::fake([CircuitStateChanged::class]);
     Http::fake(['gateway.test/*' => Http::response([], 503)]);
     $this->app->instance(CircuitBreaker::class, new FakeCircuitBreaker(transition: CircuitState::Open));
     $notification = Notification::factory()->queued()->create();
 
     app(DeliveryService::class)->deliver($notification->id);
 
-    NotificationFacade::assertSentOnDemand(
-        DeliveryCircuitChangedNotification::class,
-        fn (DeliveryCircuitChangedNotification $alert, array $channels, AnonymousNotifiable $notifiable): bool => $alert->channel === NotificationChannel::Sms
-            && $alert->state === CircuitState::Open
-            && $notifiable->routes['mail'] === ['ops@example.com'],
-    );
+    Event::assertDispatched(CircuitStateChanged::class, fn (CircuitStateChanged $event): bool => $event->channel === NotificationChannel::Sms
+        && $event->state === CircuitState::Open);
 });
 
 test('keeps the delivery result when reporting a circuit change fails', function () {
     Exceptions::fake();
     Http::fake(['gateway.test/*' => Http::response([], 503)]);
     $this->app->instance(CircuitBreaker::class, new FakeCircuitBreaker(transition: CircuitState::Open));
-    $this->mock(ReportCircuitChangeAction::class)->shouldReceive('handle')->andThrow(new RuntimeException('Mail queue unreachable'));
+    $this->mock(ReportCircuitChangeAction::class)->shouldReceive('handle')->andThrow(new RuntimeException('Reverb is down'));
     $notification = Notification::factory()->queued()->create();
 
     $result = app(DeliveryService::class)->deliver($notification->id);
 
     expect($result->outcome)->toBe(DeliveryOutcome::RetryScheduled)
         ->and($notification->refresh()->status)->toBe(NotificationStatus::Queued);
-    Exceptions::assertReported(fn (RuntimeException $exception): bool => $exception->getMessage() === 'Mail queue unreachable');
+    Exceptions::assertReported(fn (RuntimeException $exception): bool => $exception->getMessage() === 'Reverb is down');
 });
 
 test('keeps the delivery result when the circuit breaker cannot record it', function () {

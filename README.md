@@ -42,7 +42,7 @@ A Laravel 13 / PHP 8.5 service that accepts notification requests over a REST AP
 | Structured logs with correlation ids                         | JSON logs, `X-Correlation-ID` carried into jobs and to the provider                                                                                                                                     |
 | Health check                                                 | `GET /health`                                                                                                                                                                                           |
 | webhook.site provider                                        | `WebhookSiteGateway`, URL in `NOTIFICATIONS_GATEWAY_URL` ([setup](#provider-setup-webhooksite)); a local mock provider until it is set                                                                  |
-| **Bonus:** failure handling                                  | Per-channel circuit breaker, operator alert mails, outbox sweeps ([ADR 0005](docs/adr/0005-retries-and-failure-handling.md))                                                                            |
+| **Bonus:** failure handling                                  | Per-channel circuit breaker, outbox sweeps ([ADR 0005](docs/adr/0005-retries-and-failure-handling.md))                                                                                                  |
 | **Bonus:** scheduled notifications                           | `scheduled_at` up to 30 days ahead ([ADR 0006](docs/adr/0006-scheduled-notifications.md))                                                                                                               |
 | **Bonus:** templates                                         | `/api/v1/templates`, `{{ variable }}` placeholders ([ADR 0007](docs/adr/0007-templates-rendered-at-creation.md))                                                                                        |
 | **Bonus:** WebSocket updates                                 | Laravel Reverb: status events for API clients, live operator dashboard ([ADR 0008](docs/adr/0008-real-time-updates-and-observability.md))                                                               |
@@ -78,10 +78,9 @@ The first start builds the images. The one-off `init` service then creates the s
 | Health                         | http://localhost:8000/health                                                            |
 | Horizon                        | http://localhost:8000/horizon (operators only)                                          |
 | Jaeger (traces)                | http://localhost:16686                                                                  |
-| Mailpit (operator alert mails) | http://localhost:8025                                                                   |
 | Reverb (WebSocket)             | ws://localhost:8080                                                                     |
 
-Host ports can be changed with `APP_PORT`, `REVERB_HOST_PORT`, `JAEGER_UI_PORT` and `MAILPIT_UI_PORT`.
+Host ports can be changed with `APP_PORT`, `REVERB_HOST_PORT` and `JAEGER_UI_PORT`.
 
 **3. Get the API token** that the seeder created, and send a first notification:
 
@@ -302,7 +301,7 @@ Retrying every notification on its own schedule keeps hammering a provider that 
 - It **opens** when, over the last 60 seconds, at least 20 calls were made and at least 50% of them failed in a retryable way. Permanent failures count as healthy calls, because the provider did answer.
 - While it is open, jobs wait without calling the provider and without using attempts. Each job waits the circuit's remaining time plus a random extra of up to the same length, so the jobs held back together come back spread out rather than in the same second.
 - After 30 seconds a single **probe** call decides: success closes the circuit, failure opens it again.
-- Each change is logged, broadcast to the dashboard and mailed to the operators (throttled). `/health` reports `warn` while a circuit is open.
+- Each change is logged (`notification.circuit.opened` / `closed`) and broadcast to the dashboard. `/health` reports `warn` while a circuit is open.
 
 ### Nothing lost, duplicates kept to a minimum
 
@@ -315,7 +314,7 @@ Retrying every notification on its own schedule keeps hammering a provider that 
 Change the **default status code** of your webhook.site URL, send a notification and follow it with `GET /api/v1/notifications/{id}` (`attempts`, `last_error`, `status`) and `docker compose logs -f horizon` (`notification.delivery.retry_scheduled`):
 
 - `500`, `503` or `429`: the notification is retried with growing gaps and fails after the fifth attempt, a few minutes later.
-- `404`: the same, as for an expired URL; with 20 or more calls a minute the channel's circuit opens and the alert mail appears in Mailpit.
+- `404`: the same, as for an expired URL; with 20 or more calls a minute the channel's circuit opens: the dashboard shows it and `/health` reports `warn`.
 - `400`: it fails at once with "The provider responded with HTTP 400." as the error.
 - `202` with an empty body: it fails at once as unconfirmed.
 - Set it back to `202` with the body above, then `POST /api/v1/notifications/{id}/retry`: it is sent.
@@ -330,7 +329,7 @@ Each decision is recorded as an ADR in [`docs/adr`](docs/adr):
 | [0002](docs/adr/0002-priority-queues-on-horizon.md)                              | Queues and workers per channel and priority, drained in strict order, plus workers that serve only normal or only low so neither starves.           |
 | [0003](docs/adr/0003-gcra-rate-limiter-per-channel.md)                           | A GCRA rate limiter in Redis: evenly spaced sends, never more than 100 in any second, short waits kept in place.                                    |
 | [0004](docs/adr/0004-delivery-guarantees-and-idempotency.md)                     | `waiting` as an outbox state, after-commit dispatch, stale sweeps, outages waited out, and idempotency at request, notification and delivery level. |
-| [0005](docs/adr/0005-retries-and-failure-handling.md)                            | Retryable vs permanent failures, full-jitter backoff, a capped `Retry-After`, and a per-channel circuit breaker with operator alerts.               |
+| [0005](docs/adr/0005-retries-and-failure-handling.md)                            | Retryable vs permanent failures, full-jitter backoff, a capped `Retry-After`, and a per-channel circuit breaker.                                    |
 | [0006](docs/adr/0006-scheduled-notifications.md)                                 | Scheduled notifications stay in the database until a minute before their time, then go out as delayed jobs.                                         |
 | [0007](docs/adr/0007-templates-rendered-at-creation.md)                          | Templates are rendered strictly when a notification is created, and the text is stored on the notification.                                         |
 | [0008](docs/adr/0008-real-time-updates-and-observability.md)                     | Final statuses over WebSockets, a live operator dashboard, correlation ids, tracing, metrics and health.                                            |
@@ -516,7 +515,6 @@ The operator dashboard at http://localhost:8000 shows queue depth, success rate,
 - **Logs:** JSON lines (`LOG_FORMAT=line` for plain text) such as `notification.delivery.sent`, `notification.delivery.retry_scheduled` and `notification.circuit.opened`, each with the notification and correlation ids and the trace id. Every delivery job carries its notification's id and correlation id from the moment it is pushed, also when the stale sweep or the scheduler pushes it, so waits for a send slot or an open circuit can be found by either id too. A delivery job logs its own trace id and keeps the creating request's as `request_trace_id`. In Docker: `docker compose logs -f horizon`.
 - **Traces:** OpenTelemetry traces of requests, queries, HTTP calls and jobs in Jaeger (service `ione-edns`). Each delivery job has its own trace, linked to the request that created it. The provider call carries the job's trace context in the W3C `traceparent` header, so a provider that traces too continues the same trace.
 - **Queues:** Horizon at `/horizon`, for operators only.
-- **Alerts:** when a channel's circuit opens or closes, operators listed in `NOTIFICATIONS_ALERT_MAIL_TO` are mailed. In Docker the mails land in Mailpit.
 
 ## Configuration
 
@@ -545,8 +543,6 @@ Everything is set with environment variables (see `.env.example` and `config/not
 | `NOTIFICATIONS_CIRCUIT_FAILURE_RATE_PERCENT`    | 50      | Retryable failure rate that opens a circuit                                                                  |
 | `NOTIFICATIONS_CIRCUIT_COOLDOWN_SECONDS`        | 30      | How long a circuit stays open before a probe                                                                 |
 | `NOTIFICATIONS_CIRCUIT_PROBE_TIMEOUT_SECONDS`   | 20      | When an unanswered probe is replaced                                                                         |
-| `NOTIFICATIONS_ALERT_MAIL_TO`                   | —       | Comma-separated operator addresses for circuit alerts                                                        |
-| `NOTIFICATIONS_ALERT_THROTTLE_MINUTES`          | 10      | Least time between two alerts for the same channel and change                                                |
 | `NOTIFICATIONS_METRICS_CACHE_SECONDS`           | 5       | Cache lifetime of the metrics snapshot                                                                       |
 | `NOTIFICATIONS_API_REQUESTS_PER_MINUTE`         | 600     | API requests per account and minute                                                                          |
 | `HORIZON_NOTIFICATION_WORKERS`                  | 20      | Notification workers per channel in production (all priorities, strict order)                                |
@@ -555,7 +551,7 @@ Everything is set with environment variables (see `.env.example` and `config/not
 
 ## Tests and code quality
 
-822 Pest tests: unit tests for pure logic (data objects, enums, backoff, channels), feature tests per class and endpoint, and architecture rules (`tests/Unit/ArchitectureTest.php`). Redis-backed code (rate limiter, circuit breaker, queues) is tested against a real Redis. [CI](#cicd) runs every check below and the whole suite on each push and pull request.
+812 Pest tests: unit tests for pure logic (data objects, enums, backoff, channels), feature tests per class and endpoint, and architecture rules (`tests/Unit/ArchitectureTest.php`). Redis-backed code (rate limiter, circuit breaker, queues) is tested against a real Redis. [CI](#cicd) runs every check below and the whole suite on each push and pull request.
 
 Run the tests in Docker:
 

@@ -4,11 +4,10 @@ name: ione-edns
 #   API and dashboard  http://localhost:8000 (sign in as test@example.com / password)
 #   Reverb WebSocket   ws://localhost:8080
 #   Jaeger traces      http://localhost:16686
-#   Mailpit (alerts)   http://localhost:8025
 # Run the test suite with `docker compose --profile test run --rm tests`.
 #
-# Host ports can be changed with APP_PORT, REVERB_HOST_PORT, JAEGER_UI_PORT and
-# MAILPIT_UI_PORT. Deliveries go to the local mock provider unless
+# Host ports can be changed with APP_PORT, REVERB_HOST_PORT and JAEGER_UI_PORT.
+# Deliveries go to the local mock provider unless
 # NOTIFICATIONS_GATEWAY_URL (for example a webhook.site URL) is set in the shell
 # or in a local .env file.
 
@@ -52,13 +51,7 @@ x-app-env: &app-env
     REVERB_HOST: reverb
     REVERB_PORT: '8080'
     REVERB_SCHEME: http
-    MAIL_MAILER: smtp
-    MAIL_HOST: mailpit
-    MAIL_PORT: '1025'
-    MAIL_FROM_ADDRESS: edns@example.com
-    MAIL_FROM_NAME: EDNS
     NOTIFICATIONS_GATEWAY_URL: ${NOTIFICATIONS_GATEWAY_URL:-http://provider/}
-    NOTIFICATIONS_ALERT_MAIL_TO: ${NOTIFICATIONS_ALERT_MAIL_TO:-ops@example.com}
 
 # The build every PHP service shares; the browser reaches Reverb on the host port.
 x-app-build: &app-build
@@ -199,13 +192,6 @@ services:
         image: nginx:1.30.6-alpine
         volumes:
             - ./docker/mock-provider/default.conf:/etc/nginx/conf.d/default.conf:ro
-        restart: unless-stopped
-
-    # Catches the operator alert mails.
-    mailpit:
-        image: axllent/mailpit:v1.33.1
-        ports:
-            - '${MAILPIT_UI_PORT:-8025}:8025'
         restart: unless-stopped
 
     # Tracing backend: receives OTLP from the PHP services and serves the trace UI.
