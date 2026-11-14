@@ -265,6 +265,7 @@ const inFlightTotal = computed(() =>
                                     </th>
                                     <th
                                         class="px-4 py-2 text-right font-medium"
+                                        title="Time since the oldest waiting job was first pushed, including delays and retries"
                                     >
                                         Oldest
                                     </th>

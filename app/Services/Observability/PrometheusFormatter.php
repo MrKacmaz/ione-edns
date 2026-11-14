@@ -29,7 +29,7 @@ final class PrometheusFormatter
             }
         }
 
-        $this->gauge('edns_queue_oldest_pending_job_age_seconds', 'Age of the oldest job waiting on a notification queue.');
+        $this->gauge('edns_queue_oldest_pending_job_age_seconds', 'Seconds since the oldest job waiting on a notification queue was first pushed, including time it spent delayed or released back.');
         foreach ($snapshot->queues as $queue) {
             $this->sample('edns_queue_oldest_pending_job_age_seconds', ['queue' => $queue['queue']], $queue['oldest_pending_age_seconds']);
         }

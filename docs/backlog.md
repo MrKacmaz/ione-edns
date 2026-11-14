@@ -56,6 +56,7 @@ Notifications and batches are never deleted today, while the system is expected 
 - The GCRA rate limiter requires the phpredis client (`REDIS_CLIENT=phpredis`); predis is not supported.
 - A notification whose job is lost from Redis (for example a restart without persistence) stays `queued`, because the stale-notification sweeper only covers `waiting` and `processing`. This includes scheduled notifications, whose delayed jobs wait in Redis for up to a minute. Enable Redis AOF persistence, or sweep `queued` notifications whose `queued_at` (or `scheduled_at`) is long past.
 - A delivery job gives up one day after it was dispatched (`retryUntil`), for example while a channel's circuit stays open; its notification then fails and can be retried through `POST /notifications/{id}/retry`. Decide whether such notifications should be retried automatically once the circuit closes.
+- The queue metric `oldest_pending_age_seconds` counts from when a job was first pushed, so it includes time the job spent delayed or released back. A "ready for" age would need the time a job became available, which Laravel's Redis queue does not record.
 - Every channel has its own circuit, although all channels currently share one provider URL, so an outage of that provider opens the three circuits one by one.
 
 - The Docker image is about 1.1 GB because it includes development dependencies so that tests can run in the container. Add a slimmer production target.

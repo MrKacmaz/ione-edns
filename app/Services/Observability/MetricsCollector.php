@@ -72,6 +72,15 @@ final readonly class MetricsCollector
     }
 
     /**
+     * Get the jobs on each notification queue.
+     *
+     * The age of the oldest pending job counts from when the job was first pushed,
+     * as Laravel records it in the payload. A job that was delayed (a scheduled
+     * notification) or released back (a retry, a rate-limit wait, an open circuit)
+     * keeps that time, so the age includes those waits and reads as "how long the
+     * oldest waiting delivery has been on its way" rather than "how long it has
+     * been ready".
+     *
      * @return list<QueueMetrics>
      */
     private function queueMetrics(CarbonImmutable $now): array
