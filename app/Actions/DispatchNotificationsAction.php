@@ -43,14 +43,24 @@ class DispatchNotificationsAction
         // Formatted with the model's date format, as the query builder alone would drop the microseconds.
         $queuedAt = (new Notification)->freshTimestampString();
 
-        Notification::query()
+        $queuedRows = Notification::query()
             ->whereKey($notifications->modelKeys())
             ->whereIn('status', self::DISPATCHABLE_STATUSES)
             ->update(['status' => NotificationStatus::Queued, 'queued_at' => $queuedAt]);
 
-        foreach ($notifications as $notification) {
-            if (in_array($notification->status, self::DISPATCHABLE_STATUSES, true)) {
+        $dispatched = $notifications->filter(
+            fn (Notification $notification): bool => in_array($notification->status, self::DISPATCHABLE_STATUSES, true),
+        );
+
+        // When fewer rows changed than expected, a notification was cancelled in the
+        // meantime, so the in-memory models are read again instead of assumed queued.
+        $allQueued = $queuedRows === $dispatched->count();
+
+        foreach ($dispatched as $notification) {
+            if ($allQueued) {
                 $notification->forceFill(['status' => NotificationStatus::Queued, 'queued_at' => $queuedAt])->syncOriginal();
+            } else {
+                $notification->refresh();
             }
         }
     }
