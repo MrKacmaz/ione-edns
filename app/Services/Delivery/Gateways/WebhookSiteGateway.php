@@ -148,14 +148,17 @@ final readonly class WebhookSiteGateway implements NotificationGateway
      *
      * A misconfigured endpoint can answer 2xx with anything, for example webhook.site's
      * default HTML page; counting that as sent would hide that nothing was delivered.
-     * Retrying cannot fix a wrong endpoint, so the failure is permanent.
+     * Like the endpoint failure statuses, every message would get the same answer, so
+     * it is retried and counts against the channel's circuit: it opens and the
+     * notifications wait for the fix instead of all failing quietly. A retry of a
+     * message the provider did take carries the same Idempotency-Key.
      */
     private function acceptance(Response $response): GatewayResponseData
     {
         $messageId = $response->json('messageId');
 
         if (! is_string($messageId) || $messageId === '') {
-            return GatewayResponseData::permanent(
+            return GatewayResponseData::retryable(
                 __('notifications.errors.unconfirmed', ['status' => $response->status()]),
                 $response->status(),
             );

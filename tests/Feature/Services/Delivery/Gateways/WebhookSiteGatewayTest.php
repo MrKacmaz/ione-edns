@@ -161,12 +161,12 @@ test('reads the provider\'s Retry-After given in seconds or as an HTTP date', fu
     'no header' => [[], null],
 ]);
 
-test('does not count a successful answer without a message id as sent', function (mixed $body, int $status) {
+test('does not count a successful answer without a message id as sent, but retries it as a misconfigured endpoint', function (mixed $body, int $status) {
     Http::fake(['gateway.test/*' => Http::response($body, $status)]);
 
     $response = app(WebhookSiteGateway::class)->send(Notification::factory()->create());
 
-    expect($response->outcome)->toBe(GatewayOutcome::PermanentFailure)
+    expect($response->outcome)->toBe(GatewayOutcome::RetryableFailure)
         ->and($response->httpStatus)->toBe($status)
         ->and($response->providerMessageId)->toBeNull()
         ->and($response->error)->toBe("The provider responded with HTTP {$status} but without a messageId confirming the delivery.");

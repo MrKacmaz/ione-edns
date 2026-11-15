@@ -211,6 +211,21 @@ test('feeds the provider\'s answer to the channel\'s circuit breaker', function 
     'permanent failure' => [400, GatewayOutcome::PermanentFailure],
 ]);
 
+test('retries an unconfirmed answer and counts it against the circuit, so a misconfigured endpoint does not fail every notification quietly', function () {
+    Http::fake(['gateway.test/*' => Http::response('<html>This URL has no default content configured.</html>', 200)]);
+    $circuitBreaker = new FakeCircuitBreaker;
+    $this->app->instance(CircuitBreaker::class, $circuitBreaker);
+    $notification = Notification::factory()->queued()->create();
+
+    $result = app(DeliveryService::class)->deliver($notification->id);
+
+    expect($result->outcome)->toBe(DeliveryOutcome::RetryScheduled);
+    expect($notification->refresh())
+        ->status->toBe(NotificationStatus::Queued)
+        ->last_error->toBe('The provider responded with HTTP 200 but without a messageId confirming the delivery.');
+    expect($circuitBreaker->recorded)->toBe([['channel' => NotificationChannel::Sms, 'outcome' => GatewayOutcome::RetryableFailure]]);
+});
+
 test('leaves the circuit breaker alone when the notification is skipped', function () {
     $circuitBreaker = new FakeCircuitBreaker;
     $this->app->instance(CircuitBreaker::class, $circuitBreaker);

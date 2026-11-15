@@ -135,7 +135,7 @@ The provider is simulated by [webhook.site](https://webhook.site). The service p
     ```
 5. Check it: `curl -s http://localhost:8000/health` reports `"gateway": {"status": "ok"}`. Every delivery appears in the webhook.site inbox with the headers `Idempotency-Key` (the notification id), `X-Correlation-ID` and, while tracing is on, `traceparent`.
 
-The `messageId` matters: any `2xx` counts as accepted only when the body carries a `messageId`. Without one the provider has not confirmed the message, so the notification fails (see [Delivery and retry logic](#delivery-and-retry-logic)).
+The `messageId` matters: any `2xx` counts as accepted only when the body carries a `messageId`. Without one the provider has not confirmed the message, so the notification is retried and the channel's circuit counts it as a failure (see [Delivery and retry logic](#delivery-and-retry-logic)).
 
 A free webhook.site URL expires after seven days and accepts a limited number of requests. When it stops working, create a new one, replace the line in `.env` and run `docker compose up -d` again; notifications that failed in the meantime can be sent again with `POST /api/v1/notifications/{id}/retry`. Remove the line to switch back to the **mock provider**: the `provider` service ([`docker/mock-provider/default.conf`](docker/mock-provider/default.conf)), an nginx container that answers every delivery with `202` and a fresh `messageId`. CI runs the stack this way.
 
@@ -203,7 +203,7 @@ The task leaves this part to the candidate. The approach in one sentence: **clas
 | Provider answer                     | Classified as | What happens                                      | Why                                                                                                                                                                                                                |
 | ----------------------------------- | ------------- | ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `2xx` with a `messageId`            | accepted      | `sent`, the `messageId` is stored                 | The provider confirmed the message.                                                                                                                                                                                |
-| `2xx` without a `messageId`         | permanent     | `failed` at once                                  | The message was not confirmed, and a misconfigured endpoint will not start answering correctly on a retry.                                                                                                         |
+| `2xx` without a `messageId`         | retryable     | Retried with backoff, counts against the circuit  | The message was not confirmed. Like a wrong endpoint, a misconfigured one (for example webhook.site's default page) gives every message the same answer, so the circuit opens instead of all failing quietly.      |
 | Timeout or connection error         | retryable     | Retried with backoff                              | The provider or the network is briefly unavailable; the same request can succeed a moment later.                                                                                                                   |
 | `408`, `429`, `5xx`                 | retryable     | Retried with backoff, `Retry-After` honoured      | HTTP defines these as "try again later": a timeout, throttling, or a server-side fault.                                                                                                                            |
 | `401`, `403`, `404`, `410`          | retryable     | Retried with backoff, counts against the circuit  | The endpoint or its credentials are wrong (for example an expired webhook.site URL), not the message. Every message would get the same answer, so the circuit opens instead of every notification failing quietly. |
@@ -255,7 +255,7 @@ Change the **default status code** of your webhook.site URL, send a notification
 - `500`, `503` or `429`: the notification is retried with growing gaps and fails after the fifth attempt, a few minutes later.
 - `404`: the same, as for an expired URL; with 20 or more calls a minute the channel's circuit opens: the dashboard shows it and `/health` reports `warn`.
 - `400`: it fails at once with "The provider responded with HTTP 400." as the error.
-- `202` with an empty body: it fails at once as unconfirmed.
+- `202` with an empty body: the same, with "without a messageId confirming the delivery" as the error.
 - Set it back to `202` with the body above, then `POST /api/v1/notifications/{id}/retry`: it is sent.
 
 ## Design decisions
