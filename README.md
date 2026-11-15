@@ -304,11 +304,14 @@ curl -s "${H[@]}" -X POST "$API/notifications/batch" -d '{"notifications": [
 **Schedule** up to 30 days ahead with `scheduled_at` (ISO 8601; without an offset it is UTC), or send from a **template** with variables:
 
 ```bash
-curl -s "${H[@]}" -X POST "$API/notifications" -d '{"channel": "sms", "recipient": "+905551234567", "content": "Your appointment is tomorrow.", "scheduled_at": "2026-11-20T09:00:00+03:00"}'
+AT=$(date -u -d '+1 hour' +%FT%TZ 2>/dev/null || date -u -v+1H +%FT%TZ)  # an hour from now (GNU or BSD date)
+curl -s "${H[@]}" -X POST "$API/notifications" -d '{"channel": "sms", "recipient": "+905551234567", "content": "Your appointment is in an hour.", "scheduled_at": "'"$AT"'"}'
 
-curl -s "${H[@]}" -X POST "$API/templates" -d '{"name": "order-shipped", "channel": "sms", "content": "Hi {{ name }}, your order {{ order_id }} has shipped."}'
-curl -s "${H[@]}" -X POST "$API/notifications" -d '{"channel": "sms", "recipient": "+905551234567", "template": "order-shipped", "variables": {"name": "Ada", "order_id": 1001}}'
+curl -s "${H[@]}" -X POST "$API/templates" -d '{"name": "delivery-window", "channel": "sms", "content": "Hi {{ name }}, your order {{ order_id }} arrives between {{ from }} and {{ to }}."}'
+curl -s "${H[@]}" -X POST "$API/notifications" -d '{"channel": "sms", "recipient": "+905551234567", "template": "delivery-window", "variables": {"name": "Ada", "order_id": 1001, "from": "14:00", "to": "16:00"}}'
 ```
+
+The demo user already has the templates `order-shipped` and `invoice-ready` (`GET $API/templates`), so a notification can use one of them right away.
 
 **Query, list, cancel and retry:**
 

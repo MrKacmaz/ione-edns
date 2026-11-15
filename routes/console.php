@@ -11,19 +11,37 @@ Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
 
-Schedule::command('horizon:snapshot')->everyFiveMinutes();
+/*
+|--------------------------------------------------------------------------
+| Schedule
+|--------------------------------------------------------------------------
+|
+| schedule:run runs the events that are due one after another and only then
+| starts the loop of the five-second broadcast, so every event that is due at
+| the start of a minute runs in the background; otherwise a long sweep would
+| hold the dashboard's metrics back for most of that minute.
+|
+*/
 
-Schedule::command('model:prune')->daily();
+Schedule::command('horizon:snapshot')
+    ->everyFiveMinutes()
+    ->runInBackground();
+
+Schedule::command('model:prune')
+    ->daily()
+    ->runInBackground();
 
 Schedule::command(RedispatchStaleNotificationsCommand::class)
     ->everyMinute()
     ->withoutOverlapping(5)
-    ->onOneServer();
+    ->onOneServer()
+    ->runInBackground();
 
 Schedule::command(DispatchDueNotificationsCommand::class)
     ->everyMinute()
     ->withoutOverlapping(5)
-    ->onOneServer();
+    ->onOneServer()
+    ->runInBackground();
 
 Schedule::command(BroadcastMetricsCommand::class)
     ->everyFiveSeconds()

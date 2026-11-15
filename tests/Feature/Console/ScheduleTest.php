@@ -13,7 +13,7 @@ function scheduledEventFor(string $command): Event
         ->sole(fn (Event $event): bool => Str::endsWith((string) $event->command, ' '.$command));
 }
 
-test('runs the delivery sweeps every minute on one server without overlapping', function (string $command) {
+test('runs the delivery sweeps every minute on one server without overlapping, in the background', function (string $command) {
     $event = scheduledEventFor($command);
 
     expect($event)
@@ -21,7 +21,8 @@ test('runs the delivery sweeps every minute on one server without overlapping', 
         ->repeatSeconds->toBeNull()
         ->withoutOverlapping->toBeTrue()
         ->expiresAt->toBe(5)
-        ->onOneServer->toBeTrue();
+        ->onOneServer->toBeTrue()
+        ->runInBackground->toBeTrue();
 })->with([
     'stale notification sweeper' => ['notifications:redispatch-stale'],
     'scheduled notification dispatcher' => ['notifications:dispatch-due'],
@@ -38,10 +39,12 @@ test('broadcasts metrics every five seconds on one server without overlapping', 
         ->onOneServer->toBeTrue();
 });
 
-test('takes Horizon snapshots and prunes models on their own schedule', function (string $command, string $expression) {
+test('takes Horizon snapshots and prunes models on their own schedule, in the background', function (string $command, string $expression) {
     $event = scheduledEventFor($command);
 
-    expect($event->expression)->toBe($expression);
+    expect($event)
+        ->expression->toBe($expression)
+        ->runInBackground->toBeTrue();
 })->with([
     'Horizon metrics snapshot every five minutes' => ['horizon:snapshot', '*/5 * * * *'],
     'model pruning daily at midnight' => ['model:prune', '0 0 * * *'],
