@@ -22,4 +22,6 @@ return [
 
     'circuits_open' => 'Deliveries are paused on these channels until their provider recovers: :channels.',
 
+    'channels_paused' => 'Deliveries are paused on these channels by their rate limit of 0: :channels.',
+
 ];

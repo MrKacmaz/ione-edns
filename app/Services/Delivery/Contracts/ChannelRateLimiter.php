@@ -12,6 +12,13 @@ interface ChannelRateLimiter
 {
     /**
      * Reserve the next send slot of the channel.
+     *
+     * A paused channel grants no slot; the reservation says when to look again.
      */
     public function reserve(NotificationChannel $channel): RateLimitReservationData;
+
+    /**
+     * Get the messages per second the channel may send; 0 while it is paused.
+     */
+    public function limitPerSecond(NotificationChannel $channel): int;
 }

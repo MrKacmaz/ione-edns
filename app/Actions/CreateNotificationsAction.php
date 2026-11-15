@@ -25,6 +25,7 @@ class CreateNotificationsAction
 
     public function __construct(
         private readonly DispatchNotificationsAction $dispatchNotifications,
+        private readonly BroadcastStatusChangesAction $broadcastStatusChanges,
         private readonly NotificationTracer $tracer,
     ) {}
 
@@ -121,6 +122,11 @@ class CreateNotificationsAction
 
                 $notifications->push($existing);
             }
+
+            // Announce the new notifications as waiting or scheduled, ahead of their queued status.
+            $this->broadcastStatusChanges->handle($notifications->filter(
+                fn (Notification $notification): bool => $notification->wasRecentlyCreated,
+            )->values());
 
             // Queue the new notifications only once the outermost transaction has committed,
             // so a worker never looks for a notification that is not visible yet. Scheduled

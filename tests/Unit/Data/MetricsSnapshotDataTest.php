@@ -11,9 +11,10 @@ test('serializes the snapshot under its API keys', function () {
     $windows = [[
         'window' => '1m',
         'seconds' => 60,
-        'attempts' => ['total' => 10, 'accepted' => 8, 'retryable_failure' => 1, 'permanent_failure' => 1],
+        'attempts' => ['total' => 10, 'accepted' => 8, 'retryable_failure' => 1, 'throttled' => 0, 'permanent_failure' => 1],
         'notifications' => ['sent' => 8, 'failed' => 1],
         'success_rate' => 0.8,
+        'failure_rate' => 0.2,
         'latency_ms' => [
             'provider' => ['p50' => 120.0, 'p95' => 480.0, 'p99' => 900.0],
             'end_to_end' => ['p50' => 300.0, 'p95' => 1200.0, 'p99' => 2500.0],

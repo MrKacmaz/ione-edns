@@ -3,13 +3,14 @@
 namespace App\Http\Requests;
 
 use App\Enums\NotificationChannel;
+use App\Enums\NotificationPriority;
 use App\Enums\NotificationStatus;
+use App\Rules\EnumListRule;
 use App\Rules\Iso8601DateRule;
 use App\Rules\PaginationCursorRule;
 use Carbon\CarbonInterface;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
 
 class ListNotificationsRequest extends FormRequest
@@ -26,8 +27,14 @@ class ListNotificationsRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'status' => ['sometimes', Rule::enum(NotificationStatus::class)],
-            'channel' => ['sometimes', Rule::enum(NotificationChannel::class)],
+            /** One or more of `waiting`, `scheduled`, `queued`, `processing`, `sent`, `failed` and `cancelled`, comma separated (`failed,queued`) or as a list. */
+            'status' => ['sometimes', new EnumListRule(NotificationStatus::class)],
+            /** One or more of `sms`, `email` and `push`, comma separated (`sms,push`) or as a list. */
+            'channel' => ['sometimes', new EnumListRule(NotificationChannel::class)],
+            /** One or more of `high`, `normal` and `low`, comma separated (`high,normal`) or as a list. */
+            'priority' => ['sometimes', new EnumListRule(NotificationPriority::class)],
+            /** The exact recipient, such as `+905551234567`. */
+            'recipient' => ['sometimes', 'string', 'max:512'],
             'batch_id' => ['sometimes', 'uuid'],
             /** The earliest creation time (ISO 8601). An offset such as `+03:00` is honoured; a date alone means the start of that day in UTC. */
             'created_from' => ['sometimes', 'date', new Iso8601DateRule],
@@ -69,19 +76,41 @@ class ListNotificationsRequest extends FormRequest
     }
 
     /**
-     * Get the status to filter by.
+     * Get the statuses to filter by; none means any.
+     *
+     * @return list<NotificationStatus>
      */
-    public function status(): ?NotificationStatus
+    public function statuses(): array
     {
-        return $this->enum('status', NotificationStatus::class);
+        return array_map(NotificationStatus::from(...), EnumListRule::values($this->input('status')) ?? []);
     }
 
     /**
-     * Get the channel to filter by.
+     * Get the channels to filter by; none means any.
+     *
+     * @return list<NotificationChannel>
      */
-    public function channel(): ?NotificationChannel
+    public function channels(): array
     {
-        return $this->enum('channel', NotificationChannel::class);
+        return array_map(NotificationChannel::from(...), EnumListRule::values($this->input('channel')) ?? []);
+    }
+
+    /**
+     * Get the priorities to filter by; none means any.
+     *
+     * @return list<NotificationPriority>
+     */
+    public function priorities(): array
+    {
+        return array_map(NotificationPriority::from(...), EnumListRule::values($this->input('priority')) ?? []);
+    }
+
+    /**
+     * Get the recipient to filter by.
+     */
+    public function recipient(): ?string
+    {
+        return $this->filled('recipient') ? $this->string('recipient')->toString() : null;
     }
 
     /**

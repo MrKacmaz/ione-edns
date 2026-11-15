@@ -34,10 +34,6 @@ response:
           "key_0": [
             "string",
             "string"
-          ],
-          "key_1": [
-            "string",
-            "string"
           ]
         }
       }

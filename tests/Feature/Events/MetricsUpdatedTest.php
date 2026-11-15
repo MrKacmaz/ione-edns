@@ -19,9 +19,10 @@ function metricsUpdatedSnapshot(): MetricsSnapshotData
         windows: [[
             'window' => '5m',
             'seconds' => 300,
-            'attempts' => ['total' => 3, 'accepted' => 2, 'retryable_failure' => 1, 'permanent_failure' => 0],
+            'attempts' => ['total' => 3, 'accepted' => 2, 'retryable_failure' => 1, 'throttled' => 0, 'permanent_failure' => 0],
             'notifications' => ['sent' => 2, 'failed' => 0],
             'success_rate' => 1.0,
+            'failure_rate' => 0.0,
             'latency_ms' => [
                 'provider' => ['p50' => 120.0, 'p95' => 180.5, 'p99' => 199.1],
                 'end_to_end' => ['p50' => 900.0, 'p95' => 1500.0, 'p99' => 1580.0],
@@ -43,9 +44,10 @@ test('broadcasts the snapshot to the operators as metrics.updated', function () 
         'windows' => [[
             'window' => '5m',
             'seconds' => 300,
-            'attempts' => ['total' => 3, 'accepted' => 2, 'retryable_failure' => 1, 'permanent_failure' => 0],
+            'attempts' => ['total' => 3, 'accepted' => 2, 'retryable_failure' => 1, 'throttled' => 0, 'permanent_failure' => 0],
             'notifications' => ['sent' => 2, 'failed' => 0],
             'success_rate' => 1.0,
+            'failure_rate' => 0.0,
             'latency_ms' => [
                 'provider' => ['p50' => 120.0, 'p95' => 180.5, 'p99' => 199.1],
                 'end_to_end' => ['p50' => 900.0, 'p95' => 1500.0, 'p99' => 1580.0],

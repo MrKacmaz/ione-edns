@@ -25,6 +25,16 @@ test('rejects recipients that are not E.164 phone numbers', function (string $re
     'email address' => ['customer@example.com'],
 ]);
 
-test('limits content to a single 160 character segment', function () {
-    expect((new SmsChannel)->maxContentLength())->toBe(160);
-});
+test('limits content to one SMS: 160 septets in GSM-7, or 70 UTF-16 units once a character needs UCS-2', function (string $content, int $length, int $maxLength) {
+    $channel = new SmsChannel;
+
+    expect($channel->contentLength($content))->toBe($length)
+        ->and($channel->maxContentLength($content))->toBe($maxLength);
+})->with([
+    'plain text' => ['Your order has shipped.', 23, 160],
+    'every character of the basic GSM-7 set' => ["@£\$¥èéùìòÇ\nØø\rÅåΔ_ΦΓΛΩΠΨΣΘΞÆæßÉ !\"#¤%&'()*+,-./0123456789:;<=>?¡ABCDEFGHIJKLMNOPQRSTUVWXYZÄÖÑÜ§¿abcdefghijklmnopqrstuvwxyzäöñüà", 127, 160],
+    'GSM-7 extension characters take two septets' => ['€5 {code} [x] ^~|\\', 27, 160],
+    'a Turkish character switches to UCS-2' => ['Siparişiniz kargoda.', 20, 70],
+    'an emoji takes two UTF-16 units' => ['Sale 🎉', 7, 70],
+    'empty' => ['', 0, 160],
+]);

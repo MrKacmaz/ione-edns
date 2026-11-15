@@ -21,7 +21,8 @@ use Psr\Log\LoggerInterface;
  * Request:  POST {url} {"to": "...", "channel": "sms", "content": "..."}
  * Response: 202 {"messageId": "...", "status": "accepted", "timestamp": "..."}
  *
- * A 2xx answer counts as accepted only when it carries the message id.
+ * Only 202 Accepted with a message id counts as accepted, as the provider contract
+ * specifies; any other 2xx is retried as an answer from a misconfigured endpoint.
  *
  * With tracing enabled, the request carries the delivery's W3C trace context
  * (traceparent), so a provider that traces too continues the same trace.
@@ -36,6 +37,11 @@ final readonly class WebhookSiteGateway implements NotificationGateway
      * The IMF-fixdate form of an HTTP date, for example "Sun, 06 Nov 1994 08:49:37 GMT".
      */
     private const string HTTP_DATE_FORMAT = 'D, d M Y H:i:s \\G\\M\\T';
+
+    /**
+     * The status the provider answers an accepted notification with.
+     */
+    private const int ACCEPTED_STATUS = 202;
 
     /**
      * Answers that say the endpoint or its credentials are wrong, not the message.
@@ -113,8 +119,13 @@ final readonly class WebhookSiteGateway implements NotificationGateway
 
         $error = __('notifications.errors.http_status', ['status' => $response->status()]);
 
-        // 408 and 429 ask the client to try again later, as do server errors.
-        if ($response->status() === 408 || $response->tooManyRequests() || $response->serverError()) {
+        // 429 says the provider is up but busy, so it does not count against the channel's circuit.
+        if ($response->tooManyRequests()) {
+            return GatewayResponseData::throttled($error, $response->status(), $this->retryAfterSeconds($response));
+        }
+
+        // 408 asks the client to try again later, as do server errors.
+        if ($response->status() === 408 || $response->serverError()) {
             return GatewayResponseData::retryable($error, $response->status(), $this->retryAfterSeconds($response));
         }
 
@@ -144,7 +155,7 @@ final readonly class WebhookSiteGateway implements NotificationGateway
     }
 
     /**
-     * Classify a 2xx answer: only one that carries the provider's message id confirms the delivery.
+     * Classify a 2xx answer: only 202 Accepted with the provider's message id confirms the delivery.
      *
      * A misconfigured endpoint can answer 2xx with anything, for example webhook.site's
      * default HTML page; counting that as sent would hide that nothing was delivered.
@@ -155,6 +166,13 @@ final readonly class WebhookSiteGateway implements NotificationGateway
      */
     private function acceptance(Response $response): GatewayResponseData
     {
+        if ($response->status() !== self::ACCEPTED_STATUS) {
+            return GatewayResponseData::retryable(
+                __('notifications.errors.not_accepted', ['status' => $response->status(), 'accepted' => self::ACCEPTED_STATUS]),
+                $response->status(),
+            );
+        }
+
         $messageId = $response->json('messageId');
 
         if (! is_string($messageId) || $messageId === '') {

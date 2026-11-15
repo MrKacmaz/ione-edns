@@ -50,15 +50,34 @@
                     {
                         "name": "status",
                         "in": "query",
+                        "description": "One or more of `waiting`, `scheduled`, `queued`, `processing`, `sent`, `failed` and `cancelled`, comma separated (`failed,queued`) or as a list.",
                         "schema": {
-                            "$ref": "#/components/schemas/NotificationStatus"
+                            "type": "string"
                         }
                     },
                     {
                         "name": "channel",
                         "in": "query",
+                        "description": "One or more of `sms`, `email` and `push`, comma separated (`sms,push`) or as a list.",
                         "schema": {
-                            "$ref": "#/components/schemas/NotificationChannel"
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "priority",
+                        "in": "query",
+                        "description": "One or more of `high`, `normal` and `low`, comma separated (`high,normal`) or as a list.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "recipient",
+                        "in": "query",
+                        "description": "The exact recipient, such as `+905551234567`.",
+                        "schema": {
+                            "type": "string",
+                            "maxLength": 512
                         }
                     },
                     {
@@ -2285,6 +2304,12 @@
                             "null"
                         ]
                     },
+                    "trace_id": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
                     "attempts": {
                         "type": "integer"
                     },
@@ -2355,6 +2380,7 @@
                     "content",
                     "idempotency_key",
                     "correlation_id",
+                    "trace_id",
                     "attempts",
                     "provider_message_id",
                     "last_error",

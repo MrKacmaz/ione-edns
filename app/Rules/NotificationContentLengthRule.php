@@ -32,9 +32,9 @@ class NotificationContentLengthRule implements DataAwareRule, ValidationRule
             return;
         }
 
-        $maxLength = $deliveryChannel->maxContentLength();
+        $maxLength = $deliveryChannel->maxContentLength($value);
 
-        if (mb_strlen($value) > $maxLength) {
+        if ($deliveryChannel->contentLength($value) > $maxLength) {
             $fail('validation.notification_content_length')->translate([
                 'max' => $maxLength,
                 'channel' => $deliveryChannel->channel()->value,

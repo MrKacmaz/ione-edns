@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Actions\BroadcastStatusChangesAction;
 use App\Enums\NotificationChannel;
 use App\Enums\NotificationPriority;
 use App\Enums\NotificationStatus;
@@ -37,6 +38,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property string|null $provider_message_id
  * @property string|null $last_error
  * @property CarbonImmutable|null $scheduled_at
+ * @property CarbonImmutable|null $next_attempt_at
  * @property CarbonImmutable|null $queued_at
  * @property CarbonImmutable|null $sent_at
  * @property CarbonImmutable|null $failed_at
@@ -183,6 +185,8 @@ class Notification extends Model
      * No notification is claimed before it is due: not before its next attempt
      * after a failure, and not before its scheduled time. A job that comes early,
      * for example a duplicate pushed by the stale sweep, claims nothing.
+     *
+     * The claim is announced to the owner as the status processing.
      */
     public static function claimForDelivery(string $id): ?self
     {
@@ -192,7 +196,13 @@ class Notification extends Model
             ->tap(self::whereDue(...))
             ->increment('attempts', 1, ['status' => NotificationStatus::Processing]);
 
-        return $claimedRows === 1 ? static::query()->find($id) : null;
+        $notification = $claimedRows === 1 ? static::query()->find($id) : null;
+
+        if ($notification !== null) {
+            NotificationStatusChanged::dispatch($notification);
+        }
+
+        return $notification;
     }
 
     /**
@@ -320,7 +330,14 @@ class Notification extends Model
 
         $this->refresh();
 
-        return $resetRows === 1;
+        if ($resetRows !== 1) {
+            return false;
+        }
+
+        // Best-effort, as the retry is accepted even while the queue cannot be reached.
+        app(BroadcastStatusChangesAction::class)->handle([$this]);
+
+        return true;
     }
 
     /**
@@ -353,7 +370,7 @@ class Notification extends Model
     /**
      * Apply a status change only while the notification is still being processed.
      *
-     * Reaching a final status is announced to the owner.
+     * The new status, final or a retry, is announced to the owner.
      *
      * @param  array<string, mixed>  $attributes
      */
@@ -366,7 +383,7 @@ class Notification extends Model
 
         $this->refresh();
 
-        if ($transitionedRows === 1 && in_array($this->status, NotificationStatus::final(), true)) {
+        if ($transitionedRows === 1) {
             NotificationStatusChanged::dispatch($this);
         }
     }

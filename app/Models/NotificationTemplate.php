@@ -106,11 +106,11 @@ class NotificationTemplate extends Model
     }
 
     /**
-     * Get the length of the content without its placeholders, which every rendering has at least.
+     * Get the content without its placeholders, the text every rendering contains.
      */
-    public function fixedTextLength(): int
+    public function fixedText(): string
     {
-        return mb_strlen((string) preg_replace(self::PLACEHOLDER_PATTERN, '', $this->content));
+        return (string) preg_replace(self::PLACEHOLDER_PATTERN, '', $this->content);
     }
 
     /**

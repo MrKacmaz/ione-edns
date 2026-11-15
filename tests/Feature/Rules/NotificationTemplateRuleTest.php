@@ -108,15 +108,16 @@ test('accepts rendered content at the channel limit and rejects one character mo
     'push' => ['push', 240],
 ]);
 
-test('counts multibyte characters of the rendered content as single characters', function () {
+test('measures the rendered SMS in its encoding, so a Turkish variable limits it to 70 characters', function () {
     $template = NotificationTemplate::factory()->withoutParents()->make(['name' => 'free-text', 'content' => '{{ text }}']);
+    $rule = notificationTemplateRuleWith($template);
 
-    $validator = Validator::make(
-        ['channel' => 'sms', 'template' => 'free-text', 'variables' => ['text' => str_repeat('ş', 160)]],
-        ['template' => [notificationTemplateRuleWith($template)]],
-    );
+    $atLimit = Validator::make(['channel' => 'sms', 'template' => 'free-text', 'variables' => ['text' => str_repeat('ş', 70)]], ['template' => [$rule]]);
+    $overLimit = Validator::make(['channel' => 'sms', 'template' => 'free-text', 'variables' => ['text' => str_repeat('ş', 71)]], ['template' => [$rule]]);
 
-    expect($validator->passes())->toBeTrue();
+    expect($atLimit->passes())->toBeTrue()
+        ->and($overLimit->errors()->first('template'))
+        ->toBe('The content rendered from the template may not be greater than 70 characters for the sms channel.');
 });
 
 test('validates a batch item against the channel and variables of the same item', function () {

@@ -41,6 +41,7 @@ class DispatchNotificationsAction
     public function __construct(
         private readonly QueueFactory $queues,
         private readonly NotificationTracer $tracer,
+        private readonly BroadcastStatusChangesAction $broadcastStatusChanges,
     ) {}
 
     /**
@@ -70,7 +71,7 @@ class DispatchNotificationsAction
         $queuedRows = Notification::query()
             ->whereKey($notifications->modelKeys())
             ->whereIn('status', self::DISPATCHABLE_STATUSES)
-            ->update(['status' => NotificationStatus::Queued, 'queued_at' => $queuedAt]);
+            ->update(['status' => NotificationStatus::Queued, 'queued_at' => $queuedAt, 'updated_at' => $queuedAt]);
 
         $dispatched = $notifications->filter(
             fn (Notification $notification): bool => in_array($notification->status, self::DISPATCHABLE_STATUSES, true),
@@ -82,11 +83,15 @@ class DispatchNotificationsAction
 
         foreach ($dispatched as $notification) {
             if ($allQueued) {
-                $notification->forceFill(['status' => NotificationStatus::Queued, 'queued_at' => $queuedAt])->syncOriginal();
+                $notification->forceFill(['status' => NotificationStatus::Queued, 'queued_at' => $queuedAt, 'updated_at' => $queuedAt])->syncOriginal();
             } else {
                 $notification->refresh();
             }
         }
+
+        $this->broadcastStatusChanges->handle($dispatched->filter(
+            fn (Notification $notification): bool => $notification->status === NotificationStatus::Queued,
+        )->values());
     }
 
     /**

@@ -14,7 +14,12 @@ final class EmailChannel implements DeliveryChannel
         return NotificationChannel::Email;
     }
 
-    public function maxContentLength(): int
+    public function contentLength(string $content): int
+    {
+        return mb_strlen($content);
+    }
+
+    public function maxContentLength(string $content): int
     {
         return self::MAX_CONTENT_LENGTH;
     }

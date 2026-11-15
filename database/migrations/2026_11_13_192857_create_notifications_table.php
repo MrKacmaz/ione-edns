@@ -23,8 +23,8 @@ return new class extends Migration
      * created it, or for a batch the notification's own trace. Null while tracing
      * is off.
      *
-     * The owner-scoped indexes serve the listing and its status and channel
-     * filters. Beyond them, (status, scheduled_at) serves
+     * The owner-scoped indexes serve the listing and its status, channel and
+     * recipient filters. Beyond them, (status, scheduled_at) serves
      * notifications:dispatch-due, (status, updated_at) serves
      * notifications:redispatch-stale, (status, failed_at) serves the failure counts
      * of the metrics, and template_id keeps deleting a template, which nulls the
@@ -61,6 +61,7 @@ return new class extends Migration
             $table->index(['user_id', 'created_at']);
             $table->index(['user_id', 'status', 'created_at']);
             $table->index(['user_id', 'channel', 'created_at']);
+            $table->index(['user_id', 'recipient', 'created_at']);
             $table->index(['status', 'created_at']);
             $table->index(['status', 'scheduled_at']);
             $table->index(['status', 'updated_at']);

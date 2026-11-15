@@ -197,6 +197,7 @@ final readonly class RedisCircuitBreaker implements CircuitBreaker
             self::stateKey($channel),
             self::bucketsKey($channel),
             (string) now()->getTimestampMs(),
+            // Only failures of the provider itself count; a throttled or rejected call was answered.
             $outcome === GatewayOutcome::RetryableFailure ? '1' : '0',
             (string) $this->windowSeconds,
             (string) $this->minimumAttempts,

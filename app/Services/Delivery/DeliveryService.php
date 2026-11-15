@@ -135,7 +135,7 @@ final readonly class DeliveryService
             return match ($response->outcome) {
                 GatewayOutcome::Accepted => $this->markSent($notification, $response, $durationMilliseconds),
                 GatewayOutcome::PermanentFailure => $this->markFailed($notification, $response, $durationMilliseconds),
-                GatewayOutcome::RetryableFailure => $notification->attempts >= $this->maxAttempts
+                GatewayOutcome::RetryableFailure, GatewayOutcome::Throttled => $notification->attempts >= $this->maxAttempts
                     ? $this->markFailed($notification, $response, $durationMilliseconds)
                     : $this->scheduleRetry($notification, $response, $durationMilliseconds),
             };

@@ -80,9 +80,10 @@ class NotificationTemplateRule implements DataAwareRule, ValidationRule
             return;
         }
 
-        $maxLength = $deliveryChannel->maxContentLength();
+        $rendered = $template->render($variables);
+        $maxLength = $deliveryChannel->maxContentLength($rendered);
 
-        if (mb_strlen($template->render($variables)) > $maxLength) {
+        if ($deliveryChannel->contentLength($rendered) > $maxLength) {
             $fail('validation.notification_template_rendered_length')->translate([
                 'max' => $maxLength,
                 'channel' => $deliveryChannel->channel()->value,

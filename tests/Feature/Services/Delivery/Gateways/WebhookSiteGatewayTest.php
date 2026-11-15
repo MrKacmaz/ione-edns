@@ -65,7 +65,7 @@ test('sends no trace context outside a trace', function () {
     Http::assertSent(fn (Request $request): bool => ! $request->hasHeader('traceparent'));
 });
 
-test('treats server errors and rate limiting as retryable', function (int $status) {
+test('treats server errors and timeouts the provider reports as retryable', function (int $status) {
     Http::fake(['gateway.test/*' => Http::response([], $status)]);
 
     $response = app(WebhookSiteGateway::class)->send(Notification::factory()->create());
@@ -76,9 +76,18 @@ test('treats server errors and rate limiting as retryable', function (int $statu
 })->with([
     'internal server error' => [500],
     'service unavailable' => [503],
-    'too many requests' => [429],
     'request timeout' => [408],
 ]);
+
+test('treats rate limiting as throttled, a retry that does not count against the circuit', function () {
+    Http::fake(['gateway.test/*' => Http::response([], 429)]);
+
+    $response = app(WebhookSiteGateway::class)->send(Notification::factory()->create());
+
+    expect($response->outcome)->toBe(GatewayOutcome::Throttled)
+        ->and($response->httpStatus)->toBe(429)
+        ->and($response->error)->toBe('The provider responded with HTTP 429.');
+});
 
 test('passes on the provider\'s Retry-After', function () {
     Http::fake(['gateway.test/*' => Http::response([], 429, ['Retry-After' => '45'])]);
@@ -175,7 +184,22 @@ test('does not count a successful answer without a message id as sent, but retri
     'numeric message id' => [['messageId' => 12345], 202],
     'empty message id' => [['messageId' => ''], 202],
     'plain text body' => ['accepted', 202],
+]);
+
+test('retries any other successful status as a misconfigured endpoint, as the contract answers 202 Accepted', function (mixed $body, int $status) {
+    Http::fake(['gateway.test/*' => Http::response($body, $status)]);
+
+    $response = app(WebhookSiteGateway::class)->send(Notification::factory()->create());
+
+    expect($response->outcome)->toBe(GatewayOutcome::RetryableFailure)
+        ->and($response->httpStatus)->toBe($status)
+        ->and($response->providerMessageId)->toBeNull()
+        ->and($response->error)->toBe("The provider responded with HTTP {$status} instead of 202 Accepted.");
+})->with([
+    '200 with a message id' => [['messageId' => 'msg-123'], 200],
+    '201 with a message id' => [['messageId' => 'msg-123'], 201],
     'webhook.site default page' => ['<html>This URL has no default content configured.</html>', 200],
+    'no content' => [null, 204],
 ]);
 
 test('treats a timed-out request as retryable and says that it timed out', function () {

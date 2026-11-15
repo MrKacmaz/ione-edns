@@ -34,6 +34,14 @@ final readonly class GatewayResponseData
     }
 
     /**
+     * The provider asked to slow down: it is up, and a later attempt may succeed.
+     */
+    public static function throttled(string $error, int $httpStatus, ?int $retryAfterSeconds = null): self
+    {
+        return new self(GatewayOutcome::Throttled, $httpStatus, error: $error, retryAfterSeconds: $retryAfterSeconds);
+    }
+
+    /**
      * The provider rejected the notification for good.
      */
     public static function permanent(string $error, int $httpStatus): self

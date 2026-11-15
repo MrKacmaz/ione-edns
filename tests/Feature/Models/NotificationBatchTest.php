@@ -1,11 +1,11 @@
 <?php
 
-use App\Events\NotificationStatusChanged;
 use App\Models\Notification;
 use App\Models\NotificationBatch;
+use Illuminate\Broadcasting\BroadcastEvent;
 use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Queue;
 
 describe('statusCounts', function () {
     test('counts only the batch\'s notifications per status and lists statuses without notifications as zero', function () {
@@ -78,15 +78,13 @@ describe('cancelPendingNotifications', function () {
         $scheduled = Notification::factory()->inBatch($batch)->scheduled()->create();
         Notification::factory()->inBatch($batch)->processing()->create();
         Notification::factory()->inBatch($batch)->cancelled()->create();
-        Event::fake([NotificationStatusChanged::class]);
+        Queue::fake([BroadcastEvent::class]);
 
         $batch->cancelPendingNotifications();
 
-        Event::assertDispatchedTimes(NotificationStatusChanged::class, 2);
-        foreach ([$waiting, $scheduled] as $cancelled) {
-            Event::assertDispatched(NotificationStatusChanged::class, fn (NotificationStatusChanged $event): bool => $event->notification['id'] === $cancelled->id
-                && $event->notification['status'] === 'cancelled'
-                && $event->notification['cancelled_at'] !== null);
-        }
+        expect(announcedStatuses())->toEqualCanonicalizing([
+            ['id' => $waiting->id, 'status' => 'cancelled'],
+            ['id' => $scheduled->id, 'status' => 'cancelled'],
+        ]);
     });
 });

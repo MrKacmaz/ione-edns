@@ -1,10 +1,10 @@
 <?php
 
-use App\Events\NotificationStatusChanged;
 use App\Models\Notification;
 use App\Models\NotificationBatch;
 use App\Models\User;
-use Illuminate\Support\Facades\Event;
+use Illuminate\Broadcasting\BroadcastEvent;
+use Illuminate\Support\Facades\Queue;
 use Laravel\Sanctum\Sanctum;
 
 test('cancels only the batch\'s notifications that no worker has picked up yet', function () {
@@ -37,7 +37,7 @@ test('returns 404 and does not cancel another user\'s batch', function () {
 });
 
 test('announces each cancelled notification of the batch to the owner', function () {
-    Event::fake([NotificationStatusChanged::class]);
+    Queue::fake([BroadcastEvent::class]);
     $batch = NotificationBatch::factory()->create();
     $waiting = Notification::factory()->inBatch($batch)->create();
     $queued = Notification::factory()->inBatch($batch)->queued()->create();
@@ -46,12 +46,10 @@ test('announces each cancelled notification of the batch to the owner', function
 
     $this->postJson(route('api.v1.notification-batches.cancel', $batch))->assertOk();
 
-    Event::assertDispatchedTimes(NotificationStatusChanged::class, 2);
-    foreach ([$waiting, $queued] as $notification) {
-        Event::assertDispatched(NotificationStatusChanged::class, fn (NotificationStatusChanged $event): bool => $event->notification['id'] === $notification->id
-            && $event->notification['status'] === 'cancelled'
-            && $event->notification['cancelled_at'] !== null);
-    }
+    expect(announcedStatuses())->toEqualCanonicalizing([
+        ['id' => $waiting->id, 'status' => 'cancelled'],
+        ['id' => $queued->id, 'status' => 'cancelled'],
+    ]);
 });
 
 test('returns 401 and does not cancel the batch when no token is provided', function () {

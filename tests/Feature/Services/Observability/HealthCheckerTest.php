@@ -1,7 +1,9 @@
 <?php
 
+use App\Data\RateLimitReservationData;
 use App\Enums\CircuitState;
 use App\Enums\HealthCheckStatus;
+use App\Services\Delivery\Contracts\ChannelRateLimiter;
 use App\Services\Delivery\Contracts\CircuitBreaker;
 use App\Services\Observability\HealthChecker;
 use Illuminate\Database\QueryException;
@@ -10,6 +12,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Exceptions;
 use Laravel\Horizon\Contracts\MasterSupervisorRepository;
 use Mockery\MockInterface;
+use Tests\Support\FakeChannelRateLimiter;
 use Tests\Support\FakeCircuitBreaker;
 
 beforeEach(function () {
@@ -22,7 +25,7 @@ beforeEach(function () {
 test('passes every check, in the order the health endpoint reports them, while every dependency is healthy', function () {
     $results = app(HealthChecker::class)->run();
 
-    expect(array_keys($results))->toBe(['database', 'redis', 'horizon', 'gateway', 'delivery_circuits'])
+    expect(array_keys($results))->toBe(['database', 'redis', 'horizon', 'gateway', 'delivery_circuits', 'delivery_channels'])
         ->and(array_column($results, 'status'))->each->toBe(HealthCheckStatus::Ok)
         ->and(array_column($results, 'message'))->each->toBeNull();
 });
@@ -92,6 +95,17 @@ test('reports the service degraded and names every channel whose circuit is not 
     'one circuit half open' => [['email' => CircuitState::HalfOpen], 'email'],
     'several circuits, named in channel order' => [['push' => CircuitState::Open, 'sms' => CircuitState::Open, 'email' => CircuitState::HalfOpen], 'sms, email, push'],
 ]);
+
+test('reports the service degraded and names every channel paused by a rate limit of 0', function () {
+    $this->app->instance(ChannelRateLimiter::class, new FakeChannelRateLimiter(RateLimitReservationData::granted(0), ['sms' => 0, 'email' => 100, 'push' => 0]));
+
+    $result = app(HealthChecker::class)->run()['delivery_channels'];
+
+    expect($result)->toBe([
+        'status' => HealthCheckStatus::Degraded,
+        'message' => 'Deliveries are paused on these channels by their rate limit of 0: sms, push.',
+    ]);
+});
 
 test('rates the service by its worst check', function (array $statuses, HealthCheckStatus $overallStatus) {
     $results = array_map(fn (HealthCheckStatus $status): array => ['status' => $status, 'message' => null], $statuses);

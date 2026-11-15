@@ -5,6 +5,7 @@ namespace App\Services\Observability;
 use App\Enums\CircuitState;
 use App\Enums\HealthCheckStatus;
 use App\Enums\NotificationChannel;
+use App\Services\Delivery\Contracts\ChannelRateLimiter;
 use App\Services\Delivery\Contracts\CircuitBreaker;
 use Illuminate\Container\Attributes\Config;
 use Illuminate\Contracts\Redis\Factory as RedisFactory;
@@ -27,6 +28,7 @@ final readonly class HealthChecker
         private RedisFactory $redis,
         private MasterSupervisorRepository $horizonMasters,
         private CircuitBreaker $circuitBreaker,
+        private ChannelRateLimiter $rateLimiter,
         #[Config('notifications.gateway.url')] private ?string $gatewayUrl,
     ) {}
 
@@ -43,6 +45,7 @@ final readonly class HealthChecker
             'horizon' => $this->checkHorizon(...),
             'gateway' => $this->checkGateway(...),
             'delivery_circuits' => $this->checkDeliveryCircuits(...),
+            'delivery_channels' => $this->checkDeliveryChannels(...),
         ];
 
         $results = [];
@@ -154,6 +157,27 @@ final readonly class HealthChecker
         }
 
         return self::result(HealthCheckStatus::Degraded, __('health.circuits_open', [
+            'channels' => implode(', ', array_map(fn (NotificationChannel $channel): string => $channel->value, $pausedChannels)),
+        ]));
+    }
+
+    /**
+     * Warn about channels an operator paused with a rate limit of 0.
+     *
+     * @return CheckResult
+     */
+    private function checkDeliveryChannels(): array
+    {
+        $pausedChannels = array_filter(
+            NotificationChannel::cases(),
+            fn (NotificationChannel $channel): bool => $this->rateLimiter->limitPerSecond($channel) === 0,
+        );
+
+        if ($pausedChannels === []) {
+            return self::result(HealthCheckStatus::Ok);
+        }
+
+        return self::result(HealthCheckStatus::Degraded, __('health.channels_paused', [
             'channels' => implode(', ', array_map(fn (NotificationChannel $channel): string => $channel->value, $pausedChannels)),
         ]));
     }

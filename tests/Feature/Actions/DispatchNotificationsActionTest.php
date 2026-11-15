@@ -33,7 +33,8 @@ test('pushes each notification onto the queue of its channel and priority and ma
     foreach ($notifications as $notification) {
         expect($notification->status)->toBe(NotificationStatus::Queued)
             ->and($notification->refresh()->status)->toBe(NotificationStatus::Queued)
-            ->and($notification->queued_at?->toJSON())->toBe('2026-11-14T10:00:00.250000Z');
+            ->and($notification->queued_at?->toJSON())->toBe('2026-11-14T10:00:00.250000Z')
+            ->and($notification->updated_at->toJSON())->toBe('2026-11-14T10:00:00.250000Z');
     }
 });
 
@@ -143,7 +144,7 @@ test('pushes the jobs of each queue together, in one bulk push', function () {
 
     app(DispatchNotificationsAction::class)->handle($notifications);
 
-    expect($queue->bulkPushes)->toBe(['notifications-sms-high' => 3, 'notifications-email-normal' => 2]);
+    expect($queue->bulkPushes)->toBe(['notifications-sms-high' => 3, 'notifications-email-normal' => 2, 'broadcasts' => 5]);
 });
 
 test('pushes the jobs without recording a span for each of them, linked to the current span', function () {

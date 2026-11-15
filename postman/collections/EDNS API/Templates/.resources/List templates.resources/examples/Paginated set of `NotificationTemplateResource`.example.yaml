@@ -1,6 +1,6 @@
 $kind: http-example
 request:
-  url: "{{baseUrl}}/v1/templates?channel=email&per_page=72&cursor=string"
+  url: "{{baseUrl}}/v1/templates?channel=email&per_page=17&cursor=string"
   method: GET
   headers:
     - key: Authorization
@@ -14,7 +14,7 @@ request:
       value: application/json
   queryParams:
     channel: email
-    per_page: "72"
+    per_page: "17"
     cursor: string
   body:
     type: text
@@ -32,14 +32,14 @@ response:
           {
             "id": "string",
             "name": "string",
-            "channel": "push",
+            "channel": "email",
             "content": "string",
             "variables": [
               "string",
               "string"
             ],
-            "created_at": "2016-11-23T16:39:34.309Z",
-            "updated_at": "1964-10-08T20:45:17.989Z"
+            "created_at": "1949-07-22T08:12:25.116Z",
+            "updated_at": "1993-10-15T19:28:10.996Z"
           },
           {
             "id": "string",
@@ -50,8 +50,8 @@ response:
               "string",
               "string"
             ],
-            "created_at": "1978-01-27T18:20:10.999Z",
-            "updated_at": "1962-02-02T10:47:06.960Z"
+            "created_at": "1974-01-17T03:23:15.950Z",
+            "updated_at": "1976-12-13T14:24:43.573Z"
           }
         ],
         "links": {
@@ -62,7 +62,7 @@ response:
         },
         "meta": {
           "path": "string",
-          "per_page": 707,
+          "per_page": 1436,
           "next_cursor": "string",
           "prev_cursor": "string"
         }

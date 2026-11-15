@@ -4,7 +4,9 @@ use App\Enums\NotificationStatus;
 use App\Events\NotificationStatusChanged;
 use App\Models\Notification;
 use Database\Factories\NotificationFactory;
+use Illuminate\Broadcasting\BroadcastEvent;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Queue;
 
 describe('claimForDelivery', function () {
     test('claims a waiting or queued notification and counts the attempt', function (Closure $state) {
@@ -151,7 +153,7 @@ describe('markSent, markFailed and markRetryPending', function () {
             && $event->notification['status'] === 'failed');
     });
 
-    test('puts a processing notification back in line until its next attempt, without announcing it', function () {
+    test('puts a processing notification back in line until its next attempt, and announces it', function () {
         $this->travelTo('2026-11-14 10:00:00.250000');
         $notification = Notification::factory()->processing()->create();
         Event::fake([NotificationStatusChanged::class]);
@@ -163,7 +165,9 @@ describe('markSent, markFailed and markRetryPending', function () {
             ->last_error->toBe('The provider responded with HTTP 503.')
             ->next_attempt_at->toJSON()->toBe('2026-11-14T10:00:45.250000Z');
         $this->assertDatabaseHas('notifications', ['id' => $notification->id, 'status' => 'queued']);
-        Event::assertNotDispatched(NotificationStatusChanged::class);
+        Event::assertDispatched(NotificationStatusChanged::class, fn (NotificationStatusChanged $event): bool => $event->notification['status'] === 'queued'
+            && $event->notification['next_attempt_at'] === '2026-11-14T10:00:45.250000Z'
+            && $event->notification['last_error'] === 'The provider responded with HTTP 503.');
     });
 
     test('leaves a notification that is no longer processing untouched and unannounced', function (Closure $state, Closure $transition, string $status) {
@@ -233,6 +237,7 @@ describe('markFailedIfUndelivered', function () {
 
 describe('resetForRedelivery', function () {
     test('gives a failed notification a fresh set of attempts and reports the reset', function () {
+        Queue::fake([BroadcastEvent::class]);
         $notification = Notification::factory()->failed()->create(['next_attempt_at' => now()->subMinute()]);
 
         $wasReset = $notification->resetForRedelivery();
@@ -245,6 +250,7 @@ describe('resetForRedelivery', function () {
             ->failed_at->toBeNull()
             ->next_attempt_at->toBeNull();
         $this->assertDatabaseHas('notifications', ['id' => $notification->id, 'status' => 'waiting', 'attempts' => 0, 'last_error' => null, 'failed_at' => null]);
+        expect(announcedStatuses())->toBe([['id' => $notification->id, 'status' => 'waiting']]);
     });
 
     test('refuses to reset a notification that has not failed', function (Closure $state, string $status) {

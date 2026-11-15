@@ -54,6 +54,47 @@ describe('index', function () {
         $response->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.id', $email->id);
     });
 
+    test('filters notifications by several statuses, given comma separated or as a list', function (array $query) {
+        $user = User::factory()->create();
+        $failed = Notification::factory()->for($user)->failed()->create(['created_at' => now()->subMinute()]);
+        $queued = Notification::factory()->for($user)->queued()->create();
+        Notification::factory()->for($user)->sent()->create();
+        Sanctum::actingAs($user);
+
+        $response = $this->getJson(route('api.v1.notifications.index', $query));
+
+        $response->assertOk()->assertJsonPath('data.*.id', [$queued->id, $failed->id]);
+    })->with([
+        'comma separated' => [['status' => 'failed,queued']],
+        'comma separated with spaces and a repeat' => [['status' => 'failed, queued,failed']],
+        'as a list' => [['status' => ['failed', 'queued']]],
+    ]);
+
+    test('filters notifications by priority and by channel, each with several values', function () {
+        $user = User::factory()->create();
+        $highSms = Notification::factory()->for($user)->create(['priority' => 'high']);
+        Notification::factory()->for($user)->create(['priority' => 'low']);
+        $normalPush = Notification::factory()->for($user)->push()->create(['priority' => 'normal', 'created_at' => now()->subMinute()]);
+        Notification::factory()->for($user)->email()->create(['priority' => 'high']);
+        Sanctum::actingAs($user);
+
+        $response = $this->getJson(route('api.v1.notifications.index', ['priority' => 'high,normal', 'channel' => 'sms,push']));
+
+        $response->assertOk()->assertJsonPath('data.*.id', [$highSms->id, $normalPush->id]);
+    });
+
+    test('filters notifications by their exact recipient', function () {
+        $user = User::factory()->create();
+        $match = Notification::factory()->for($user)->create(['recipient' => '+905551234567']);
+        Notification::factory()->for($user)->create(['recipient' => '+905551234568']);
+        Notification::factory()->create(['recipient' => '+905551234567']);
+        Sanctum::actingAs($user);
+
+        $response = $this->getJson(route('api.v1.notifications.index', ['recipient' => '+905551234567']));
+
+        $response->assertOk()->assertJsonPath('data.*.id', [$match->id]);
+    });
+
     test('filters notifications by batch', function () {
         $batch = NotificationBatch::factory()->create();
         $inBatch = Notification::factory()->inBatch($batch)->create();
@@ -143,6 +184,10 @@ describe('index', function () {
     })->with([
         'unknown status' => [['status' => 'delivered'], 'status', 'The selected status is invalid.'],
         'unknown channel' => [['channel' => 'fax'], 'channel', 'The selected channel is invalid.'],
+        'one unknown status among known ones' => [['status' => 'sent,delivered'], 'status', 'The selected status is invalid.'],
+        'empty status list' => [['status' => ' , '], 'status', 'The selected status is invalid.'],
+        'unknown priority' => [['priority' => 'urgent'], 'priority', 'The selected priority is invalid.'],
+        'recipient too long' => [['recipient' => str_repeat('1', 513)], 'recipient', 'The recipient field must not be greater than 512 characters.'],
         'batch id that is not a uuid' => [['batch_id' => '42'], 'batch_id', 'The batch id field must be a valid UUID.'],
         'start that is not a date' => [['created_from' => 'not-a-date'], 'created_from', 'The created from field must be a valid date.'],
         'end that is not a date' => [['created_to' => 'not-a-date'], 'created_to', 'The created to field must be a valid date.'],

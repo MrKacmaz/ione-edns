@@ -11,7 +11,7 @@ headers:
     value: application/json
 pathVariables:
   - key: batch
-    value: a0640c13-c986-67fc-ba2f-1bd373520750
+    value: 439adaa5-b05f-32da-595c-ca918fb857a4
     disabled: false
     description: (Required) The batch ID
 settings: {}

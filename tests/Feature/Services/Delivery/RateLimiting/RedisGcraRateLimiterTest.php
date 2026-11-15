@@ -14,7 +14,7 @@ beforeEach(function () {
 });
 
 test('spaces reservations of a channel one emission interval apart', function () {
-    $rateLimiter = new RedisGcraRateLimiter(app('redis'), perSecond: 10, maxWaitMilliseconds: 1000);
+    $rateLimiter = new RedisGcraRateLimiter(app('redis'), perSecond: ['sms' => 10, 'email' => 10, 'push' => 10], maxWaitMilliseconds: 1000);
 
     $reservations = array_map(fn () => $rateLimiter->reserve(NotificationChannel::Sms), range(1, 3));
 
@@ -36,7 +36,7 @@ test('spaces sends so that no second ever holds more than the limit, also when t
 ]);
 
 test('denies a slot that opens later than the caller accepts, without taking it', function () {
-    $rateLimiter = new RedisGcraRateLimiter(app('redis'), perSecond: 1, maxWaitMilliseconds: 500);
+    $rateLimiter = new RedisGcraRateLimiter(app('redis'), perSecond: ['sms' => 1, 'email' => 1, 'push' => 1], maxWaitMilliseconds: 500);
 
     $first = $rateLimiter->reserve(NotificationChannel::Sms);
     $second = $rateLimiter->reserve(NotificationChannel::Sms);
@@ -50,7 +50,7 @@ test('denies a slot that opens later than the caller accepts, without taking it'
 });
 
 test('keeps a separate schedule per channel', function () {
-    $rateLimiter = new RedisGcraRateLimiter(app('redis'), perSecond: 1, maxWaitMilliseconds: 0);
+    $rateLimiter = new RedisGcraRateLimiter(app('redis'), perSecond: ['sms' => 1, 'email' => 1, 'push' => 1], maxWaitMilliseconds: 0);
     $rateLimiter->reserve(NotificationChannel::Sms);
 
     $email = $rateLimiter->reserve(NotificationChannel::Email);
@@ -60,7 +60,7 @@ test('keeps a separate schedule per channel', function () {
 });
 
 test('schedules the send after the limit at least a full second after the first send', function () {
-    $rateLimiter = new RedisGcraRateLimiter(app('redis'), perSecond: 100, maxWaitMilliseconds: 5000);
+    $rateLimiter = new RedisGcraRateLimiter(app('redis'), perSecond: ['sms' => 100, 'email' => 100, 'push' => 100], maxWaitMilliseconds: 5000);
     $startedAt = hrtime(true);
     $sendTimes = [];
 
@@ -76,7 +76,7 @@ test('schedules the send after the limit at least a full second after the first 
 test('refuses to work with a Redis client other than phpredis', function () {
     $redis = Mockery::mock(RedisFactory::class);
     $redis->shouldReceive('connection')->andReturn(Mockery::mock(Connection::class));
-    $rateLimiter = new RedisGcraRateLimiter($redis, perSecond: 10, maxWaitMilliseconds: 1000);
+    $rateLimiter = new RedisGcraRateLimiter($redis, perSecond: ['sms' => 10, 'email' => 10, 'push' => 10], maxWaitMilliseconds: 1000);
 
     $rateLimiter->reserve(NotificationChannel::Sms);
 })->throws(UnexpectedValueException::class, 'The rate limiter requires the phpredis Redis client.');
@@ -93,7 +93,32 @@ test('throws when Redis answers a reservation with an unexpected reply', functio
     };
     $redis = Mockery::mock(RedisFactory::class);
     $redis->shouldReceive('connection')->andReturn($connection);
-    $rateLimiter = new RedisGcraRateLimiter($redis, perSecond: 10, maxWaitMilliseconds: 1000);
+    $rateLimiter = new RedisGcraRateLimiter($redis, perSecond: ['sms' => 10, 'email' => 10, 'push' => 10], maxWaitMilliseconds: 1000);
 
     $rateLimiter->reserve(NotificationChannel::Sms);
 })->throws(UnexpectedValueException::class, 'The rate limiter returned an unexpected reply.');
+
+test('limits each channel by its own rate', function () {
+    $rateLimiter = new RedisGcraRateLimiter(app('redis'), perSecond: ['sms' => 10, 'email' => 2, 'push' => 100], maxWaitMilliseconds: 1000);
+
+    $smsReservations = [$rateLimiter->reserve(NotificationChannel::Sms), $rateLimiter->reserve(NotificationChannel::Sms)];
+    $emailReservations = [$rateLimiter->reserve(NotificationChannel::Email), $rateLimiter->reserve(NotificationChannel::Email)];
+
+    // Each wait shrinks by the time its reservation took to reach Redis, so the lower
+    // bounds only prove that each channel spaces its sends by its own interval.
+    expect($rateLimiter->limitPerSecond(NotificationChannel::Email))->toBe(2)
+        ->and($smsReservations[1]->waitMilliseconds)->toBeGreaterThan(0)->toBeLessThanOrEqual(100)
+        ->and($emailReservations[1]->waitMilliseconds)->toBeGreaterThan(100)->toBeLessThanOrEqual(500);
+});
+
+test('grants nothing on a paused channel and asks the job to look again in a few seconds, without calling Redis', function () {
+    $redis = Mockery::mock(RedisFactory::class);
+    $redis->shouldNotReceive('connection');
+    $rateLimiter = new RedisGcraRateLimiter($redis, perSecond: ['sms' => 0, 'email' => 100, 'push' => 100], maxWaitMilliseconds: 1000);
+
+    $reservation = $rateLimiter->reserve(NotificationChannel::Sms);
+
+    expect($reservation->granted)->toBeFalse()
+        ->and($reservation->waitMilliseconds)->toBe(5000)
+        ->and($rateLimiter->limitPerSecond(NotificationChannel::Sms))->toBe(0);
+});

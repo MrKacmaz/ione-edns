@@ -12,9 +12,10 @@ use Carbon\CarbonImmutable;
  * @phpstan-type WindowMetrics array{
  *     window: string,
  *     seconds: int,
- *     attempts: array{total: int, accepted: int, retryable_failure: int, permanent_failure: int},
+ *     attempts: array{total: int, accepted: int, retryable_failure: int, throttled: int, permanent_failure: int},
  *     notifications: array{sent: int, failed: int},
  *     success_rate: float|null,
+ *     failure_rate: float|null,
  *     latency_ms: array{provider: Latency, end_to_end: Latency},
  * }
  */

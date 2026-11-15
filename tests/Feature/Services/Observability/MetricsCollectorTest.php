@@ -92,6 +92,7 @@ test('counts attempts and finished notifications from the first second of each w
     NotificationAttempt::factory()->create(['created_at' => now()->subSeconds(300)]);
     NotificationAttempt::factory()->create(['created_at' => now()->subSeconds(301)]);
     NotificationAttempt::factory()->retryableFailure()->create(['created_at' => now()->subSeconds(10)]);
+    NotificationAttempt::factory()->throttled()->create(['created_at' => now()->subSeconds(20)]);
     NotificationAttempt::factory()->permanentFailure()->create(['created_at' => now()->subSeconds(3600)]);
     NotificationAttempt::factory()->create(['created_at' => now()->subSeconds(3601)]);
     Notification::factory()->failed()->create(['failed_at' => now()->subSeconds(300)]);
@@ -103,16 +104,16 @@ test('counts attempts and finished notifications from the first second of each w
     expect($fiveMinutes)
         ->window->toBe('5m')
         ->seconds->toBe(300)
-        ->attempts->toBe(['total' => 2, 'accepted' => 1, 'retryable_failure' => 1, 'permanent_failure' => 0])
+        ->attempts->toBe(['total' => 3, 'accepted' => 1, 'retryable_failure' => 1, 'throttled' => 1, 'permanent_failure' => 0])
         ->notifications->toBe(['sent' => 1, 'failed' => 1]);
     expect($oneHour)
         ->window->toBe('1h')
         ->seconds->toBe(3600)
-        ->attempts->toBe(['total' => 4, 'accepted' => 2, 'retryable_failure' => 1, 'permanent_failure' => 1])
+        ->attempts->toBe(['total' => 5, 'accepted' => 2, 'retryable_failure' => 1, 'throttled' => 1, 'permanent_failure' => 1])
         ->notifications->toBe(['sent' => 2, 'failed' => 2]);
 });
 
-test('reports the share of finished notifications that were sent, ignoring attempts that will be retried', function (int $sent, int $failed, ?float $successRate) {
+test('reports the shares of finished notifications that were sent and that failed, ignoring attempts that will be retried', function (int $sent, int $failed, ?float $successRate, ?float $failureRate) {
     $this->travelTo('2026-11-14 12:00:00');
     NotificationAttempt::factory()->count($sent)->create();
     Notification::factory()->failed()->count($failed)->create();
@@ -120,12 +121,13 @@ test('reports the share of finished notifications that were sent, ignoring attem
 
     $snapshot = app(MetricsCollector::class)->collect();
 
-    expect($snapshot->windows[0]['success_rate'])->toBe($successRate);
+    expect($snapshot->windows[0]['success_rate'])->toBe($successRate)
+        ->and($snapshot->windows[0]['failure_rate'])->toBe($failureRate);
 })->with([
-    'two sent and one failed' => [2, 1, 0.6667],
-    'only sent' => [3, 0, 1.0],
-    'only failed' => [0, 2, 0.0],
-    'nothing finished' => [0, 0, null],
+    'two sent and one failed' => [2, 1, 0.6667, 0.3333],
+    'only sent' => [3, 0, 1.0, 0.0],
+    'only failed' => [0, 2, 0.0, 1.0],
+    'nothing finished' => [0, 0, null, null],
 ]);
 
 test('reports provider latency percentiles over every attempt in the window, failed ones included', function () {

@@ -19,9 +19,19 @@ test('accepts content at the channel limit and rejects one character more', func
     'push' => ['push', 240],
 ]);
 
-test('counts multibyte characters as single characters', function () {
+test('limits an SMS that needs UCS-2, such as one with Turkish characters, to 70 characters', function () {
+    $rules = ['content' => [new NotificationContentLengthRule(app(ChannelRegistry::class))]];
+
+    $atLimit = Validator::make(['channel' => 'sms', 'content' => str_repeat('ş', 70)], $rules);
+    $overLimit = Validator::make(['channel' => 'sms', 'content' => str_repeat('ş', 71)], $rules);
+
+    expect($atLimit->passes())->toBeTrue()
+        ->and($overLimit->errors()->first('content'))->toBe('The content may not be greater than 70 characters for the sms channel.');
+});
+
+test('counts multibyte characters as single characters on the other channels', function () {
     $validator = Validator::make(
-        ['channel' => 'sms', 'content' => str_repeat('ş', 160)],
+        ['channel' => 'push', 'content' => str_repeat('ş', 240)],
         ['content' => [new NotificationContentLengthRule(app(ChannelRegistry::class))]],
     );
 

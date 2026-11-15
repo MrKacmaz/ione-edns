@@ -2,8 +2,8 @@
 
 namespace App\Models;
 
+use App\Actions\BroadcastStatusChangesAction;
 use App\Enums\NotificationStatus;
-use App\Events\NotificationStatusChanged;
 use Carbon\CarbonImmutable;
 use Database\Factories\NotificationBatchFactory;
 use Illuminate\Database\Eloquent\Attributes\DateFormat;
@@ -113,9 +113,9 @@ class NotificationBatch extends Model
 
             foreach ($notifications as $notification) {
                 $notification->forceFill($cancellation)->syncOriginal();
-
-                NotificationStatusChanged::dispatch($notification);
             }
+
+            app(BroadcastStatusChangesAction::class)->handle($notifications);
 
             return $notifications->count();
         }, attempts: self::CANCEL_ATTEMPTS);

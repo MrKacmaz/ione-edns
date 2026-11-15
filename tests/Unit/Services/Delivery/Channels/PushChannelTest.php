@@ -23,5 +23,6 @@ test('rejects recipients that are not device tokens', function (string $recipien
 ]);
 
 test('limits content to 240 characters', function () {
-    expect((new PushChannel)->maxContentLength())->toBe(240);
+    expect((new PushChannel)->maxContentLength('Flash sale starts now!'))->toBe(240)
+        ->and((new PushChannel)->contentLength('İndirim başladı 🎉'))->toBe(17);
 });

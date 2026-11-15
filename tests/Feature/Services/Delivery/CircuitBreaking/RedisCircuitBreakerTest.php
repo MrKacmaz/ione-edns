@@ -94,6 +94,19 @@ test('counts permanent failures as healthy answers of the provider', function ()
     expect($breaker->state(NotificationChannel::Sms))->toBe(CircuitState::Closed);
 });
 
+test('counts throttled calls as healthy answers, as a provider asking to slow down is up', function () {
+    $breaker = circuitBreaker();
+
+    recordOutcomes($breaker, NotificationChannel::Sms, [
+        GatewayOutcome::Throttled,
+        GatewayOutcome::Throttled,
+        GatewayOutcome::Throttled,
+        GatewayOutcome::RetryableFailure,
+    ]);
+
+    expect($breaker->state(NotificationChannel::Sms))->toBe(CircuitState::Closed);
+});
+
 test('forgets calls that fell out of the window', function () {
     $breaker = circuitBreaker();
     recordOutcomes($breaker, NotificationChannel::Sms, array_fill(0, 3, GatewayOutcome::RetryableFailure));

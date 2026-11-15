@@ -14,13 +14,17 @@ use App\Models\Notification;
 use App\Services\Delivery\Contracts\CircuitBreaker;
 use App\Services\Delivery\Contracts\NotificationGateway;
 use App\Services\Delivery\DeliveryService;
+use Illuminate\Broadcasting\BroadcastEvent;
 use Illuminate\Support\Facades\Context;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Exceptions;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Queue;
+use OpenTelemetry\API\Trace\Span;
 use Tests\Support\FakeCircuitBreaker;
+use Tests\Support\InMemoryTracing;
 
 beforeEach(function () {
     config([
@@ -51,6 +55,38 @@ test('marks the notification sent and records the attempt when the provider acce
     ]);
 });
 
+test('traces the attempt in the notification\'s trace, with the provider called inside it', function () {
+    $tracing = InMemoryTracing::bind($this->app);
+    $spanSeenByProvider = null;
+    Http::fake(function () use (&$spanSeenByProvider) {
+        $spanSeenByProvider = Span::getCurrent()->getContext()->getSpanId();
+
+        return Http::response(['messageId' => 'msg-123'], 202);
+    });
+    $notification = Notification::factory()->queued()->create([
+        'trace_id' => '4bf92f3577b34da6a3ce929d0e0e4736',
+        'span_id' => '00f067aa0ba902b7',
+    ]);
+
+    app(DeliveryService::class)->deliver($notification->id);
+
+    $deliver = $tracing->soleSpanNamed('notification.deliver');
+    expect($deliver->getContext()->getTraceId())->toBe('4bf92f3577b34da6a3ce929d0e0e4736')
+        ->and($deliver->getParentSpanId())->toBe('00f067aa0ba902b7')
+        ->and($deliver->getAttributes()->get('notification.attempt'))->toBe(1)
+        ->and($deliver->getAttributes()->get('notification.outcome'))->toBe('sent')
+        ->and($spanSeenByProvider)->toBe($deliver->getContext()->getSpanId());
+});
+
+test('adds nothing to the notification\'s trace when the job finds nothing to deliver', function () {
+    $tracing = InMemoryTracing::bind($this->app);
+    $notification = Notification::factory()->sent()->create(['trace_id' => '4bf92f3577b34da6a3ce929d0e0e4736', 'span_id' => '00f067aa0ba902b7']);
+
+    app(DeliveryService::class)->deliver($notification->id);
+
+    expect($tracing->spansNamed('notification.deliver'))->toBe([]);
+});
+
 test('puts the notification back in line with a backoff delay after a retryable failure', function () {
     Http::fake(['gateway.test/*' => Http::response([], 503)]);
     $notification = Notification::factory()->queued()->create();
@@ -63,6 +99,22 @@ test('puts the notification back in line with a backoff delay after a retryable 
         ->status->toBe(NotificationStatus::Queued)
         ->attempts->toBe(1)
         ->last_error->toBe('The provider responded with HTTP 503.');
+});
+
+test('retries a throttled notification after the provider\'s Retry-After and records the attempt as throttled', function () {
+    Http::fake(['gateway.test/*' => Http::response([], 429, ['Retry-After' => '45'])]);
+    $notification = Notification::factory()->queued()->create();
+
+    $result = app(DeliveryService::class)->deliver($notification->id);
+
+    expect($result->outcome)->toBe(DeliveryOutcome::RetryScheduled)
+        ->and($result->retryDelaySeconds)->toBe(45);
+    expect($notification->refresh())->status->toBe(NotificationStatus::Queued)->attempts->toBe(1);
+    $this->assertDatabaseHas('notification_attempts', [
+        'notification_id' => $notification->id,
+        'outcome' => GatewayOutcome::Throttled->value,
+        'http_status' => 429,
+    ]);
 });
 
 test('records when the next attempt is due, so no other job for the notification can run it sooner', function () {
@@ -222,8 +274,19 @@ test('retries an unconfirmed answer and counts it against the circuit, so a misc
     expect($result->outcome)->toBe(DeliveryOutcome::RetryScheduled);
     expect($notification->refresh())
         ->status->toBe(NotificationStatus::Queued)
-        ->last_error->toBe('The provider responded with HTTP 200 but without a messageId confirming the delivery.');
+        ->last_error->toBe('The provider responded with HTTP 200 instead of 202 Accepted.');
     expect($circuitBreaker->recorded)->toBe([['channel' => NotificationChannel::Sms, 'outcome' => GatewayOutcome::RetryableFailure]]);
+});
+
+test('does not count a throttled answer against the circuit', function () {
+    Http::fake(['gateway.test/*' => Http::response([], 429)]);
+    $circuitBreaker = new FakeCircuitBreaker;
+    $this->app->instance(CircuitBreaker::class, $circuitBreaker);
+    $notification = Notification::factory()->queued()->create();
+
+    app(DeliveryService::class)->deliver($notification->id);
+
+    expect($circuitBreaker->recorded)->toBe([['channel' => NotificationChannel::Sms, 'outcome' => GatewayOutcome::Throttled]]);
 });
 
 test('leaves the circuit breaker alone when the notification is skipped', function () {
@@ -308,14 +371,17 @@ test('announces to the owner when the notification reaches a final status', func
     'failed' => [400, 'failed'],
 ]);
 
-test('announces nothing while the notification waits for another attempt', function () {
-    Event::fake([NotificationStatusChanged::class]);
+test('announces the attempt starting and the notification waiting for another one', function () {
+    Queue::fake([BroadcastEvent::class]);
     Http::fake(['gateway.test/*' => Http::response([], 503)]);
     $notification = Notification::factory()->queued()->create();
 
     app(DeliveryService::class)->deliver($notification->id);
 
-    Event::assertNotDispatched(NotificationStatusChanged::class);
+    expect(announcedStatuses())->toBe([
+        ['id' => $notification->id, 'status' => 'processing'],
+        ['id' => $notification->id, 'status' => 'queued'],
+    ]);
 });
 
 test('puts the notification back in line when the fourth of five attempts fails', function () {

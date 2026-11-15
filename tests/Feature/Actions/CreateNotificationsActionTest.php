@@ -7,6 +7,7 @@ use App\Jobs\SendNotificationJob;
 use App\Models\Notification;
 use App\Models\NotificationTemplate;
 use App\Models\User;
+use Illuminate\Broadcasting\BroadcastEvent;
 use Illuminate\Support\Facades\Context;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Exceptions;
@@ -227,6 +228,22 @@ test('resolves an idempotency key that a concurrent request inserted first to th
     $this->assertDatabaseCount('notifications', 2);
     expect(Queue::pushed(SendNotificationJob::class)->map(fn (SendNotificationJob $job): string => $job->notificationId)->all())
         ->toBe([$notifications[1]->id]);
+});
+
+test('announces the new notifications as waiting or scheduled, and then as queued', function () {
+    Queue::fake([SendNotificationJob::class, BroadcastEvent::class]);
+    $user = User::factory()->create();
+
+    $notifications = app(CreateNotificationsAction::class)->handle($user, [
+        NewNotificationData::fromValidated(smsNotificationPayload()),
+        NewNotificationData::fromValidated(smsNotificationPayload(['scheduled_at' => now()->addDay()->toIso8601String()])),
+    ]);
+
+    expect(announcedStatuses())->toBe([
+        ['id' => $notifications[0]->id, 'status' => 'waiting'],
+        ['id' => $notifications[1]->id, 'status' => 'scheduled'],
+        ['id' => $notifications[0]->id, 'status' => 'queued'],
+    ]);
 });
 
 test('keeps the committed notifications waiting and reports the error when the queue cannot be reached', function () {

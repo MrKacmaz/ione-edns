@@ -3,8 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Actions\CreateNotificationsAction;
-use App\Enums\NotificationChannel;
-use App\Enums\NotificationStatus;
 use App\Http\Requests\ListNotificationsRequest;
 use App\Http\Requests\StoreNotificationRequest;
 use App\Http\Resources\NotificationResource;
@@ -33,8 +31,10 @@ class NotificationController extends Controller
     public function index(ListNotificationsRequest $request, #[CurrentUser] User $user): AnonymousResourceCollection
     {
         $notifications = $user->notifications()
-            ->when($request->status(), fn (Builder $q, NotificationStatus $status) => $q->where('status', $status))
-            ->when($request->channel(), fn (Builder $q, NotificationChannel $channel) => $q->where('channel', $channel))
+            ->when($request->statuses(), fn (Builder $q, array $statuses) => $q->whereIn('status', $statuses))
+            ->when($request->channels(), fn (Builder $q, array $channels) => $q->whereIn('channel', $channels))
+            ->when($request->priorities(), fn (Builder $q, array $priorities) => $q->whereIn('priority', $priorities))
+            ->when($request->recipient(), fn (Builder $q, string $recipient) => $q->where('recipient', $recipient))
             ->when($request->batchId(), fn (Builder $q, string $batchId) => $q->where('batch_id', $batchId))
             // Formatted by the model, so the bounds keep their microseconds.
             ->when($request->createdFrom(), fn (Builder $q, CarbonInterface $from) => $q->where('created_at', '>=', $q->getModel()->fromDateTime($from)))

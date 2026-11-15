@@ -35,6 +35,7 @@ return [
     'errors' => [
         'http_status' => 'The provider responded with HTTP :status.',
         'unconfirmed' => 'The provider responded with HTTP :status but without a messageId confirming the delivery.',
+        'not_accepted' => 'The provider responded with HTTP :status instead of :accepted Accepted.',
         'endpoint_rejected' => 'The provider refused the request with HTTP :status; its URL or credentials may no longer be valid.',
         'unreachable' => 'The provider could not be reached.',
         'timeout' => 'The provider did not answer in time.',

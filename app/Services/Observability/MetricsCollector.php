@@ -179,6 +179,7 @@ final readonly class MetricsCollector
         $accepted = (int) $attempts->get(GatewayOutcome::Accepted->value, 0);
         $retryable = (int) $attempts->get(GatewayOutcome::RetryableFailure->value, 0);
         $permanent = (int) $attempts->get(GatewayOutcome::PermanentFailure->value, 0);
+        $throttled = (int) $attempts->get(GatewayOutcome::Throttled->value, 0);
 
         $failed = Notification::query()
             ->where('status', NotificationStatus::Failed)
@@ -189,13 +190,15 @@ final readonly class MetricsCollector
             'window' => $window,
             'seconds' => $seconds,
             'attempts' => [
-                'total' => $accepted + $retryable + $permanent,
+                'total' => $accepted + $retryable + $throttled + $permanent,
                 'accepted' => $accepted,
                 'retryable_failure' => $retryable,
+                'throttled' => $throttled,
                 'permanent_failure' => $permanent,
             ],
             'notifications' => ['sent' => $accepted, 'failed' => $failed],
             'success_rate' => $accepted + $failed === 0 ? null : round($accepted / ($accepted + $failed), 4),
+            'failure_rate' => $accepted + $failed === 0 ? null : round($failed / ($accepted + $failed), 4),
             'latency_ms' => [
                 'provider' => $this->percentiles(
                     NotificationAttempt::query()->where('created_at', '>=', $from)->toBase(),

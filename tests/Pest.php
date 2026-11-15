@@ -1,7 +1,10 @@
 <?php
 
+use App\Events\NotificationStatusChanged;
+use Illuminate\Broadcasting\BroadcastEvent;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
+use Illuminate\Support\Facades\Queue;
 use Tests\TestCase;
 
 /*
@@ -63,4 +66,20 @@ function queryException(string $sqlState, string $message): QueryException
     };
 
     return new QueryException('pgsql', 'update "notifications" set "status" = ?', [], $pdoException);
+}
+
+/**
+ * Get the notification statuses announced over WebSockets, in the order their broadcasts were queued.
+ *
+ * Needs a faked queue. It sees both single announcements and those pushed in bulk.
+ *
+ * @return list<array{id: string, status: string}>
+ */
+function announcedStatuses(): array
+{
+    return Queue::pushed(BroadcastEvent::class)
+        ->filter(fn (BroadcastEvent $job): bool => $job->event instanceof NotificationStatusChanged)
+        ->map(fn (BroadcastEvent $job): array => ['id' => $job->event->notification['id'], 'status' => $job->event->notification['status']])
+        ->values()
+        ->all();
 }

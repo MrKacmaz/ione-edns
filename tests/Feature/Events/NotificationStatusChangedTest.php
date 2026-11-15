@@ -15,8 +15,11 @@ test('broadcasts on the owner\'s private channel under a stable name', function 
         ->and($event->queue)->toBe('broadcasts');
 });
 
-test('carries the delivery outcome but not the content, to keep messages small', function () {
-    $notification = Notification::factory()->failed()->create(['content' => 'Your one-time code is 123456.']);
+test('carries the delivery outcome and the trace but not the content, to keep messages small', function () {
+    $notification = Notification::factory()->failed()->create([
+        'content' => 'Your one-time code is 123456.',
+        'trace_id' => '4bf92f3577b34da6a3ce929d0e0e4736',
+    ]);
 
     $payload = (new NotificationStatusChanged($notification))->broadcastWith()['notification'];
 
@@ -25,6 +28,7 @@ test('carries the delivery outcome but not the content, to keep messages small',
         ->status->toBe('failed')
         ->attempts->toBe(5)
         ->last_error->toBe('Provider responded with HTTP 503.')
+        ->trace_id->toBe('4bf92f3577b34da6a3ce929d0e0e4736')
         ->and($payload)->not->toHaveKey('content');
 });
 

@@ -71,9 +71,12 @@ return [
     | longer Retry-After from the provider is honoured up to
     | "max_retry_after_seconds", so one odd header cannot park a notification.
     |
-    | Each channel may send at most "rate_limit_per_second" messages, spaced
-    | evenly. A worker waits up to "rate_limit_max_wait_ms" for its turn and
-    | otherwise hands the job back to the queue.
+    | Each channel may send at most its "rate_limit_per_second" messages, spaced
+    | evenly; a channel without its own NOTIFICATIONS_{CHANNEL}_RATE_LIMIT_PER_SECOND
+    | uses NOTIFICATIONS_RATE_LIMIT_PER_SECOND. A limit of 0 pauses the channel:
+    | its jobs wait without using attempts until it is raised again. A worker waits
+    | up to "rate_limit_max_wait_ms" for its turn and otherwise hands the job back
+    | to the queue.
     |
     | Notifications stuck in "waiting" or "processing" longer than the given
     | seconds are dispatched again by the notifications:redispatch-stale command.
@@ -91,7 +94,11 @@ return [
             'max_retry_after_seconds' => 3600,
         ],
 
-        'rate_limit_per_second' => max(1, (int) env('NOTIFICATIONS_RATE_LIMIT_PER_SECOND', 100)),
+        'rate_limit_per_second' => [
+            'sms' => max(0, (int) env('NOTIFICATIONS_SMS_RATE_LIMIT_PER_SECOND', env('NOTIFICATIONS_RATE_LIMIT_PER_SECOND', 100))),
+            'email' => max(0, (int) env('NOTIFICATIONS_EMAIL_RATE_LIMIT_PER_SECOND', env('NOTIFICATIONS_RATE_LIMIT_PER_SECOND', 100))),
+            'push' => max(0, (int) env('NOTIFICATIONS_PUSH_RATE_LIMIT_PER_SECOND', env('NOTIFICATIONS_RATE_LIMIT_PER_SECOND', 100))),
+        ],
         'rate_limit_max_wait_ms' => 2000,
 
         'stale_after_seconds' => [
@@ -109,8 +116,9 @@ return [
     | Every channel's provider calls pass a circuit breaker. Once at least
     | "minimum_attempts" calls were made in the last "window_seconds" and at
     | least "failure_rate_percent" of them failed in a retryable way (timeout,
-    | 5xx, 429), the circuit opens: the channel's jobs wait in the queue without
-    | using up delivery attempts. After "cooldown_seconds" a single probe call
+    | 5xx, a wrong URL), the circuit opens: the channel's jobs wait in the queue
+    | without using up delivery attempts. A throttled call (429) and a permanent
+    | failure count as healthy, as the provider answered. After "cooldown_seconds" a single probe call
     | is let through; its success closes the circuit and its failure opens it
     | again. A probe that has not reported back within "probe_timeout_seconds"
     | is replaced by the next job, so keep it above the gateway timeout.

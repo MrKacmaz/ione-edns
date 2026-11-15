@@ -1,6 +1,6 @@
 $kind: http-example
 request:
-  url: "{{baseUrl}}/v1/notifications?status=scheduled&channel=email&batch_id=a0640c13-c986-67fc-ba2f-1bd373520750&created_from=2002-09-24T18:01:12.947Z&created_to=2002-09-24T18:01:12.947Z&per_page=72&cursor=string"
+  url: "{{baseUrl}}/v1/notifications?status=string&channel=string&priority=string&recipient=string&batch_id=439adaa5-b05f-32da-595c-ca918fb857a4&created_from=2025-08-27T04:37:48.365Z&created_to=2025-08-27T04:37:48.365Z&per_page=17&cursor=string"
   method: GET
   headers:
     - key: Authorization
@@ -13,12 +13,14 @@ request:
     - key: Accept
       value: application/json
   queryParams:
-    status: scheduled
-    channel: email
-    batch_id: a0640c13-c986-67fc-ba2f-1bd373520750
-    created_from: 2002-09-24T18:01:12.947Z
-    created_to: 2002-09-24T18:01:12.947Z
-    per_page: "72"
+    status: string
+    channel: string
+    priority: string
+    recipient: string
+    batch_id: 439adaa5-b05f-32da-595c-ca918fb857a4
+    created_from: 2025-08-27T04:37:48.365Z
+    created_to: 2025-08-27T04:37:48.365Z
+    per_page: "17"
     cursor: string
   body:
     type: text
@@ -37,45 +39,47 @@ response:
             "id": "string",
             "batch_id": "string",
             "template_id": "string",
-            "channel": "sms",
-            "priority": "normal",
-            "status": "failed",
+            "channel": "push",
+            "priority": "low",
+            "status": "cancelled",
             "recipient": "string",
             "content": "string",
             "idempotency_key": "string",
             "correlation_id": "string",
-            "attempts": 5664,
+            "trace_id": "string",
+            "attempts": 2299,
             "provider_message_id": "string",
             "last_error": "string",
-            "scheduled_at": "2000-09-02T09:58:57.097Z",
-            "queued_at": "1950-03-17T00:35:31.156Z",
-            "sent_at": "2011-04-04T11:33:06.760Z",
-            "failed_at": "2025-11-15T21:09:08.457Z",
-            "cancelled_at": "1992-01-29T01:52:25.212Z",
-            "created_at": "1980-06-05T17:32:05.108Z",
-            "updated_at": "1973-03-21T09:10:36.295Z"
+            "scheduled_at": "1978-07-06T08:28:52.339Z",
+            "queued_at": "1966-07-11T10:30:14.034Z",
+            "sent_at": "1955-06-22T21:08:51.603Z",
+            "failed_at": "2009-03-15T15:03:55.218Z",
+            "cancelled_at": "1966-09-12T00:14:53.683Z",
+            "created_at": "1951-04-23T00:14:24.445Z",
+            "updated_at": "1989-02-08T22:09:16.668Z"
           },
           {
             "id": "string",
             "batch_id": "string",
             "template_id": "string",
-            "channel": "email",
+            "channel": "sms",
             "priority": "normal",
-            "status": "failed",
+            "status": "processing",
             "recipient": "string",
             "content": "string",
             "idempotency_key": "string",
             "correlation_id": "string",
-            "attempts": 2468,
+            "trace_id": "string",
+            "attempts": 8214,
             "provider_message_id": "string",
             "last_error": "string",
-            "scheduled_at": "1983-04-25T13:12:52.897Z",
-            "queued_at": "1970-06-23T14:00:22.620Z",
-            "sent_at": "2020-09-01T15:48:43.345Z",
-            "failed_at": "1990-11-22T01:26:40.468Z",
-            "cancelled_at": "2014-10-13T03:42:42.452Z",
-            "created_at": "1992-06-18T03:47:11.641Z",
-            "updated_at": "2012-01-05T20:29:54.669Z"
+            "scheduled_at": "2006-02-10T16:38:51.310Z",
+            "queued_at": "1971-06-27T21:33:43.406Z",
+            "sent_at": "1967-10-21T14:22:57.755Z",
+            "failed_at": "2022-02-15T12:47:57.846Z",
+            "cancelled_at": "1986-04-30T17:49:16.009Z",
+            "created_at": "1950-08-26T01:12:47.630Z",
+            "updated_at": "1985-10-13T12:49:11.933Z"
           }
         ],
         "links": {
@@ -86,7 +90,7 @@ response:
         },
         "meta": {
           "path": "string",
-          "per_page": 6358,
+          "per_page": 6847,
           "next_cursor": "string",
           "prev_cursor": "string"
         }

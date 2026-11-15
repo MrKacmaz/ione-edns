@@ -1,6 +1,6 @@
 $kind: http-example
 request:
-  url: "{{baseUrl}}/v1/templates?channel=email&per_page=72&cursor=string"
+  url: "{{baseUrl}}/v1/templates?channel=email&per_page=17&cursor=string"
   method: GET
   headers:
     - key: Authorization
@@ -14,7 +14,7 @@ request:
       value: application/json
   queryParams:
     channel: email
-    per_page: "72"
+    per_page: "17"
     cursor: string
   body:
     type: text
@@ -31,10 +31,6 @@ response:
         "message": "string",
         "errors": {
           "key_0": [
-            "string",
-            "string"
-          ],
-          "key_1": [
             "string",
             "string"
           ]

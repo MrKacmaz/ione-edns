@@ -54,13 +54,15 @@ test('accepts fixed text at the channel limit and rejects one character more, no
     'push' => ['push', 240],
 ]);
 
-test('counts multibyte characters of the fixed text as single characters', function () {
-    $validator = Validator::make(
-        ['channel' => 'sms', 'content' => str_repeat('ş', 160)],
-        ['content' => [new NotificationTemplateContentRule(app(ChannelRegistry::class))]],
-    );
+test('limits the fixed text of an SMS template that needs UCS-2 to 70 characters', function () {
+    $rules = ['content' => [new NotificationTemplateContentRule(app(ChannelRegistry::class))]];
 
-    expect($validator->passes())->toBeTrue();
+    $atLimit = Validator::make(['channel' => 'sms', 'content' => str_repeat('ş', 70).'{{ name }}'], $rules);
+    $overLimit = Validator::make(['channel' => 'sms', 'content' => str_repeat('ş', 71).'{{ name }}'], $rules);
+
+    expect($atLimit->passes())->toBeTrue()
+        ->and($overLimit->errors()->first('content'))
+        ->toBe('The content may not be greater than 70 characters for the sms channel, not counting its placeholders.');
 });
 
 test('checks the length against the given channel instead of the channel in the data', function () {

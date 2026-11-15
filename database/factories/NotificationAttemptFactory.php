@@ -46,6 +46,19 @@ class NotificationAttemptFactory extends Factory
     }
 
     /**
+     * Indicate that the provider asked to slow down.
+     */
+    public function throttled(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'outcome' => GatewayOutcome::Throttled,
+            'http_status' => 429,
+            'provider_message_id' => null,
+            'error' => 'The provider responded with HTTP 429.',
+        ]);
+    }
+
+    /**
      * Indicate that the provider rejected the notification for good.
      */
     public function permanentFailure(): static

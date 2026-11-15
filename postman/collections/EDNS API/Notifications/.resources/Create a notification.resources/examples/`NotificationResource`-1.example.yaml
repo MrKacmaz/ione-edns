@@ -45,22 +45,23 @@ response:
           "batch_id": "string",
           "template_id": "string",
           "channel": "sms",
-          "priority": "low",
-          "status": "processing",
+          "priority": "normal",
+          "status": "waiting",
           "recipient": "string",
           "content": "string",
           "idempotency_key": "string",
           "correlation_id": "string",
-          "attempts": 7875,
+          "trace_id": "string",
+          "attempts": 5823,
           "provider_message_id": "string",
           "last_error": "string",
-          "scheduled_at": "2000-01-08T17:11:37.725Z",
-          "queued_at": "1947-03-03T10:51:11.710Z",
-          "sent_at": "1947-09-08T16:01:29.718Z",
-          "failed_at": "1949-12-17T06:24:53.529Z",
-          "cancelled_at": "2015-07-18T06:17:37.990Z",
-          "created_at": "1983-08-24T10:04:58.419Z",
-          "updated_at": "2011-11-07T20:39:19.823Z"
+          "scheduled_at": "1948-04-22T15:27:22.903Z",
+          "queued_at": "1955-06-05T16:35:36.626Z",
+          "sent_at": "1949-01-21T13:51:10.009Z",
+          "failed_at": "1951-01-15T21:09:10.075Z",
+          "cancelled_at": "1978-05-16T17:09:12.786Z",
+          "created_at": "1979-06-05T05:54:24.546Z",
+          "updated_at": "1963-07-12T10:07:12.765Z"
         }
       }
 order: 2000

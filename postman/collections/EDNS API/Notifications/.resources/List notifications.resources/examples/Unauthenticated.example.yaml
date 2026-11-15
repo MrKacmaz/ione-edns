@@ -1,6 +1,6 @@
 $kind: http-example
 request:
-  url: "{{baseUrl}}/v1/notifications?status=scheduled&channel=email&batch_id=a0640c13-c986-67fc-ba2f-1bd373520750&created_from=2002-09-24T18:01:12.947Z&created_to=2002-09-24T18:01:12.947Z&per_page=72&cursor=string"
+  url: "{{baseUrl}}/v1/notifications?status=string&channel=string&priority=string&recipient=string&batch_id=439adaa5-b05f-32da-595c-ca918fb857a4&created_from=2025-08-27T04:37:48.365Z&created_to=2025-08-27T04:37:48.365Z&per_page=17&cursor=string"
   method: GET
   headers:
     - key: Authorization
@@ -13,12 +13,14 @@ request:
     - key: Accept
       value: application/json
   queryParams:
-    status: scheduled
-    channel: email
-    batch_id: a0640c13-c986-67fc-ba2f-1bd373520750
-    created_from: 2002-09-24T18:01:12.947Z
-    created_to: 2002-09-24T18:01:12.947Z
-    per_page: "72"
+    status: string
+    channel: string
+    priority: string
+    recipient: string
+    batch_id: 439adaa5-b05f-32da-595c-ca918fb857a4
+    created_from: 2025-08-27T04:37:48.365Z
+    created_to: 2025-08-27T04:37:48.365Z
+    per_page: "17"
     cursor: string
   body:
     type: text

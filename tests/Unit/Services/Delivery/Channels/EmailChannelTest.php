@@ -19,5 +19,6 @@ test('rejects recipients that are not email addresses', function (string $recipi
 ]);
 
 test('limits content to 10000 characters', function () {
-    expect((new EmailChannel)->maxContentLength())->toBe(10_000);
+    expect((new EmailChannel)->maxContentLength('Your invoice is ready.'))->toBe(10_000)
+        ->and((new EmailChannel)->contentLength('Faturanız hazır.'))->toBe(16);
 });

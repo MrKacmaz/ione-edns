@@ -21,6 +21,9 @@ use UnexpectedValueException;
  *
  * The script runs atomically on Redis and reads Redis' own clock, so every worker
  * shares one schedule regardless of its local clock. It requires the phpredis client.
+ *
+ * Each channel has a limit of its own. A limit of 0 pauses the channel without
+ * asking Redis: no slot is granted, and the job looks again a few seconds later.
  */
 final readonly class RedisGcraRateLimiter implements ChannelRateLimiter
 {
@@ -55,17 +58,36 @@ final readonly class RedisGcraRateLimiter implements ChannelRateLimiter
         return {1, wait}
         LUA;
 
+    /**
+     * How long the job of a paused channel waits before it looks again.
+     */
+    private const int PAUSED_RECHECK_MILLISECONDS = 5000;
+
+    /**
+     * @param  array<string, int>  $perSecond  The limit per channel; 0 pauses the channel.
+     */
     public function __construct(
         private RedisFactory $redis,
-        #[Config('notifications.delivery.rate_limit_per_second')] private int $perSecond,
+        #[Config('notifications.delivery.rate_limit_per_second')] private array $perSecond,
         #[Config('notifications.delivery.rate_limit_max_wait_ms')] private int $maxWaitMilliseconds,
     ) {}
+
+    public function limitPerSecond(NotificationChannel $channel): int
+    {
+        return max(0, $this->perSecond[$channel->value] ?? 0);
+    }
 
     /**
      * Reserve the next send slot of the channel.
      */
     public function reserve(NotificationChannel $channel): RateLimitReservationData
     {
+        $limitPerSecond = $this->limitPerSecond($channel);
+
+        if ($limitPerSecond === 0) {
+            return RateLimitReservationData::denied(self::PAUSED_RECHECK_MILLISECONDS);
+        }
+
         $connection = $this->redis->connection();
 
         if (! $connection instanceof PhpRedisConnection) {
@@ -76,7 +98,7 @@ final readonly class RedisGcraRateLimiter implements ChannelRateLimiter
             self::SCRIPT,
             1,
             self::key($channel),
-            (string) self::emissionIntervalMicroseconds($this->perSecond),
+            (string) self::emissionIntervalMicroseconds($limitPerSecond),
             (string) ($this->maxWaitMilliseconds * 1000),
         );
 
