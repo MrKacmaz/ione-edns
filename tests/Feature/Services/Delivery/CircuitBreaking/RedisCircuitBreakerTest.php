@@ -51,7 +51,10 @@ function openCircuit(RedisCircuitBreaker $breaker, NotificationChannel $channel)
 test('lets calls through while the circuit is closed', function () {
     $breaker = circuitBreaker();
 
-    expect($breaker->permit(NotificationChannel::Sms)->granted)->toBeTrue()
+    $permit = $breaker->permit(NotificationChannel::Sms);
+
+    expect($permit->granted)->toBeTrue()
+        ->and($permit->isProbe())->toBeFalse()
         ->and($breaker->state(NotificationChannel::Sms))->toBe(CircuitState::Closed);
 });
 
@@ -131,6 +134,7 @@ test('lets a single probe through after the cooldown and holds everyone else bac
     $next = $breaker->permit(NotificationChannel::Sms);
 
     expect($probe->granted)->toBeTrue()
+        ->and($probe->isProbe())->toBeTrue()
         ->and($breaker->state(NotificationChannel::Sms))->toBe(CircuitState::HalfOpen)
         ->and($next->granted)->toBeFalse()
         ->and($next->waitMilliseconds)->toBe(20_000);
@@ -181,6 +185,48 @@ test('lets the next caller probe when the probe never reports back', function ()
 
     expect($breaker->permit(NotificationChannel::Sms)->granted)->toBeTrue();
 });
+
+test('lets the next caller probe at once when the probe is given back without an outcome', function () {
+    $breaker = circuitBreaker();
+    openCircuit($breaker, NotificationChannel::Sms);
+    $this->travel(30)->seconds();
+    $probe = $breaker->permit(NotificationChannel::Sms);
+
+    $breaker->releaseProbe(NotificationChannel::Sms, $probe);
+    $next = $breaker->permit(NotificationChannel::Sms);
+
+    expect($next->granted)->toBeTrue()
+        ->and($next->isProbe())->toBeTrue()
+        ->and($breaker->state(NotificationChannel::Sms))->toBe(CircuitState::HalfOpen);
+});
+
+test('does not give back a probe whose lease a later probe has taken over', function () {
+    $breaker = circuitBreaker();
+    openCircuit($breaker, NotificationChannel::Sms);
+    $this->travel(30)->seconds();
+    $timedOutProbe = $breaker->permit(NotificationChannel::Sms);
+    $this->travel(20)->seconds();
+    $breaker->permit(NotificationChannel::Sms);
+
+    $breaker->releaseProbe(NotificationChannel::Sms, $timedOutProbe);
+
+    expect($breaker->permit(NotificationChannel::Sms)->granted)->toBeFalse();
+});
+
+test('leaves the circuit as the probe\'s outcome set it when the probe is given back afterwards', function (GatewayOutcome $outcome, CircuitState $expectedState) {
+    $breaker = circuitBreaker();
+    openCircuit($breaker, NotificationChannel::Sms);
+    $this->travel(30)->seconds();
+    $probe = $breaker->permit(NotificationChannel::Sms);
+    $breaker->record(NotificationChannel::Sms, $outcome);
+
+    $breaker->releaseProbe(NotificationChannel::Sms, $probe);
+
+    expect($breaker->state(NotificationChannel::Sms))->toBe($expectedState);
+})->with([
+    'probe succeeded' => [GatewayOutcome::Accepted, CircuitState::Closed],
+    'probe failed' => [GatewayOutcome::RetryableFailure, CircuitState::Open],
+]);
 
 test('ignores the outcomes of calls that started before the circuit opened', function () {
     $breaker = circuitBreaker();

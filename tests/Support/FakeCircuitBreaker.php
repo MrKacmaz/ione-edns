@@ -19,6 +19,11 @@ final class FakeCircuitBreaker implements CircuitBreaker
     public array $recorded = [];
 
     /**
+     * @var list<array{channel: NotificationChannel, permit: CircuitPermitData}>
+     */
+    public array $releasedProbes = [];
+
+    /**
      * @param  CircuitPermitData|null  $permit  The answer to every permit request; granted when null.
      * @param  CircuitState|null  $transition  The state every recorded outcome moves the circuit to, if any.
      * @param  array<string, CircuitState>  $states  The state per channel value; closed when missing.
@@ -39,6 +44,11 @@ final class FakeCircuitBreaker implements CircuitBreaker
         $this->recorded[] = ['channel' => $channel, 'outcome' => $outcome];
 
         return $this->transition;
+    }
+
+    public function releaseProbe(NotificationChannel $channel, CircuitPermitData $permit): void
+    {
+        $this->releasedProbes[] = ['channel' => $channel, 'permit' => $permit];
     }
 
     public function state(NotificationChannel $channel): CircuitState

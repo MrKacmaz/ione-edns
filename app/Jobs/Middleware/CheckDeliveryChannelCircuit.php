@@ -17,6 +17,13 @@ use Random\Randomizer;
  * Every job held back at the same time would come back in the same second, so
  * each waits a random extra time of up to the circuit's own wait: the jobs
  * return spread over the following window instead of all at once.
+ *
+ * A job let through as the probe of a half-open circuit gives the probe back
+ * when it ends, so a probe that never called the provider (the job was
+ * rate-limited, came early, found its notification cancelled or failed) does
+ * not hold every other job back until the probe times out. A probe that did
+ * call the provider has already settled the circuit, and giving it back
+ * changes nothing.
  */
 class CheckDeliveryChannelCircuit
 {
@@ -44,6 +51,16 @@ class CheckDeliveryChannelCircuit
             return;
         }
 
-        $next($job);
+        if (! $permit->isProbe()) {
+            $next($job);
+
+            return;
+        }
+
+        try {
+            $next($job);
+        } finally {
+            $this->circuitBreaker->releaseProbe($job->channel, $permit);
+        }
     }
 }

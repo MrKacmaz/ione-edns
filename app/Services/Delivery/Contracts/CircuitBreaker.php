@@ -28,6 +28,15 @@ interface CircuitBreaker
     public function record(NotificationChannel $channel, GatewayOutcome $outcome): ?CircuitState;
 
     /**
+     * Give back a probe permit whose holder did not report an outcome.
+     *
+     * The next caller may then probe at once instead of waiting for the probe to
+     * time out. A probe that has reported back, or whose lease another probe has
+     * taken over since, is left alone.
+     */
+    public function releaseProbe(NotificationChannel $channel, CircuitPermitData $permit): void;
+
+    /**
      * Get the current state of the channel's circuit.
      */
     public function state(NotificationChannel $channel): CircuitState;

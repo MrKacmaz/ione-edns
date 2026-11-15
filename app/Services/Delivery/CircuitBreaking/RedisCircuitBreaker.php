@@ -34,7 +34,8 @@ final readonly class RedisCircuitBreaker implements CircuitBreaker
      * KEYS[1] the channel's state hash.
      * ARGV[1] now in milliseconds, ARGV[2] the probe timeout in milliseconds.
      *
-     * Returns {1, 0} when the call may go ahead and {0, wait} otherwise.
+     * Returns {1, 0} when the call may go ahead, {1, 0, lease} when it goes ahead as
+     * the probe, and {0, wait} otherwise.
      */
     private const string PERMIT_SCRIPT = <<<'LUA'
         local now = tonumber(ARGV[1])
@@ -56,9 +57,26 @@ final readonly class RedisCircuitBreaker implements CircuitBreaker
             end
         end
 
-        redis.call('HSET', KEYS[1], 'state', 'half_open', 'probe_until', string.format('%.0f', now + tonumber(ARGV[2])))
+        local probe_until = string.format('%.0f', now + tonumber(ARGV[2]))
+        redis.call('HSET', KEYS[1], 'state', 'half_open', 'probe_until', probe_until)
 
-        return {1, 0}
+        return {1, 0, probe_until}
+        LUA;
+
+    /**
+     * KEYS[1] the channel's state hash.
+     * ARGV[1] the lease of the probe that is given back.
+     *
+     * Returns 1 when the probe was given back and 0 when it was not held anymore.
+     */
+    private const string RELEASE_PROBE_SCRIPT = <<<'LUA'
+        if redis.call('HGET', KEYS[1], 'state') ~= 'half_open' or redis.call('HGET', KEYS[1], 'probe_until') ~= ARGV[1] then
+            return 0
+        end
+
+        redis.call('HDEL', KEYS[1], 'probe_until')
+
+        return 1
         LUA;
 
     /**
@@ -143,13 +161,27 @@ final readonly class RedisCircuitBreaker implements CircuitBreaker
             (string) ($this->probeTimeoutSeconds * 1000),
         );
 
-        if (! is_array($result) || count($result) !== 2) {
+        if (! is_array($result) || ! in_array(count($result), [2, 3], true)) {
             throw new UnexpectedValueException(__('notifications.errors.circuit_breaker_reply'));
         }
 
-        return (int) $result[0] === 1
-            ? CircuitPermitData::granted()
-            : CircuitPermitData::denied((int) $result[1]);
+        return match (true) {
+            (int) $result[0] !== 1 => CircuitPermitData::denied((int) $result[1]),
+            isset($result[2]) => CircuitPermitData::probe((string) $result[2]),
+            default => CircuitPermitData::granted(),
+        };
+    }
+
+    /**
+     * Give back a probe permit whose holder did not report an outcome.
+     */
+    public function releaseProbe(NotificationChannel $channel, CircuitPermitData $permit): void
+    {
+        if (! $permit->isProbe()) {
+            return;
+        }
+
+        $this->connection()->eval(self::RELEASE_PROBE_SCRIPT, 1, self::stateKey($channel), (string) $permit->probeLease);
     }
 
     /**

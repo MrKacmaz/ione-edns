@@ -28,6 +28,34 @@ test('runs the job while the circuit lets calls through', function () {
     $job->assertNotReleased();
 });
 
+test('gives the probe back once the job has run, so a probe that never called the provider does not hold the channel', function () {
+    $job = (new SendNotificationJob('notification-id', NotificationChannel::Sms))->withFakeQueueInteractions();
+    $probe = CircuitPermitData::probe('1763114400000');
+    $circuitBreaker = new FakeCircuitBreaker($probe);
+
+    (new CheckDeliveryChannelCircuit($circuitBreaker))->handle($job, fn () => null);
+
+    expect($circuitBreaker->releasedProbes)->toBe([['channel' => NotificationChannel::Sms, 'permit' => $probe]]);
+});
+
+test('gives the probe back when the job throws', function () {
+    $job = (new SendNotificationJob('notification-id', NotificationChannel::Sms))->withFakeQueueInteractions();
+    $circuitBreaker = new FakeCircuitBreaker(CircuitPermitData::probe('1763114400000'));
+
+    expect(fn () => (new CheckDeliveryChannelCircuit($circuitBreaker))->handle($job, fn () => throw new RuntimeException('Redis went away')))
+        ->toThrow(RuntimeException::class, 'Redis went away');
+    expect($circuitBreaker->releasedProbes)->toHaveCount(1);
+});
+
+test('gives nothing back for a permit of a closed circuit', function () {
+    $job = (new SendNotificationJob('notification-id', NotificationChannel::Sms))->withFakeQueueInteractions();
+    $circuitBreaker = new FakeCircuitBreaker;
+
+    (new CheckDeliveryChannelCircuit($circuitBreaker))->handle($job, fn () => null);
+
+    expect($circuitBreaker->releasedProbes)->toBe([]);
+});
+
 test('hands the job back to the queue until the circuit may let it through', function () {
     $job = (new SendNotificationJob('notification-id', NotificationChannel::Sms))->withFakeQueueInteractions();
     $ran = false;

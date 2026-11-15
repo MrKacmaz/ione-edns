@@ -262,6 +262,8 @@ test('keeps the delivery result when the circuit breaker cannot record it', func
             throw new RuntimeException('Redis went away');
         }
 
+        public function releaseProbe(NotificationChannel $channel, CircuitPermitData $permit): void {}
+
         public function state(NotificationChannel $channel): CircuitState
         {
             return CircuitState::Closed;
