@@ -16,12 +16,22 @@ beforeEach(function () {
 test('spaces reservations of a channel one emission interval apart', function () {
     $rateLimiter = new RedisGcraRateLimiter(app('redis'), perSecond: ['sms' => 10, 'email' => 10, 'push' => 10], maxWaitMilliseconds: 1000);
 
-    $reservations = array_map(fn () => $rateLimiter->reserve(NotificationChannel::Sms), range(1, 3));
+    $startedAt = hrtime(true);
+    $reservations = [];
+    $sendTimes = [];
 
+    foreach (range(1, 3) as $ignored) {
+        $requestedAt = (hrtime(true) - $startedAt) / 1_000_000;
+        $reservations[] = $reservation = $rateLimiter->reserve(NotificationChannel::Sms);
+        $sendTimes[] = $requestedAt + $reservation->waitMilliseconds;
+    }
+
+    // The wait shrinks by the time each reservation took to reach Redis, so the test
+    // compares send times, not waits, and stays stable on a slow machine.
     expect(array_column($reservations, 'granted'))->toBe([true, true, true])
         ->and($reservations[0]->waitMilliseconds)->toBe(0)
-        ->and($reservations[1]->waitMilliseconds)->toBeGreaterThan(80)->toBeLessThanOrEqual(100)
-        ->and($reservations[2]->waitMilliseconds)->toBeGreaterThan(180)->toBeLessThanOrEqual(200);
+        ->and($sendTimes[1] - $sendTimes[0])->toBeGreaterThanOrEqual(95)->toBeLessThanOrEqual(105)
+        ->and($sendTimes[2] - $sendTimes[0])->toBeGreaterThanOrEqual(195)->toBeLessThanOrEqual(205);
 });
 
 test('spaces sends so that no second ever holds more than the limit, also when the limit does not divide a second evenly', function (int $perSecond, int $expectedInterval) {

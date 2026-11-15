@@ -174,8 +174,12 @@ jobs:
 
       # A random order catches tests that depend on each other; the output ends with
       # the seed, which reproduces the order with --random-order-seed.
-      - name: Run the tests in random order
-        run: php artisan test --compact --order-by=random
+      - name: Run the unit and feature tests in random order
+        run: php artisan test --compact --testsuite=Unit,Feature --order-by=random
+
+      # Real processes working together, such as a queue worker on a real Redis queue.
+      - name: Run the integration tests
+        run: php artisan test --compact --testsuite=Integration
 
   e2e:
     name: End-to-end (Docker)
@@ -219,13 +223,31 @@ jobs:
       - name: Install the Postman CLI
         run: curl -o- "https://dl-cli.pstmn.io/install/unix.sh" | sh
 
+      # The stack runs with APP_ENV=local, so the seeded demo token from the environment file works.
       - name: Run the smoke flow
         run: |
-          token=$(docker compose logs --no-log-prefix init | sed -n 's/.*API token for [^:]*: //p' | tail -1)
-          echo "::add-mask::$token"
           postman collection run "postman/collections/EDNS Smoke Flow" \
             --environment "postman/environments/EDNS Local.environment.yaml" \
-            --env-var "bearerToken=$token"
+            --env-var "mockProvider=true"
+
+      # A notification's trace, with its delivery attempt in it, has to reach Jaeger.
+      - name: Check that a notification's trace reaches Jaeger
+        run: |
+          trace_id=$(curl -fsS -X POST http://localhost:8000/api/v1/notifications \
+            -H 'Authorization: Bearer edns-demo-token' -H 'Content-Type: application/json' -H 'Accept: application/json' \
+            -d '{"recipient": "+905551234567", "channel": "sms", "content": "CI trace check"}' | jq -r '.data.trace_id')
+          if [ -z "$trace_id" ] || [ "$trace_id" = null ]; then
+            echo "The notification has no trace id." && exit 1
+          fi
+          for attempt in $(seq 1 30); do
+            spans=$(curl -sS "http://localhost:16686/api/v3/traces/$trace_id" | jq -r '[.result.resourceSpans[]?.scopeSpans[]?.spans[]?.name] | join(" ")' 2>/dev/null || true)
+            case " $spans " in
+              *" notification.deliver "*) echo "Trace $trace_id reached Jaeger: $spans" && exit 0 ;;
+            esac
+            sleep 2
+          done
+          echo "The trace $trace_id did not reach Jaeger with its delivery attempt; spans: $spans"
+          exit 1
 
       - name: Collect the service logs
         if: failure()

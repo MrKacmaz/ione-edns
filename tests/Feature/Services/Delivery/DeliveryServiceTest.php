@@ -475,7 +475,7 @@ test('scopes the log context of the attempt to the notification and its correlat
 
     app(DeliveryService::class)->deliver($notification->id);
 
-    expect($gateway->contextDuringSend)->toEqual([
+    expect($gateway->contextDuringSend)->toBe([
         'notification_id' => $notification->id,
         'correlation_id' => '0f8fad5b-d9cb-469f-a165-70867728950e',
     ]);

@@ -97,7 +97,7 @@ final class NotificationRequestSchemaTransformer implements DocumentTransformer
 
                 $schema = $body->content['application/json'] ?? null;
 
-                if ($schema instanceof Reference && isset($examples[$schema->fullName])) {
+                if ($schema instanceof Reference && $schema->fullName !== null && isset($examples[$schema->fullName])) {
                     $body->addContent('application/json', new MediaType(schema: $schema, example: $examples[$schema->fullName]));
                 }
             }

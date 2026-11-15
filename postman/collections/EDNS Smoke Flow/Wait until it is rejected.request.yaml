@@ -1,0 +1,35 @@
+$kind: http-request
+description: "Polls once a second, at most 15 times, until the permanent failure is recorded. Mock provider only."
+url: "{{baseUrl}}/v1/notifications/{{rejectedNotificationId}}"
+method: GET
+headers:
+  - key: "Accept"
+    value: "application/json"
+  - key: "X-Correlation-ID"
+    value: "{{$guid}}"
+scripts:
+  - type: beforeRequest
+    code: |-
+      if (pm.environment.get('mockProvider') !== 'true') {
+          pm.execution.skipRequest();
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      const notification = pm.response.json().data;
+      const polls = Number(pm.collectionVariables.get('rejectionPolls')) + 1;
+      pm.collectionVariables.set('rejectionPolls', polls);
+
+      if (['waiting', 'queued', 'processing'].includes(notification.status) && polls < 15) {
+          pm.execution.setNextRequest(pm.info.requestName);
+      } else {
+          pm.test('fails at once without a retry', () => {
+              pm.expect(notification.status).to.equal('failed');
+              pm.expect(notification.attempts).to.equal(1);
+              pm.expect(notification.last_error).to.include('400');
+          });
+      }
+    language: text/javascript
+order: 15600

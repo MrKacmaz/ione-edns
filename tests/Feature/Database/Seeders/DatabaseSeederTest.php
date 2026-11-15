@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\User;
+use Database\Seeders\DatabaseSeeder;
 use Illuminate\Support\Facades\Hash;
 
 test('seeds an operator who can sign in, two templates and an API token', function () {
@@ -44,6 +45,27 @@ test('prints a demo API token that expires after a week and clears the expired o
 
     expect(User::query()->sole()->tokens()->pluck('expires_at')->map->toDateTimeString()->all())
         ->toBe(['2026-11-29 12:00:00']);
+});
+
+test('gives the operator the well-known demo token on a local machine, once however often it runs', function () {
+    $this->app->detectEnvironment(fn (): string => 'local');
+
+    $this->artisan('db:seed')
+        ->expectsOutputToContain('API token for test@example.com (local only): edns-demo-token')
+        ->assertSuccessful();
+    $this->artisan('db:seed')->assertSuccessful();
+
+    $this->assertDatabaseCount('personal_access_tokens', 1);
+    $this->withToken(DatabaseSeeder::LOCAL_DEMO_TOKEN)
+        ->getJson(route('api.v1.user'))
+        ->assertOk()
+        ->assertJsonPath('data.email', 'test@example.com');
+});
+
+test('seeds without a console command to print to, as when it is called from code', function () {
+    app(DatabaseSeeder::class)->run();
+
+    expect(User::query()->sole()->tokens()->count())->toBe(1);
 });
 
 test('seeds nothing in production, where the operator\'s password is public and the output ends up in the logs', function () {

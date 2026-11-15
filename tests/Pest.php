@@ -21,7 +21,7 @@ use Tests\TestCase;
 // Lazily: a test that never touches the database does not run the migrations.
 pest()->extend(TestCase::class)
     ->use(LazilyRefreshDatabase::class)
-    ->in('Feature');
+    ->in('Feature', 'Integration');
 
 /*
 |--------------------------------------------------------------------------

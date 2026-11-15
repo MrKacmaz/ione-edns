@@ -1,0 +1,34 @@
+$kind: http-request
+description: "Polls once a second, at most 45 times (the first backoff window is 30 seconds), until the retried notification is sent. Mock provider only."
+url: "{{baseUrl}}/v1/notifications/{{retriedNotificationId}}"
+method: GET
+headers:
+  - key: "Accept"
+    value: "application/json"
+  - key: "X-Correlation-ID"
+    value: "{{$guid}}"
+scripts:
+  - type: beforeRequest
+    code: |-
+      if (pm.environment.get('mockProvider') !== 'true') {
+          pm.execution.skipRequest();
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      const notification = pm.response.json().data;
+      const polls = Number(pm.collectionVariables.get('retryPolls')) + 1;
+      pm.collectionVariables.set('retryPolls', polls);
+
+      if (notification.status !== 'sent' && notification.status !== 'failed' && polls < 45) {
+          pm.execution.setNextRequest(pm.info.requestName);
+      } else {
+          pm.test('is sent on the second attempt', () => {
+              pm.expect(notification.status, notification.last_error || '').to.equal('sent');
+              pm.expect(notification.attempts).to.equal(2);
+          });
+      }
+    language: text/javascript
+order: 15800

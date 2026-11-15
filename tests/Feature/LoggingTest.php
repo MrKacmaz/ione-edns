@@ -23,8 +23,14 @@ test('writes one JSON object per log entry, carrying the request context', funct
 
 test('writes plain text lines instead of JSON when LOG_FORMAT is line', function () {
     $_SERVER['LOG_FORMAT'] = 'line';
-    $channels = (require config_path('logging.php'))['channels'];
-    unset($_SERVER['LOG_FORMAT']);
+
+    try {
+        $channels = (require config_path('logging.php'))['channels'];
+    } finally {
+        // A process-wide variable: the next tests must not see it.
+        unset($_SERVER['LOG_FORMAT']);
+    }
+
     $path = tempnam(sys_get_temp_dir(), 'edns-log-');
     config(['logging.channels.single' => [...$channels['single'], 'path' => $path]]);
 

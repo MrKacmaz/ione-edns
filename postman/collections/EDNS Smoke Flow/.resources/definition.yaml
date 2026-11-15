@@ -9,9 +9,15 @@ description: |-
   Only "Send a notification now" reaches the provider; every other notification
   is scheduled a day ahead and cancelled, so a run costs one webhook.site request.
 
-  Needs the EDNS Local environment with bearerToken set to an operator's API
-  token (the seeded test@example.com is one). Run it with:
-  postman collection run "postman/collections/EDNS Smoke Flow" -e "postman/environments/EDNS Local.environment.yaml" --env-var bearerToken=<token>
+  With mockProvider set to true (the Compose mock provider, as in CI), two more
+  notifications ask the mock for faults: one is rejected with 400 and fails at
+  once, the other fails once with 503 and is sent on its retry.
+
+  Needs the EDNS Local environment, whose bearerToken is the demo token the
+  seeder gives the operator test@example.com on a local machine (APP_ENV=local,
+  as Docker Compose runs). Run it with:
+  postman collection run "postman/collections/EDNS Smoke Flow" -e "postman/environments/EDNS Local.environment.yaml" [--env-var mockProvider=true]
+  Against another environment, pass an operator's token with --env-var bearerToken=<token>.
 auth:
   type: bearer
   credentials:
