@@ -171,6 +171,20 @@ describe('store', function () {
         $this->assertDatabaseCount('notifications', 0);
     });
 
+    test('rejects an oversized batch on its size alone, without validating its items or loading their templates', function () {
+        config(['notifications.batch.max_size' => 2]);
+        Sanctum::actingAs(User::factory()->create());
+        DB::enableQueryLog();
+
+        $response = $this->postJson(route('api.v1.notification-batches.store'), [
+            'notifications' => [[], ['template' => 'order-shipped'], ['template' => 'welcome']],
+        ]);
+
+        $response->assertUnprocessable();
+        expect($response->json('errors'))->toBe(['notifications' => ['The notifications field must not have more than 2 items.']]);
+        expect(collect(DB::getQueryLog())->filter(fn (array $query): bool => str_contains($query['query'], 'from "notification_templates"')))->toBeEmpty();
+    });
+
     test('answers a body larger than PHP accepts with a JSON 413 instead of an empty request', function () {
         Queue::fake([SendNotificationJob::class]);
         Sanctum::actingAs(User::factory()->create());

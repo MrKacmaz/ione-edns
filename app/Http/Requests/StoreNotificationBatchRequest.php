@@ -18,6 +18,11 @@ class StoreNotificationBatchRequest extends FormRequest
      *
      * A single invalid notification rejects the whole batch.
      *
+     * A batch with more notifications than allowed is rejected on its size alone:
+     * the validator expands each per-notification rule for every item before any
+     * rule runs, so an oversized body of empty items would otherwise keep a
+     * worker busy for seconds and load every template name it lists.
+     *
      * @param  int  $maxBatchSize  The maximum number of notifications a batch may contain.
      * @param  int  $maxScheduleDays  How many days ahead a notification may be scheduled.
      * @return array<string, list<ValidationRule|string|object>>
@@ -27,8 +32,15 @@ class StoreNotificationBatchRequest extends FormRequest
         #[Config('notifications.batch.max_size')] int $maxBatchSize,
         #[Config('notifications.schedule.max_days')] int $maxScheduleDays,
     ): array {
+        $batchRules = ['required', 'array', 'list', 'max:'.$maxBatchSize];
+        $notifications = $this->input('notifications');
+
+        if (is_array($notifications) && count($notifications) > $maxBatchSize) {
+            return ['notifications' => $batchRules];
+        }
+
         return [
-            'notifications' => ['required', 'array', 'list', 'max:'.$maxBatchSize],
+            'notifications' => $batchRules,
             'notifications.*' => ['required', 'array'],
             ...$this->notificationRules($channels, $maxScheduleDays, 'notifications.*.'),
             'notifications.*.idempotency_key' => ['sometimes', 'nullable', 'string', 'max:255', 'distinct'],
