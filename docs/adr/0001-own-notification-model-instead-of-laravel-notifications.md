@@ -3,62 +3,68 @@
 - **Status:** Accepted
 - **Date:** 2026-11-14
 
+We store every notification as an Eloquent model with an explicit status lifecycle. Our own pipeline delivers it. We do not use Laravel Notifications for it.
+
 ## Context
 
-The service accepts notification requests from API clients and delivers them as SMS, email or push messages through one external provider (webhook.site). The requirements ask for:
+The service accepts notification requests from API clients. It delivers them as SMS, email or push messages through one external provider (webhook.site). The requirements ask for:
 
-- querying a notification's status by its id or batch id,
-- cancelling notifications that are still pending,
-- a filtered, paginated listing (status, channel, date range),
+- status queries by notification id or batch id,
+- cancellation of pending notifications,
+- a filtered, paginated list (status, channel, date range),
 - batches of up to 1000 notifications,
-- idempotency to prevent duplicate sends,
-- at most 100 messages per second per channel and high, normal and low priorities,
-- retries that tell transient failures from permanent ones,
-- metrics such as success and failure rates and latency.
+- idempotency, to prevent duplicate sends,
+- at most 100 messages per second per channel,
+- high, normal and low priorities,
+- retries that separate transient failures from permanent failures,
+- metrics such as success rate, failure rate and latency.
 
-Laravel ships a notification system (`Illuminate\Notifications`). A `Notification` class picks its channels in `via()` (mail, database, broadcast, Vonage SMS, Slack and others), and `$notifiable->notify()` sends it, optionally through the queue. It is built for an application that tells its own users about something that happened, and it does not keep track of a sent notification.
+Laravel has a notification system (`Illuminate\Notifications`). A `Notification` class selects its channels in `via()`: mail, database, broadcast, Vonage SMS, Slack and others. `$notifiable->notify()` sends it, optionally through the queue. The system is for an application that tells its own users about an event. It does not keep track of a sent notification.
 
 ## Decision
 
-Notifications are a first-class Eloquent model, `App\Models\Notification` (table `notifications`), with an explicit lifecycle:
+`App\Models\Notification` (table `notifications`) is a first-class Eloquent model with an explicit lifecycle:
 
 ```
-waiting → queued → processing → sent | failed | cancelled
+waiting | scheduled → queued → processing → sent | failed | cancelled
 ```
 
-They are delivered by an own pipeline:
+Our own pipeline delivers it:
 
 ```
 CreateNotificationsAction → DispatchNotificationsAction → SendNotificationJob → DeliveryService → NotificationGateway
 ```
 
-Laravel Notifications are not used for the notifications clients submit.
+We do not use Laravel Notifications for the notifications that clients submit.
 
 ## Considered options
 
-1. **Laravel Notifications only**, sending on demand with `Notification::route(...)->notify(...)`.
-   Sending is fire-and-forget: nothing is stored that could be queried, listed, cancelled, grouped into a batch, deduplicated or measured. The built-in `database` channel stores in-app messages with a `read_at` column, not delivery state. Recipients are expected to be notifiable models of the application, while ours are arbitrary phone numbers, email addresses and device tokens.
-
-2. **An own model, with Laravel Notifications as the transport**: the job loads the model and calls `notifyNow()` with a custom webhook channel.
-   The state problem is solved by the model, but the extra layer brings nothing we use. `via()` would always return the one channel already decided by the request, the custom channel would still need our own classification of the provider's answer (202, 429 with `Retry-After`, 5xx, other 4xx), and Laravel's channel-per-provider design does not match one provider serving all channels with the same payload.
-
+1. **Laravel Notifications only**, with on-demand sends through `Notification::route(...)->notify(...)`.
+    - Sending is fire-and-forget. Nothing is stored for queries, lists, cancellation, batches, deduplication or metrics.
+    - The built-in `database` channel stores in-app messages with a `read_at` column. It does not store delivery state.
+    - Laravel expects the recipients to be notifiable models of the application. Our recipients are arbitrary phone numbers, email addresses and device tokens.
+2. **An own model, with Laravel Notifications as the transport.** The job loads the model and calls `notifyNow()` with a custom webhook channel.
+    - The model solves the state problem, but the extra layer gives us nothing that we use.
+    - `via()` would always return the one channel that the request already set.
+    - The custom channel still needs our own classification of the provider's answer (202, 429 with `Retry-After`, 5xx, other 4xx).
+    - Laravel uses one channel per provider. Here, one provider serves all channels with the same payload.
 3. **An own model and an own delivery pipeline** (chosen).
 
 ## Consequences
 
 **Positive**
 
-- Every requirement maps to stored state: status queries, cancellation, listing, batch summaries and idempotency keys.
-- Status changes are single conditional `UPDATE` statements (claiming for delivery, cancelling), so a cancelled notification is never sent and two workers never deliver the same notification.
-- Every provider call is recorded in `notification_attempts`, which drives the retry policy and the metrics.
-- One `NotificationGateway` contract matches one provider; per-channel rules live in `DeliveryChannel` strategies.
+- Every requirement maps to stored state: status queries, cancellation, lists, batch summaries and idempotency keys.
+- Each status change is one conditional `UPDATE` (claim for delivery, cancel). Thus the service never sends a cancelled notification, and two workers never deliver the same notification.
+- `notification_attempts` records every provider call. The retry policy and the metrics use these records.
+- One `NotificationGateway` contract matches one provider. `DeliveryChannel` strategies hold the per-channel rules.
 
 **Negative**
 
-- We maintain code Laravel Notifications would otherwise provide, such as queueing a delivery and the channel abstraction.
-- The model's name shadows `Illuminate\Notifications\Notification`. The `Notifiable` trait was removed from `User`, and a file that needs both classes has to alias one of them.
-- The table name `notifications` is also the default of Laravel's database notification channel. If the application ever needs in-app notifications for its own users, that channel must use another table.
+- We maintain code that Laravel Notifications would otherwise supply, for example queued delivery and the channel abstraction.
+- The model name shadows `Illuminate\Notifications\Notification`. We removed the `Notifiable` trait from `User`. A file that needs both classes must alias one of them.
+- `notifications` is also the default table of Laravel's database notification channel. If the application needs in-app notifications for its own users, that channel must use a different table.
 
 ## Where Laravel Notifications still fit
 
-Notifying the system's own people, for example alerting operators when failed notifications pile up. Horizon already uses Laravel Notifications for its long-wait alerts on the notification queues.
+Laravel Notifications fit messages to the system's own people, for example an alert to operators when failed notifications accumulate. Horizon already uses Laravel Notifications for its long-wait alerts on the notification queues.

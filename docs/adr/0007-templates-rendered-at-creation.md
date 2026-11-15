@@ -3,34 +3,38 @@
 - **Status:** Accepted
 - **Date:** 2026-11-14
 
+A notification can name a template and give variable values. The API renders the template strictly when it creates the notification, and stores the result as the notification's content.
+
 ## Context
 
-Clients want to define message texts once ("Hi {{ name }}, your order {{ order_id }} has shipped.") and send notifications by naming a template and giving the variable values. Templates change over time, while notifications may wait in a queue or a schedule for days.
+Clients want to define a message text once, for example "Hi {{ name }}, your order {{ order_id }} has shipped.". Then they send notifications that name the template and give the variable values. Templates change over time. Notifications can wait in a queue or a schedule for days.
 
 ## Decision
 
-- A template belongs to a user, has a name unique per user, one channel that cannot change, and content with `{{ variable }}` placeholders (letters, digits and underscores). It is managed at `/api/v1/templates`.
-- Saving a template rejects malformed placeholders and fixed text (the content without its placeholders) that alone exceeds the channel's length limit.
+- A template belongs to a user. It has a name that is unique per user, one channel that cannot change, and content with `{{ variable }}` placeholders (letters, digits and underscores). Clients manage templates at `/api/v1/templates`.
+- A template save rejects malformed placeholders. It also rejects fixed text (the content without its placeholders) that alone is longer than the channel's length limit.
 - A notification gives either `content`, or `template` (by name) with `variables`. The template must belong to the user and match the notification's channel.
-- The template is rendered **when the notification is created**, and the result is stored in the notification's `content`. `template_id` is kept for traceability and becomes null if the template is deleted.
-- Rendering is strict: a missing variable, or one that is not text or a number, answers `422` on `variables`; the rendered content must fit the channel's limit. Values are inserted as they are and never rendered again, so a value containing `{{ x }}` stays literal.
-- A batch loads all templates it names with one query.
+- The API renders the template **when it creates the notification**. It stores the result in the notification's `content`.
+- The notification keeps `template_id` for traceability. `template_id` becomes null when the template is deleted.
+- Rendering is strict. A missing variable, or a variable that is not text or a number, answers `422` on `variables`. The rendered content must fit the channel's limit.
+- Values are inserted as they are and never rendered again. Thus a value that contains `{{ x }}` stays literal.
+- A batch loads all templates that it names with one query.
 
 ## Considered options
 
-1. **Render at send time.** The text would follow template edits made after the request, so what a notification says would depend on when it happens to be sent, and validation errors (a missing variable, content too long) would surface in a worker instead of the API response.
-2. **Lenient rendering** (leave a missing variable empty). Silent, wrong messages are worse than a `422`.
-3. **A template engine such as Blade.** Notifications are plain text, logic in templates is not needed, and executing user-provided templates is a security risk.
+1. **Render at send time.** The text would follow template edits made after the request. Thus a notification's text would depend on when it is sent. Validation errors (a missing variable, content too long) would also occur in a worker, not in the API response.
+2. **Lenient rendering** (a missing variable becomes empty). Silent, wrong messages are worse than a `422`.
+3. **A template engine such as Blade.** Notifications are plain text and templates need no logic. Execution of user-provided templates is also a security risk.
 
 ## Consequences
 
 **Positive**
 
-- Every validation error, including the rendered length, is reported in the API response.
-- A notification's content never changes after it was accepted, and its delivery history shows exactly what was sent.
-- Editing or deleting a template is safe for notifications already created from it.
+- The API response reports every validation error, also the rendered length.
+- A notification's content never changes after the API accepts it. Its delivery history shows exactly what was sent.
+- A template edit or deletion is safe for notifications already created from the template.
 
 **Negative**
 
-- The rendered text is stored once per notification, which repeats the template's text in the table.
-- A template edit cannot fix notifications that are already waiting; they keep the old text.
+- Each notification stores its rendered text. This repeats the template text in the table.
+- A template edit cannot correct notifications that already wait. They keep the old text.

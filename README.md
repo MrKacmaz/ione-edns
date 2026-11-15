@@ -2,13 +2,17 @@
 
 [![CI](https://github.com/MrKacmaz/ione-edns/actions/workflows/ci.yml/badge.svg)](https://github.com/MrKacmaz/ione-edns/actions/workflows/ci.yml)
 
-A Laravel 13 / PHP 8.5 service that accepts notification requests over a REST API and delivers them asynchronously as **SMS, email and push** messages through an external provider. Delivery runs on prioritised queues with a per-channel rate limit, retries with backoff, a circuit breaker, idempotency at three levels, scheduled sending, templates, real-time status updates over WebSockets, and metrics, structured logs, health checks and distributed tracing.
+EDNS is a Laravel 13 / PHP 8.5 service. It accepts notification requests over a REST API and delivers them as **SMS, email and push** messages through an external provider.
+
+Delivery is asynchronous. It uses priority queues, a rate limit per channel, retries with backoff and a circuit breaker. The service also has idempotency, scheduled sending, templates, real-time status updates over WebSockets, metrics, structured logs, health checks and distributed tracing.
+
+![The operator dashboard: channels with their rate limits, delivery metrics, queues, the send form and the live feed](docs/images/dashboard.png)
 
 ## Contents
 
 - [Requirements coverage](#requirements-coverage)
 - [Quick start with Docker](#quick-start-with-docker)
-- [Provider setup (webhook.site)](#provider-setup-webhooksite)
+- [Provider](#provider)
 - [Architecture](#architecture)
 - [Delivery and retry logic](#delivery-and-retry-logic)
 - [Design decisions](#design-decisions)
@@ -22,48 +26,42 @@ A Laravel 13 / PHP 8.5 service that accepts notification requests over a REST AP
 
 ## Requirements coverage
 
-| Requirement                                                  | Where                                                                                                                                                                                                |
-| ------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Create notifications (recipient, channel, content, priority) | `POST /api/v1/notifications` — `NotificationController`, `CreateNotificationsAction`                                                                                                                 |
-| Batches of up to 1000                                        | `POST /api/v1/notifications/batch` — all-or-nothing validation, `notifications.batch.max_size`                                                                                                       |
-| Status by id or batch id                                     | `GET /api/v1/notifications/{id}`, `GET /api/v1/batches/{id}` (counts per status)                                                                                                                     |
-| Cancel pending notifications                                 | `POST /api/v1/notifications/{id}/cancel`, `POST /api/v1/batches/{id}/cancel`                                                                                                                         |
-| Filtered, paginated list                                     | `GET /api/v1/notifications?status=&channel=&batch_id=&created_from=&created_to=` with cursor pagination                                                                                              |
-| Asynchronous processing                                      | Redis queues worked by Laravel Horizon — `SendNotificationJob`, `DeliveryService`                                                                                                                    |
-| 100 messages per second per channel                          | Own GCRA limiter in Redis — `RedisGcraRateLimiter` ([ADR 0003](docs/adr/0003-gcra-rate-limiter-per-channel.md))                                                                                      |
-| Priority queues (high, normal, low)                          | Queues per channel and priority, worked in strict order, with dedicated normal and low workers so neither starves ([ADR 0002](docs/adr/0002-priority-queues-on-horizon.md))                          |
-| Content validation                                           | Per-channel recipient formats and length limits — `Services/Delivery/Channels/*Channel`                                                                                                              |
-| Idempotency                                                  | `Idempotency-Key` header, per-notification `idempotency_key`, atomic claim ([ADR 0004](docs/adr/0004-delivery-guarantees-and-idempotency.md))                                                        |
-| Delivery and retry logic                                     | Retryable vs permanent failures, exponential backoff with full jitter, `Retry-After`, manual retry ([section](#delivery-and-retry-logic), [ADR 0005](docs/adr/0005-retries-and-failure-handling.md)) |
-| Real-time metrics                                            | `GET /api/v1/metrics`: queue depth, success rate, latency percentiles                                                                                                                                |
-| Structured logs with correlation ids                         | JSON logs, `X-Correlation-ID` carried into jobs and to the provider                                                                                                                                  |
-| Health check                                                 | `GET /health`                                                                                                                                                                                        |
-| webhook.site provider                                        | `WebhookSiteGateway`, URL in `NOTIFICATIONS_GATEWAY_URL` ([setup](#provider-setup-webhooksite)); a local mock provider until it is set                                                               |
-| **Bonus:** failure handling                                  | Per-channel circuit breaker, outbox sweeps ([ADR 0005](docs/adr/0005-retries-and-failure-handling.md))                                                                                               |
-| **Bonus:** scheduled notifications                           | `scheduled_at` up to 30 days ahead ([ADR 0006](docs/adr/0006-scheduled-notifications.md))                                                                                                            |
-| **Bonus:** templates                                         | `/api/v1/templates`, `{{ variable }}` placeholders ([ADR 0007](docs/adr/0007-templates-rendered-at-creation.md))                                                                                     |
-| **Bonus:** WebSocket updates                                 | Laravel Reverb: status events for API clients, live operator dashboard ([ADR 0008](docs/adr/0008-real-time-updates-and-observability.md))                                                            |
-| **Bonus:** distributed tracing                               | OpenTelemetry auto-instrumentation exported to Jaeger                                                                                                                                                |
-| **Bonus:** CI/CD                                             | GitHub Actions: quality checks, tests against PostgreSQL and Redis, an end-to-end run of the Docker stack, then images and releases ([Tests and CI](#tests-and-ci))                                  |
-| Docker Compose, OpenAPI, migrations, tests                   | `docker-compose.yml`, `spec/openapi.json` with Postman collections in `postman/`, `database/migrations`, Pest tests                                                                                  |
+| Requirement                                                  | Where                                                                                                                                                       |
+| ------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Create notifications (recipient, channel, content, priority) | `POST /api/v1/notifications`: `NotificationController`, `CreateNotificationsAction`                                                                         |
+| Batches of up to 1000                                        | `POST /api/v1/notifications/batch`; one invalid item rejects the batch                                                                                      |
+| Status by id or batch id                                     | `GET /api/v1/notifications/{id}`, `GET /api/v1/batches/{id}` (counts per status)                                                                            |
+| Cancel pending notifications                                 | `POST /api/v1/notifications/{id}/cancel`, `POST /api/v1/batches/{id}/cancel`                                                                                |
+| Filtered, paginated list                                     | `GET /api/v1/notifications` with filters and cursor pagination ([API](#api))                                                                                |
+| Asynchronous processing                                      | Redis queues worked by Laravel Horizon: `SendNotificationJob`, `DeliveryService`                                                                            |
+| 100 messages per second per channel                          | `RedisGcraRateLimiter` ([ADR 0003](docs/adr/0003-gcra-rate-limiter-per-channel.md))                                                                         |
+| Priority queues (high, normal, low)                          | One queue per channel and priority, worked in strict order; normal and low have their own workers ([ADR 0002](docs/adr/0002-priority-queues-on-horizon.md)) |
+| Content validation                                           | Recipient format and length limit per channel: `app/Services/Delivery/Channels/*Channel.php`                                                                |
+| Idempotency                                                  | `Idempotency-Key` header, `idempotency_key` per notification, atomic claim ([ADR 0004](docs/adr/0004-delivery-guarantees-and-idempotency.md))               |
+| Delivery and retry logic                                     | [Delivery and retry logic](#delivery-and-retry-logic), [ADR 0005](docs/adr/0005-retries-and-failure-handling.md)                                            |
+| Real-time metrics                                            | `GET /api/v1/metrics`: queue depth, success and failure rates, latency percentiles                                                                          |
+| Structured logs with correlation ids                         | JSON logs; `X-Correlation-ID` goes into the jobs and to the provider                                                                                        |
+| Health check                                                 | `GET /health`                                                                                                                                               |
+| webhook.site provider                                        | `WebhookSiteGateway`; `php artisan notifications:webhook-site` creates the URL ([Provider](#provider))                                                      |
+| **Bonus:** failure handling                                  | Circuit breaker per channel, sweeps, manual retry ([ADR 0005](docs/adr/0005-retries-and-failure-handling.md))                                               |
+| **Bonus:** scheduled notifications                           | `scheduled_at` up to 30 days ahead ([ADR 0006](docs/adr/0006-scheduled-notifications.md))                                                                   |
+| **Bonus:** templates                                         | `/api/v1/templates` with `{{ variable }}` placeholders ([ADR 0007](docs/adr/0007-templates-rendered-at-creation.md))                                        |
+| **Bonus:** WebSocket updates                                 | Laravel Reverb: every status change, and a live dashboard ([ADR 0008](docs/adr/0008-real-time-updates-and-observability.md))                                |
+| **Bonus:** distributed tracing                               | OpenTelemetry and Jaeger; one notification is one trace ([Observability](#observability))                                                                   |
+| **Bonus:** CI/CD                                             | GitHub Actions: checks, tests, an end-to-end run of the Docker stack, images and releases ([Tests and CI](#tests-and-ci))                                   |
+| Docker Compose, OpenAPI, migrations, tests                   | `docker-compose.yml`, `spec/openapi.json` and Postman collections in `postman/`, `database/migrations`, Pest tests                                          |
 
 ## Quick start with Docker
 
-Requirements: Docker with Compose v2. PHP, Composer, Node, PostgreSQL and Redis all run in containers.
+You need Docker with Compose v2. PHP, Composer, Node, PostgreSQL and Redis run in containers.
 
-**1. Point the service at your provider URL (optional).** Create a webhook.site URL that answers `202` as described in [Provider setup](#provider-setup-webhooksite), then write it into a `.env` file next to `docker-compose.yml`. Without it the stack delivers to its own mock provider, so nothing reaches the outside world.
-
-```bash
-echo 'NOTIFICATIONS_GATEWAY_URL=https://webhook.site/<your-uuid>' >> .env
-```
-
-**2. Start everything** with one command:
+**1. Start everything:**
 
 ```bash
-docker compose up -d --build
+docker compose up        # or: docker-compose up; add -d to run it in the background
 ```
 
-The one-off `init` service creates the secrets (`APP_KEY`, the Reverb secret), **runs the migrations** and seeds an operator account with two templates; every other service waits for it. There is no manual setup step.
+Each `up` builds the images from the cache, so it always runs the current code. The one-off `init` service creates the secrets, runs the migrations and seeds an operator with two templates and an API token. The other services wait for it. Until you set a provider URL, deliveries go to the local [mock provider](#mock-provider), and nothing leaves your machine.
 
 | Service                        | URL                                                                                     |
 | ------------------------------ | --------------------------------------------------------------------------------------- |
@@ -74,24 +72,32 @@ The one-off `init` service creates the secrets (`APP_KEY`, the Reverb secret), *
 | Horizon                        | http://localhost:8000/horizon (operators only)                                          |
 | Jaeger (traces)                | http://localhost:16686                                                                  |
 | Reverb (WebSocket)             | ws://localhost:8080                                                                     |
+| Mock provider                  | http://localhost:8090/__requests and `/__control`                                       |
 
-Host ports can be changed with `APP_PORT`, `REVERB_HOST_PORT` and `JAEGER_UI_PORT`.
+To change the host ports, set `APP_PORT`, `REVERB_HOST_PORT`, `JAEGER_UI_PORT` and `MOCK_PROVIDER_PORT`.
 
-**3. Get the API token** that the seeder created, and send a first notification:
+**2. Point it at webhook.site**, the provider that the task asks for. This command creates a URL that answers like the provider and prints the line to add:
 
 ```bash
-TOKEN=$(docker compose logs --no-log-prefix init | sed -n 's/.*API token for [^:]*: //p' | tail -1)
+docker compose exec app php artisan notifications:webhook-site
 ```
+
+```bash
+echo 'NOTIFICATIONS_GATEWAY_URL=https://webhook.site/<uuid>' >> .env
+docker compose up -d
+```
+
+**3. Send a notification.** On a local machine the seeded operator has the API token `edns-demo-token`. This token exists only with `APP_ENV=local`, as Docker Compose runs, never in production.
 
 ```bash
 curl -s -X POST http://localhost:8000/api/v1/notifications \
-  -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' -H 'Accept: application/json' \
+  -H 'Authorization: Bearer edns-demo-token' -H 'Content-Type: application/json' -H 'Accept: application/json' \
   -d '{"recipient": "+905551234567", "channel": "sms", "content": "Hello from EDNS"}'
 ```
 
-Within a few seconds the request shows up in your webhook.site inbox (with the mock provider, in `docker compose logs provider`), and `GET /api/v1/notifications/{id}` reports `"status": "sent"`.
+After a few seconds the request is in your webhook.site inbox, and `GET /api/v1/notifications/{id}` shows `"status": "sent"`. With the mock provider, see http://localhost:8090/__requests or `docker compose logs provider`.
 
-**Run the whole test suite** in Docker, against its own database, with one command:
+**Run the test suite** in Docker, against its own database:
 
 ```bash
 docker compose --profile test run --rm tests
@@ -104,40 +110,59 @@ docker compose down
 docker compose down -v
 ```
 
-## Provider setup (webhook.site)
+## Provider
 
-The provider is simulated by [webhook.site](https://webhook.site). The service posts every notification to `NOTIFICATIONS_GATEWAY_URL` and expects the answer the task describes:
+The service sends every notification to `NOTIFICATIONS_GATEWAY_URL` and expects this answer:
 
 ```
 202 Accepted
 {"messageId": "...", "status": "accepted", "timestamp": "..."}
 ```
 
-1. Open https://webhook.site. It creates a unique URL at once (`https://webhook.site/<uuid>`); copy it.
-2. Click **Edit** at the top of the page and set:
-    - **Default status code:** `202`
-    - **Content type:** `application/json`
-    - **Response body:**
-        ```json
-        {
-            "messageId": "7f3c2a1e-0b6d-4c8e-9a51-3d2f6e8b9c40",
-            "status": "accepted",
-            "timestamp": "2026-11-14T00:00:00Z"
-        }
-        ```
-3. Save, then set the URL in `.env` next to `docker-compose.yml` (or in the Laravel `.env` without Docker):
-    ```bash
-    NOTIFICATIONS_GATEWAY_URL=https://webhook.site/<your-uuid>
-    ```
-4. Apply it. Compose recreates the containers whose environment changed:
-    ```bash
-    docker compose up -d
-    ```
-5. Check it: `curl -s http://localhost:8000/health` reports `"gateway": {"status": "ok"}`. Every delivery appears in the webhook.site inbox with the headers `Idempotency-Key` (the notification id), `X-Correlation-ID` and, while tracing is on, `traceparent`.
+Only `202` with a `messageId` counts as accepted. Any other `2xx`, for example webhook.site's default page (`200`), or a `202` without `messageId`, does not confirm the message. The notification is then retried and counts against the channel's circuit.
 
-The `messageId` matters: any `2xx` counts as accepted only when the body carries a `messageId`. Without one the provider has not confirmed the message, so the notification is retried and the channel's circuit counts it as a failure (see [Delivery and retry logic](#delivery-and-retry-logic)).
+### webhook.site
 
-A free webhook.site URL expires after seven days and accepts a limited number of requests. When it stops working, create a new one, replace the line in `.env` and run `docker compose up -d` again; notifications that failed in the meantime can be sent again with `POST /api/v1/notifications/{id}/retry`. Remove the line to switch back to the **mock provider**: the `provider` service ([`docker/mock-provider/default.conf`](docker/mock-provider/default.conf)), an nginx container that answers every delivery with `202` and a fresh `messageId`. CI runs the stack this way.
+**With the command** (recommended): `php artisan notifications:webhook-site` creates a URL that answers `202` with a JSON body. webhook.site fills in `$request.uuid$` for each request, so each delivery gets its own `messageId`. The command prints the URL, its inbox and the `.env` line.
+
+**By hand:**
+
+1. Open https://webhook.site and copy the URL that it creates (`https://webhook.site/<uuid>`).
+2. Click **Edit** and set **Default status code** `202`, **Content type** `application/json`, and this **Response body**:
+    ```json
+    {
+        "messageId": "$request.uuid$",
+        "status": "accepted",
+        "timestamp": "$request.date$"
+    }
+    ```
+3. Add `NOTIFICATIONS_GATEWAY_URL=https://webhook.site/<uuid>` to the `.env` file next to `docker-compose.yml`, then run `docker compose up -d`.
+4. Check that `curl -s http://localhost:8000/health` shows `"gateway": {"status": "ok"}`.
+
+Each delivery arrives with the headers `Idempotency-Key` (the notification id), `X-Correlation-ID` and, while tracing is on, `traceparent`.
+
+A free webhook.site URL expires after seven days and accepts a limited number of requests. When it stops, create a new one and replace the line in `.env`. To send the failed notifications again, use `POST /api/v1/notifications/{id}/retry`. To go back to the mock provider, remove the line.
+
+### Mock provider
+
+Without `NOTIFICATIONS_GATEWAY_URL`, deliveries go to the `provider` service, [`docker/mock-provider/server.php`](docker/mock-provider/server.php). It answers like webhook.site, has no request limit, and can fail on request. CI uses it.
+
+- **Idempotency:** a repeated `Idempotency-Key` that it already accepted gets the same `messageId` and counts as a duplicate.
+- **Faults for every delivery:** `PUT /__control` changes them while the stack runs; `DELETE /__control` makes it healthy again.
+    ```bash
+    # 30% of deliveries fail with 503 and Retry-After: 5; each answer takes 200 ms
+    curl -X PUT http://localhost:8090/__control -d '{"failure_rate": 0.3, "status": 503, "latency_ms": 200, "retry_after": 5}'
+    ```
+- **Faults for one message:** put a marker anywhere in the content.
+
+    | Marker             | Answer                                                                      |
+    | ------------------ | --------------------------------------------------------------------------- |
+    | `[fail:503]`       | `503` to every attempt; any status works; a `2xx` comes without `messageId` |
+    | `[fail:503*2]`     | `503` to the first two attempts, then accepted                              |
+    | `[slow:1500]`      | Answers after 1.5 seconds; more than 10 seconds is a timeout                |
+    | `[retry-after:30]` | Adds `Retry-After: 30` to a failure                                         |
+
+- **What it received:** `GET /__requests` returns the counters (`received`, `accepted`, `duplicates`, `failed` per status), the last 50 deliveries, and the calls per channel and second with each channel's busiest second (`peak_per_second`). `DELETE /__requests` resets them. Each delivery is also one JSON line in `docker compose logs provider`. The state is lost when the container restarts.
 
 ## Architecture
 
@@ -145,7 +170,7 @@ A free webhook.site URL expires after seven days and accepts a limited number of
 flowchart LR
     client([API client]) -->|REST + Sanctum token| api[Laravel API]
     api -->|insert, status waiting| db[(PostgreSQL)]
-    api -->|after commit: push job| redis[(Redis queues<br/>per channel and priority)]
+    api -->|after commit: push jobs| redis[(Redis queues<br/>per channel and priority)]
     redis --> horizon[Horizon workers per channel<br/>SendNotificationJob]
     horizon --> circuit{Circuit<br/>breaker}
     circuit -->|closed| limiter{GCRA rate limit<br/>100/s per channel}
@@ -154,12 +179,18 @@ flowchart LR
     delivery -->|attempt history, status| db
     scheduler[Scheduler] -->|sweeps, due scheduled<br/>notifications| redis
     scheduler -->|metrics every 5 s| reverb[Reverb]
-    horizon -->|final statuses| reverb
+    horizon -->|every status change| reverb
     reverb -->|WebSocket| client
     reverb -->|WebSocket| dashboard([Operator dashboard])
 ```
 
-A request is validated, stored in one transaction and answered with `202 Accepted`. Only after the commit are the jobs pushed onto the queue of each notification's channel and priority, for example `notifications-sms-high`; every channel has its own workers, so one channel waiting for send slots never holds up another ([ADR 0002](docs/adr/0002-priority-queues-on-horizon.md)). A Horizon worker passes each job through its middlewares: the channel's circuit breaker, then its rate limiter. `DeliveryService` then claims the notification atomically, calls the provider, records the attempt and moves the notification to its next status. The scheduler repairs anything that fell between the database and Redis, queues scheduled notifications shortly before their time, and pushes metrics to the dashboard.
+1. The API validates a request, stores the notifications in one transaction and answers `202 Accepted`.
+2. After the commit, the API pushes one job per notification onto the queue of its channel and priority, for example `notifications-sms-high`. The jobs of one queue go in one Redis round trip.
+3. A Horizon worker runs the job through the channel's circuit breaker, then its rate limiter.
+4. `DeliveryService` claims the notification, calls the provider, records the attempt and sets the next status.
+5. The scheduler repairs what fell between the database and Redis, queues scheduled notifications shortly before their time, and pushes metrics to the dashboard.
+
+Each channel has its own workers, so a channel that waits for send slots does not hold up the others. A batch of 1000 notifications is accepted in about 1.5 s (median of 9 runs, Docker on a laptop), including its 2000 status broadcasts.
 
 ### Notification lifecycle
 
@@ -172,7 +203,7 @@ stateDiagram-v2
     waiting --> queued: job pushed
     queued --> processing: claimed by a worker once due
     waiting --> processing: claimed before marked queued
-    processing --> sent: provider accepted (2xx)
+    processing --> sent: provider accepted (202 with messageId)
     processing --> queued: retryable failure, next attempt due later
     processing --> failed: permanent failure, attempts used up, or stuck after the last attempt
     processing --> waiting: worker died, attempts left (stale sweep)
@@ -189,100 +220,100 @@ stateDiagram-v2
 
 ## Delivery and retry logic
 
-The task leaves this part to the candidate. The approach in one sentence: **classify every provider answer as accepted, retryable or permanent, retry only what can still succeed, spread retries with exponential backoff and full jitter, never let waiting use up attempts, and stop calling a provider that is down.** The full reasoning, with the options that were rejected, is in [ADR 0004](docs/adr/0004-delivery-guarantees-and-idempotency.md) and [ADR 0005](docs/adr/0005-retries-and-failure-handling.md).
+The rule is short: **retry only what can still succeed, spread the retries out, never use attempts for waiting, and stop calling a provider that is down.** [ADR 0004](docs/adr/0004-delivery-guarantees-and-idempotency.md) and [ADR 0005](docs/adr/0005-retries-and-failure-handling.md) give the reasons and the rejected options.
 
 ### One delivery attempt
 
-1. The job passes the channel's **circuit breaker**, then the **rate limiter** (100 messages a second per channel). Neither counts as an attempt: an open circuit or a full second only delays the job.
-2. `DeliveryService` **claims** the notification with one conditional `UPDATE` to `processing` and counts the attempt, but only once it is due: not before its next attempt after a failure (`next_attempt_at`) and not before its `scheduled_at`. A job that comes early is released until then; a duplicate job, or a job for a cancelled notification, claims nothing and stops.
-3. `WebhookSiteGateway` posts `{to, channel, content}` with `Idempotency-Key: <notification id>`, `X-Correlation-ID` and the trace context (`traceparent`), with a 5-second connect timeout and a 10-second request timeout.
-4. The answer is **classified**. The attempt (HTTP status, error, duration) and the notification's new status are written in one transaction.
+1. The job passes the channel's **circuit breaker**, then the **rate limiter**. Neither uses an attempt; they only delay the job.
+2. `DeliveryService` **claims** the notification with one conditional `UPDATE` to `processing` and counts the attempt. It claims only a notification that is due: not before `next_attempt_at` after a failure, and not before `scheduled_at`. An early job waits; a duplicate job or a job for a cancelled notification stops.
+3. `WebhookSiteGateway` posts `{to, channel, content}` with `Idempotency-Key: <notification id>`, `X-Correlation-ID` and `traceparent`. The connect timeout is 5 seconds, the request timeout 10 seconds.
+4. The answer is **classified**. One transaction writes the attempt and the new status.
 
-### Transient vs permanent failures
+### How each answer is handled
 
-| Provider answer                     | Classified as | What happens                                      | Why                                                                                                                                                                                                                |
-| ----------------------------------- | ------------- | ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `2xx` with a `messageId`            | accepted      | `sent`, the `messageId` is stored                 | The provider confirmed the message.                                                                                                                                                                                |
-| `2xx` without a `messageId`         | retryable     | Retried with backoff, counts against the circuit  | The message was not confirmed. Like a wrong endpoint, a misconfigured one (for example webhook.site's default page) gives every message the same answer, so the circuit opens instead of all failing quietly.      |
-| Timeout or connection error         | retryable     | Retried with backoff                              | The provider or the network is briefly unavailable; the same request can succeed a moment later.                                                                                                                   |
-| `408`, `429`, `5xx`                 | retryable     | Retried with backoff, `Retry-After` honoured      | HTTP defines these as "try again later": a timeout, throttling, or a server-side fault.                                                                                                                            |
-| `401`, `403`, `404`, `410`          | retryable     | Retried with backoff, counts against the circuit  | The endpoint or its credentials are wrong (for example an expired webhook.site URL), not the message. Every message would get the same answer, so the circuit opens instead of every notification failing quietly. |
-| Any other `4xx` (`400`, `422`, …)   | permanent     | `failed` at once, with the status in `last_error` | The request itself is rejected. Sending it again gives the same answer and wastes the rate limit and the provider's capacity.                                                                                      |
-| An unexpected error in our own code | retryable     | Retried with backoff, and reported                | The notification is already claimed; letting the error escape would leave it stuck in `processing`.                                                                                                                |
+| Provider answer                     | Outcome   | What happens                                       | Why                                                                            |
+| ----------------------------------- | --------- | -------------------------------------------------- | ------------------------------------------------------------------------------ |
+| `202` with a `messageId`            | accepted  | `sent`; the `messageId` is stored                  | The provider confirmed the message.                                            |
+| Any other `2xx`, or no `messageId`  | retryable | Retried; counts against the circuit                | Not confirmed. A misconfigured URL answers every message the same way.         |
+| Timeout or connection error         | retryable | Retried                                            | The network or the provider is briefly unavailable.                            |
+| `408`, `5xx`                        | retryable | Retried; `Retry-After` honoured                    | HTTP means "try again later".                                                  |
+| `429`                               | throttled | Retried; `Retry-After` honoured; circuit untouched | The provider is up but busy. Metrics show it as `throttled`.                   |
+| `401`, `403`, `404`, `410`          | retryable | Retried; counts against the circuit                | The URL or its credentials are wrong, for example an expired webhook.site URL. |
+| Any other `4xx` (`400`, `422`, …)   | permanent | `failed` at once                                   | The request is wrong; the same answer comes again.                             |
+| An unexpected error in our own code | retryable | Retried and reported                               | The notification must not stay in `processing`.                                |
+
+Errors shown to clients are generic, for example "The provider could not be reached." The full error is in the log, because it contains the provider URL.
 
 ### Backoff: exponential with full jitter
 
-After the n-th failed attempt the next one waits a **random** time between zero and `min(300, 30 × 2^(n−1))` seconds, and at least one second:
+After the n-th failed attempt, the next attempt waits a **random** time between zero and `min(300, 30 × 2^(n−1))` seconds, at least one second:
 
-| Failed attempts | Next attempt within      |
-| --------------- | ------------------------ |
-| 1               | 0–30 s                   |
-| 2               | 0–60 s                   |
-| 3               | 0–120 s                  |
-| 4               | 0–240 s                  |
-| 5               | — the notification fails |
+| Failed attempts | Next attempt within    |
+| --------------- | ---------------------- |
+| 1               | 0–30 s                 |
+| 2               | 0–60 s                 |
+| 3               | 0–120 s                |
+| 4               | 0–240 s                |
+| 5               | the notification fails |
 
-A provider's `Retry-After` (delay seconds or an HTTP date, parsed strictly) is a lower bound for the wait, capped at one hour so a wrong header cannot park a notification for days. Without `Retry-After`, the defaults give up on a notification after at most about 7.5 minutes of waiting. The attempts and the backoff window are configurable (`NOTIFICATIONS_MAX_ATTEMPTS`, `NOTIFICATIONS_BACKOFF_BASE_SECONDS`, `NOTIFICATIONS_BACKOFF_CAP_SECONDS`).
+The random spread matters: notifications that fail together do not come back together. A provider's `Retry-After` is the minimum wait, capped at one hour. Without it, a notification fails after about 7.5 minutes of waiting at most.
 
-**Why full jitter:** when the provider has a problem, many notifications fail in the same second. Plain exponential backoff would send them all back in the same second again and hit the recovering provider with the same spike. Spreading each retry randomly over its window removes the spike without any coordination between workers.
+- A retry releases the same job with the delay. The notification's own `attempts` counter decides when to stop. While it waits, the notification is `queued` with `last_error` and `next_attempt_at`.
+- A database or Redis outage uses no attempt. Laravel runs the job again after 10, 30, 60 and then every 120 seconds, for up to one day. API requests during an outage get `503` with `Retry-After: 10`.
+- `POST /api/v1/notifications/{id}/retry` gives a `failed` notification a new set of attempts and keeps its history.
 
-### How retries run
+### Circuit breaker
 
-- **A retry releases the same job with the computed delay.** It does not count as a new Laravel attempt. The notification's own `attempts` counter decides when to stop, so waiting for a rate-limit slot or for an open circuit never uses up attempts. Meanwhile the notification is `queued` with the reason in `last_error` and the time of the next attempt in `next_attempt_at`, so no duplicate job can run it sooner. Every call is kept in `notification_attempts`.
-- **A database or Redis outage**, like any other unexpected error, uses up no attempt: Laravel runs the job again after 10, 30, 60 and then every 120 seconds until the outage ends or the job's one-day lifetime is over. API requests that meet the outage are answered with `503` and `Retry-After: 10` instead of `500`. When a job gives up, its notification is marked `failed` rather than left behind.
-- **Errors shown to clients are generic** ("The provider could not be reached."): the underlying exception names the provider URL, which with webhook.site is the secret that protects the messages. The full message is in the log.
-- **Manual retry:** `POST /api/v1/notifications/{id}/retry` gives a `failed` notification a fresh set of attempts and keeps its history.
+Each channel has a circuit in Redis, shared by all workers.
 
-### When the provider is down: circuit breaker
+- It **opens** when at least 20 calls in 60 seconds were made and at least 50% of them failed in a retryable way. Permanent failures and `429` count as healthy, because the provider answered.
+- While it is open, jobs wait without calling the provider and without using attempts. Each job waits a random extra time, so the jobs do not return together.
+- After 30 seconds, one **probe** call decides: success closes the circuit, failure opens it again.
+- Each change is logged (`notification.circuit.opened` / `closed`) and shown on the dashboard. `/health` reports `warn` while a circuit is open.
 
-Retrying every notification on its own schedule keeps hammering a provider that is down and burns every notification's attempts. So each channel has a **circuit breaker** shared in Redis:
+### Nothing lost, few duplicates
 
-- It **opens** when, over the last 60 seconds, at least 20 calls were made and at least 50% of them failed in a retryable way. Permanent failures count as healthy calls, because the provider did answer.
-- While it is open, jobs wait without calling the provider and without using attempts. Each job waits the circuit's remaining time plus a random extra of up to the same length, so the jobs held back together come back spread out rather than in the same second.
-- After 30 seconds a single **probe** call decides: success closes the circuit, failure opens it again.
-- Each change is logged (`notification.circuit.opened` / `closed`) and broadcast to the dashboard. `/health` reports `warn` while a circuit is open.
-
-### Nothing lost, duplicates kept to a minimum
-
-- A notification is stored before its job is pushed, and the push happens only after the commit. Every minute a sweep repairs the gaps: it pushes `waiting` notifications older than 2 minutes again, returns `processing` ones untouched for 5 minutes (a dead worker) to `waiting`, and pushes `queued` ones whose job was lost again after 25 hours.
-- Delivery to the provider is **at-least-once**. If a worker dies, or the database goes away, after the provider accepted a message but before the result was recorded, the message is sent again. Every attempt carries `Idempotency-Key: <notification id>`, so a provider that honours the header drops the duplicate. The provider's answer is logged as `notification.delivery.unrecorded` in that case.
-- Each resend uses up an attempt, so a notification is sent at most five times even when its outcome can never be recorded. A notification stuck in `processing` after its last attempt **fails** instead of being sent again, with the reason that the provider may have received it.
+- The API stores a notification before it pushes the job, and pushes only after the commit. A sweep runs every minute. It pushes `waiting` notifications older than 2 minutes again. It returns `processing` notifications untouched for 5 minutes (a dead worker) to `waiting`. It pushes `queued` notifications whose job was lost after 25 hours.
+- Delivery is **at-least-once**. A worker can die after the provider accepted a message but before the result is stored. The message is then sent again with the same `Idempotency-Key`, so a provider that honours the key drops the repeat. The log shows such a case as `notification.delivery.unrecorded`.
+- A resend uses an attempt, so a notification is sent at most five times. A notification stuck in `processing` after its last attempt fails, with the reason that the provider may have received it.
 
 ### Try it
 
-Change the **default status code** of your webhook.site URL, send a notification and follow it with `GET /api/v1/notifications/{id}` (`attempts`, `last_error`, `status`) and `docker compose logs -f horizon` (`notification.delivery.retry_scheduled`):
+Use a [mock provider marker](#mock-provider) in the content, or the **Provider fault** in the dashboard's send form. Follow the notification with `GET /api/v1/notifications/{id}` and `docker compose logs -f horizon`.
 
-- `500`, `503` or `429`: the notification is retried with growing gaps and fails after the fifth attempt, a few minutes later.
-- `404`: the same, as for an expired URL; with 20 or more calls a minute the channel's circuit opens: the dashboard shows it and `/health` reports `warn`.
-- `400`: it fails at once with "The provider responded with HTTP 400." as the error.
-- `202` with an empty body: the same, with "without a messageId confirming the delivery" as the error.
-- Set it back to `202` with the body above, then `POST /api/v1/notifications/{id}/retry`: it is sent.
+- `[fail:503]`: retried with growing gaps; fails after the fifth attempt. `[fail:503*2]` is sent on the third attempt.
+- `[fail:429]`: retried the same way; recorded as `throttled`; the circuit stays closed.
+- `[fail:400]`: fails at once with "The provider responded with HTTP 400."
+- `[fail:202]`: retried; the error says that no `messageId` confirmed the delivery.
+- `[slow:11000]`: the attempt times out and is retried.
+- `[fail:503*5]`: fails all five attempts; `POST /api/v1/notifications/{id}/retry` then sends it.
+- The circuit: send `PUT /__control` with `{"failure_rate": 1}`, then send 20 or more notifications of one channel within a minute. The circuit opens. After `DELETE /__control`, the next probe closes it and the waiting notifications go out.
 
 ## Design decisions
 
-Each decision is recorded as an ADR in [`docs/adr`](docs/adr); deferred work, with the reasons, is in [`docs/backlog.md`](docs/backlog.md).
+Each decision has an ADR in [`docs/adr`](docs/adr). Deferred work and its reasons are in [`docs/backlog.md`](docs/backlog.md).
 
-| ADR                                                                              | Decision                                                                                                                                     |
-| -------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| [0001](docs/adr/0001-own-notification-model-instead-of-laravel-notifications.md) | An own `Notification` model and delivery pipeline instead of Laravel Notifications, because every requirement needs stored, queryable state. |
-| [0002](docs/adr/0002-priority-queues-on-horizon.md)                              | Queues and workers per channel and priority, drained in strict order, plus workers that serve only normal or only low so neither starves.    |
-| [0003](docs/adr/0003-gcra-rate-limiter-per-channel.md)                           | A GCRA rate limiter in Redis: evenly spaced sends, never more than 100 in any second, short waits kept in place.                             |
-| [0004](docs/adr/0004-delivery-guarantees-and-idempotency.md)                     | `waiting` as an outbox state, after-commit dispatch, stale sweeps, and idempotency at request, notification and delivery level.              |
-| [0005](docs/adr/0005-retries-and-failure-handling.md)                            | Retryable vs permanent failures, full-jitter backoff, a capped `Retry-After`, and a per-channel circuit breaker.                             |
-| [0006](docs/adr/0006-scheduled-notifications.md)                                 | Scheduled notifications stay in the database until a minute before their time, then go out as delayed jobs.                                  |
-| [0007](docs/adr/0007-templates-rendered-at-creation.md)                          | Templates are rendered strictly when a notification is created, and the text is stored on the notification.                                  |
-| [0008](docs/adr/0008-real-time-updates-and-observability.md)                     | Final statuses over WebSockets, a live operator dashboard, correlation ids, tracing, metrics and health.                                     |
+| ADR                                                                              | Decision                                                                                                     |
+| -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| [0001](docs/adr/0001-own-notification-model-instead-of-laravel-notifications.md) | An own `Notification` model and delivery pipeline instead of Laravel Notifications, to keep queryable state. |
+| [0002](docs/adr/0002-priority-queues-on-horizon.md)                              | Queues and workers per channel and priority, in strict order, with own workers for normal and low.           |
+| [0003](docs/adr/0003-gcra-rate-limiter-per-channel.md)                           | A GCRA rate limiter in Redis: evenly spaced sends, a limit per channel, `0` pauses a channel.                |
+| [0004](docs/adr/0004-delivery-guarantees-and-idempotency.md)                     | `waiting` as an outbox state, after-commit dispatch, sweeps, and idempotency at three levels.                |
+| [0005](docs/adr/0005-retries-and-failure-handling.md)                            | Answer classification, full-jitter backoff, a capped `Retry-After`, and a circuit breaker per channel.       |
+| [0006](docs/adr/0006-scheduled-notifications.md)                                 | Scheduled notifications stay in the database until a minute before their time.                               |
+| [0007](docs/adr/0007-templates-rendered-at-creation.md)                          | Templates are rendered when a notification is created, and the text is stored on it.                         |
+| [0008](docs/adr/0008-real-time-updates-and-observability.md)                     | Every status change over WebSockets, a live dashboard, correlation ids, tracing, metrics and health.         |
 
 ## API
 
-All endpoints live under `/api/v1` and need a Sanctum bearer token; requests and responses are JSON. Each account may make 600 requests a minute (then `429` with `Retry-After`), and a request body may be up to 25 MB (then `413`). Every endpoint, parameter and response code is described in [`spec/openapi.json`](spec/openapi.json), browsable at `/docs/api`, and in the [Postman](#postman) collections.
+All endpoints are under `/api/v1` and need a Sanctum bearer token. Requests and responses are JSON. An account may make 600 requests a minute; more get `429` with `Retry-After`. A request body may be up to 25 MB; a larger one gets `413`. [`spec/openapi.json`](spec/openapi.json) describes every endpoint; you can browse it at `/docs/api`.
 
 ```bash
 API=http://localhost:8000/api/v1
-H=(-H "Authorization: Bearer $TOKEN" -H 'Accept: application/json' -H 'Content-Type: application/json')
+H=(-H 'Authorization: Bearer edns-demo-token' -H 'Accept: application/json' -H 'Content-Type: application/json')
 ```
 
-**Create** a notification, or a **batch** of up to 1000. Both answer `202 Accepted`; one invalid item rejects the whole batch with `422` and indexed errors such as `notifications.3.recipient`.
+**Create** one notification or a **batch** of up to 1000. Both answer `202 Accepted`. One invalid item rejects the whole batch with `422` and indexed errors, for example `notifications.3.recipient`.
 
 ```bash
 curl -s "${H[@]}" -X POST "$API/notifications" -d '{"channel": "sms", "recipient": "+905551234567", "content": "Flash sale starts now!", "priority": "high", "idempotency_key": "flash-sale-42"}'
@@ -293,15 +324,17 @@ curl -s "${H[@]}" -X POST "$API/notifications/batch" -d '{"notifications": [
 ]}'
 ```
 
-| Channel | Recipient                                | Content limit     |
-| ------- | ---------------------------------------- | ----------------- |
-| `sms`   | E.164 phone number, e.g. `+905551234567` | 160 characters    |
-| `email` | Email address                            | 10,000 characters |
-| `push`  | Device token, 16 to 512 characters       | 240 characters    |
+| Channel | Recipient                                | Content limit                                               |
+| ------- | ---------------------------------------- | ----------------------------------------------------------- |
+| `sms`   | E.164 phone number, e.g. `+905551234567` | One SMS: 160 characters in GSM-7, or 70 when it needs UCS-2 |
+| `email` | Email address                            | 10,000 characters                                           |
+| `push`  | Device token, 16 to 512 characters       | 240 characters                                              |
 
-**Duplicates:** a repeated `idempotency_key` with the same notification returns the existing one with `200`, with different fields `422`. A request sent with an `Idempotency-Key` header is replayed when it is retried (`Idempotent-Replayed: true`); a retry while the first is still running answers `409`, one with another payload `422`. Its notification answers `waiting`, because the job is pushed only after the stored response is committed. An `X-Correlation-ID` (a UUID) is echoed back and follows the request into the logs, the jobs and the provider call.
+An SMS is measured as a carrier measures it. In GSM-7, the characters `€ ^ { } [ ] ~ | \` take two of the 160 places. One character outside GSM-7, for example `ş` or an emoji, makes the whole message UCS-2. Then 70 UTF-16 units fit, and most emoji take two.
 
-**Schedule** up to 30 days ahead with `scheduled_at` (ISO 8601; without an offset it is UTC), or send from a **template** with variables:
+**Duplicates:** the same `idempotency_key` with the same notification returns the existing notification with `200`; with different fields it gets `422`. A request with an `Idempotency-Key` header is replayed when it is sent again (`Idempotent-Replayed: true`). A repeat while the first request still runs gets `409`; a repeat with another body gets `422`. An `X-Correlation-ID` (a UUID) comes back in the response and goes into the logs, the jobs and the provider call.
+
+**Schedule** up to 30 days ahead with `scheduled_at` (ISO 8601; without an offset it is UTC), or send from a **template**:
 
 ```bash
 AT=$(date -u -d '+1 hour' +%FT%TZ 2>/dev/null || date -u -v+1H +%FT%TZ)  # an hour from now (GNU or BSD date)
@@ -311,34 +344,41 @@ curl -s "${H[@]}" -X POST "$API/templates" -d '{"name": "delivery-window", "chan
 curl -s "${H[@]}" -X POST "$API/notifications" -d '{"channel": "sms", "recipient": "+905551234567", "template": "delivery-window", "variables": {"name": "Ada", "order_id": 1001, "from": "14:00", "to": "16:00"}}'
 ```
 
-The demo user already has the templates `order-shipped` and `invoice-ready` (`GET $API/templates`), so a notification can use one of them right away.
+The demo operator already has the templates `order-shipped` and `invoice-ready`.
 
 **Query, list, cancel and retry:**
 
 ```bash
 curl -s "${H[@]}" "$API/notifications/{id}"
 curl -s "${H[@]}" "$API/batches/{id}"
-curl -s "${H[@]}" "$API/notifications?status=failed&channel=sms&created_from=2026-11-14&per_page=50"
+curl -s "${H[@]}" "$API/notifications?status=failed,queued&channel=sms&created_from=2026-11-14&per_page=50"
 curl -s "${H[@]}" -X POST "$API/notifications/{id}/cancel"
 curl -s "${H[@]}" -X POST "$API/batches/{id}/cancel"
 curl -s "${H[@]}" -X POST "$API/notifications/{id}/retry"
 ```
 
-The list filters by `status`, `channel`, `batch_id`, `created_from` and `created_to` (ISO 8601, compared in UTC; a bare date in `created_to` includes that whole day) and is cursor-paginated: follow `links.next`. Cancelling is safe to repeat and answers `409` once a notification is processing or finished; a retry answers `409` unless the notification failed. Another user's records answer `404`. Templates are managed with `GET|POST /templates` and `GET|PATCH|DELETE /templates/{id}`.
+- **Filters:** `status`, `channel` and `priority` take one value or several (`status=failed,queued`, or a list). `recipient` must match exactly. `batch_id`, `created_from` and `created_to` (ISO 8601, in UTC; a date alone in `created_to` includes that whole day).
+- **Pagination:** cursor based; follow `links.next`.
+- **Cancel** is safe to repeat. It gets `409` once the notification is processing or finished. **Retry** gets `409` unless the notification failed.
+- Another user's records get `404`. Templates use `GET|POST /templates` and `GET|PATCH|DELETE /templates/{id}`.
 
 ### Postman
 
-[`postman/`](postman) holds the **EDNS API** collection (every endpoint, generated from the specification), the **EDNS Smoke Flow** (an end-to-end check in 18 tested steps, one of which reaches the provider) and the **EDNS Local** environment. Set `bearerToken` in the environment in the Postman app, or run the smoke flow with the [Postman CLI](https://learning.postman.com/docs/postman-cli/postman-cli-overview/):
+[`postman/`](postman) has three parts:
+
+- **EDNS API:** every endpoint, generated from the specification. After an API change, `composer postman:sync` generates it again.
+- **EDNS Smoke Flow:** an end-to-end check in 22 tested steps. One step reaches the provider. Four steps run only with `mockProvider=true`, as in CI; they cause a permanent failure and a retried delivery.
+- **EDNS Local:** the environment. Its `bearerToken` is the local demo token.
 
 ```bash
-postman collection run "postman/collections/EDNS Smoke Flow" -e "postman/environments/EDNS Local.environment.yaml" --env-var "bearerToken=$TOKEN"
+postman collection run "postman/collections/EDNS Smoke Flow" -e "postman/environments/EDNS Local.environment.yaml" --env-var "mockProvider=true"
 ```
-
-After an API change, `composer postman:sync` regenerates the specification and the API collection.
 
 ## Real-time updates
 
-When a notification reaches `sent`, `failed` or `cancelled`, its owner receives a `.notification.status-changed` event on the private channel `App.Models.User.{id}`. API clients authorize the channel with their token at `/api/v1/broadcasting/auth`, for example with Laravel Echo:
+The owner of a notification gets an event `.notification.status-changed` on the private channel `App.Models.User.{id}` at every status change: created (`waiting` or `scheduled`), `queued`, `processing`, `queued` again for a retry (with `last_error` and `next_attempt_at`), and `sent`, `failed` or `cancelled`. When many notifications change at once, for example a batch, their broadcasts go to the queue in one Redis round trip.
+
+API clients authorize the channel with their token at `/api/v1/broadcasting/auth`, for example with Laravel Echo:
 
 ```js
 import Echo from 'laravel-echo';
@@ -363,53 +403,106 @@ echo.private(`App.Models.User.${userId}`) // userId: data.id of GET /api/v1/user
     );
 ```
 
-The operator dashboard at http://localhost:8000 shows queue depth, success rate, latency, circuit states and the signed-in operator's latest notifications, updated every five seconds and on every circuit change.
+The **operator dashboard** at http://localhost:8000 shows each channel's rate limit and circuit, the delivery metrics, the queues and the operator's latest notifications. Metrics refresh every five seconds; statuses and circuits change live.
+
+Its **send form** creates notifications without an API token: a text or a template with variables, a priority, and up to 1000 copies as one batch. A **provider fault** for the mock provider shows a retry or an open circuit as it happens. The form validates like the API and shares its request limit. Each notification in the feed links to its trace in Jaeger.
 
 ## Observability
 
-- **Metrics:** `GET /api/v1/metrics` (operators only) returns queue depth per channel and priority, notifications per unfinished status, attempts, success rate and p50/p95/p99 provider and end-to-end latency over the last 5 minutes and hour, and each channel's circuit state.
-- **Health:** `GET /health` (no token) checks the database, Redis, Horizon, the gateway configuration and the delivery circuits: `200` with `ok`, `200` with `warn` while a circuit is open, `503` with `fail`. It tells whether notifications are delivered, so it fails while Horizon is down although the API still answers; a liveness probe should use Laravel's `GET /up`.
-- **Logs:** JSON lines (`LOG_FORMAT=line` for plain text) such as `notification.delivery.sent`, `notification.delivery.retry_scheduled` and `notification.circuit.opened`, each with the notification id, the correlation id and the trace id. In Docker: `docker compose logs -f horizon`.
-- **Traces:** OpenTelemetry traces of requests, queries, HTTP calls and jobs in Jaeger (service `ione-edns`). Each delivery job has its own trace, linked to the request that created it, and passes its context to the provider in the W3C `traceparent` header.
+- **Metrics:** `GET /api/v1/metrics` (operators only) returns, for the last 5 minutes and the last hour: queue depth per channel and priority, unfinished notifications per status, attempts (accepted, retryable, throttled, permanent), success and failure rates, and p50/p95/p99 provider and end-to-end latency. It also returns each channel's circuit state.
+- **Health:** `GET /health` (no token) checks the database, Redis, Horizon, the gateway URL, the circuits and the paused channels. It answers `200` with `ok`, `200` with `warn` while a circuit is open or a channel is paused, and `503` with `fail`. It fails while Horizon is down, because then nothing is delivered. For a liveness probe, use `GET /up`. A browser gets a status page at the same address: one card per check, refreshed every 10 seconds, with links to the dashboard, Horizon, Jaeger and the API docs. Other clients, such as curl, get JSON. Add `?format=json` to get JSON in a browser.
+- **Logs:** JSON lines (`LOG_FORMAT=line` for plain text), for example `notification.delivery.sent`, `notification.delivery.retry_scheduled` and `notification.circuit.opened`. Each line has the notification id, the correlation id and the trace id. In Docker: `docker compose logs -f horizon`.
+- **Traces:** OpenTelemetry sends traces of requests, queries, HTTP calls and jobs to Jaeger (service `ione-edns`). **One notification is one trace.** Each delivery attempt is a `notification.deliver` span under the request that created the notification, with the provider call inside it. A notification of a batch gets its own trace, linked to the batch request. Retries, resends and scheduled sends join the same trace, however much later they run. The API returns the trace id as `trace_id`.
+
+    ![A notification's trace in Jaeger: the request, a first attempt that the provider answered with 503, and the retry that was sent](docs/images/trace.png)
+
+- **A dead tracing backend does not slow delivery.** PHP sends spans synchronously, so a backend that does not answer holds up each request and worker until a timeout. With Jaeger frozen (`docker compose pause jaeger`), 300 SMS took **169 s instead of 3.8 s**. Now an export gives up after one second without retries. Then the process drops its spans for 30 seconds and tries again with one export ([`ResilientSpanExporter`](app/Services/Observability/ResilientSpanExporter.php)). The same 300 SMS then take **4.8 s**. Workers send their spans between jobs, at most once a second.
 - **Queues:** Horizon at `/horizon`, for operators only.
 
 ## Configuration
 
-[`config/notifications.php`](config/notifications.php) holds every setting of the notification system with its value and what it does. The ones an operator is likely to change are read from environment variables, listed in [`.env.example`](.env.example):
+[`config/notifications.php`](config/notifications.php) holds every setting of the notification system and explains it. These settings read environment variables; [`.env.example`](.env.example) lists them:
 
-| Variable                                              | Default  | Meaning                                                                         |
-| ----------------------------------------------------- | -------- | ------------------------------------------------------------------------------- |
-| `NOTIFICATIONS_GATEWAY_URL`                           | —        | The provider (webhook.site) URL; Docker Compose falls back to its mock provider |
-| `NOTIFICATIONS_RATE_LIMIT_PER_SECOND`                 | 100      | Messages per second per channel                                                 |
-| `NOTIFICATIONS_MAX_ATTEMPTS`                          | 5        | Provider attempts before a notification fails                                   |
-| `NOTIFICATIONS_BACKOFF_BASE_SECONDS` / `_CAP_SECONDS` | 30 / 300 | Backoff window after the first failure, doubling per attempt, and its cap       |
-| `HORIZON_NOTIFICATION_WORKERS`                        | 20       | Notification workers per channel in production                                  |
+| Variable                                               | Default   | Meaning                                                                           |
+| ------------------------------------------------------ | --------- | --------------------------------------------------------------------------------- |
+| `NOTIFICATIONS_GATEWAY_URL`                            | —         | The provider URL; Docker Compose uses the mock provider without it                |
+| `NOTIFICATIONS_RATE_LIMIT_PER_SECOND`                  | 100       | Messages per second per channel                                                   |
+| `NOTIFICATIONS_{SMS,EMAIL,PUSH}_RATE_LIMIT_PER_SECOND` | the above | The limit of one channel; `0` pauses it, and its jobs wait without using attempts |
+| `NOTIFICATIONS_MAX_ATTEMPTS`                           | 5         | Provider attempts before a notification fails                                     |
+| `NOTIFICATIONS_BACKOFF_BASE_SECONDS` / `_CAP_SECONDS`  | 30 / 300  | The backoff window after the first failure, and its maximum                       |
+| `HORIZON_NOTIFICATION_WORKERS`                         | 20        | Notification workers per channel in production                                    |
 
 ## Tests and CI
 
-771 Pest tests: unit tests for pure logic (data objects, enums, backoff, channels), feature tests per class and endpoint, and architecture rules (`tests/Unit/ArchitectureTest.php`). Redis-backed code (rate limiter, circuit breaker, queues) is tested against a real Redis.
+The Pest tests are in three suites:
+
+| Suite         | Tests | What it covers                                                                                                                                                                                                                                                                                                                              |
+| ------------- | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Unit`        | 121   | Pure logic (data objects, enums, backoff, channels) and architecture rules (`tests/Unit/ArchitectureTest.php`).                                                                                                                                                                                                                             |
+| `Feature`     | 758   | Each class and endpoint, against a real PostgreSQL. Code that uses Redis (rate limiter, circuit breaker, queues) runs against a real Redis. The provider's HTTP calls are faked.                                                                                                                                                            |
+| `Integration` | 4     | [`tests/Integration`](tests/Integration): real processes working together. Real jobs go through a real queue worker on Redis: high priority goes before normal and low, a worker of one channel leaves other channels alone, a failed attempt waits on the delayed queue, and a cancelled notification's job stops without a provider call. |
+
+The **End-to-end (Docker)** CI job below covers what the suites fake: real HTTP calls to the provider, from the API through Horizon to the mock provider.
 
 ```bash
 docker compose --profile test run --rm tests   # the whole suite in Docker
 php artisan test                               # locally: PostgreSQL with an ione_edns_testing database, and Redis
+php artisan test --testsuite=Integration       # only one suite: Unit, Feature or Integration
 composer test                                  # Pint, PHPStan and the tests
 npm run check && npm run types:check           # frontend formatting, lint and types
 ```
 
 GitHub Actions ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs on every push and pull request:
 
-| Job                     | What it does                                                                                                                                                                                                      |
-| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Quality**             | Pint, PHPStan, the frontend build and checks, and `composer audit` / `npm audit`                                                                                                                                  |
-| **Tests**               | Checks that `spec/openapi.json` matches the code, then runs the suite in random order against PostgreSQL and Redis                                                                                                |
-| **End-to-end (Docker)** | Starts the full Compose stack with the mock provider, waits for `/health` and runs the [Postman smoke flow](#postman)                                                                                             |
-| **Publish**             | On `master` and `v*` tags, once the jobs above passed: pushes `ione-edns-app` and `ione-edns-web` to GitHub Container Registry (`latest` or the version, and `sha-<commit>`); a tag also creates a GitHub release |
+| Job                     | What it does                                                                                                                              |
+| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| **Quality**             | Pint, PHPStan (Larastan level 8), the frontend build and checks, `composer audit` and `npm audit`                                         |
+| **Tests**               | Checks that `spec/openapi.json` matches the code, runs the unit and feature suites in random order, then the integration suite             |
+| **End-to-end (Docker)** | Starts the stack with the mock provider, runs the [Postman smoke flow](#postman), and checks that a notification's trace reaches Jaeger   |
+| **Publish**             | On `master` and `v*` tags: pushes the `ione-edns-app` and `ione-edns-web` images to GitHub Container Registry; a tag also makes a release |
 
-Dependabot proposes weekly dependency updates, and every action is pinned to a commit SHA.
+Dependabot proposes dependency updates every week. Every action is pinned to a commit SHA.
+
+### Load test
+
+[`tests/k6/load.js`](tests/k6/load.js) runs with [k6](https://k6.io) against the Compose stack and the mock provider:
+
+```bash
+docker compose --profile loadtest run --rm k6
+```
+
+It sends 20 batches of 1000 notifications at the same time, and 9 single notifications a second during the same minute. Then it waits until every notification is finished. The single notifications stay below the demo account's limit of 600 requests a minute. Results on a laptop (Docker Desktop, four workers per channel):
+
+| Measurement                                | Result                                                     |
+| ------------------------------------------ | ---------------------------------------------------------- |
+| Notifications accepted                     | 20,534; no failed request                                  |
+| Delivered to the provider                  | 20,534; no duplicate; nothing unfinished                   |
+| Busiest second per channel at the provider | email 99, push 99, sms 94: the limit of 100 a second holds |
+| All delivered                              | 102 s after the start, 42 s after the last request         |
+| A batch of 1000, 20 at the same time       | p50 12.7 s, p95 14.1 s                                     |
+| A single notification during those batches | p50 45 ms, p95 5.3 s                                       |
+| Provider call                              | p50 2 ms, p95 7 ms                                         |
+
+The rate limit, not the workers, sets the delivery speed: three channels at about 100 a second. The 20 large batches occupy all 20 PHP-FPM workers of the `app` container, so a single request waits behind them. More `app` replicas or a larger pool would keep that latency low.
+
+### Resilience run
+
+This run uses the Compose stack, with the mock provider answering after 300 ms so that delivery lasts minutes. It sends 3000 notifications. During the delivery it kills every worker process, restarts Redis and PostgreSQL, and makes the provider fail every call for 45 seconds.
+
+| Failure                                          | What happens                                                                                                                         | In the run                                                                                         |
+| ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------- |
+| A worker dies during a delivery (OOM, `kill -9`) | Horizon starts new workers. The dead worker's notifications stay `processing`; after 5 minutes the sweep sends them again.           | 12 worker processes killed; 9 notifications sent again about 5 minutes later.                      |
+| Redis restarts                                   | Redis keeps the jobs in its append-only file. Workers retry with backoff. The sweep pushes the notifications whose push failed.      | Delivery went on within seconds; no job was lost.                                                  |
+| PostgreSQL restarts                              | The API reconnects. A delivery that cannot be recorded is logged as `notification.delivery.unrecorded` and sent again.               | All 24 API requests during the restart got `200`; 15 deliveries were sent again.                   |
+| The provider fails every call                    | Retries with backoff. When half of a channel's calls in 60 seconds fail, the circuit opens and the jobs wait without using attempts. | 587 calls failed; all three circuits opened and closed; no notification used more than 2 attempts. |
+| The tracing backend stops answering              | Exports give up after one second and pause for 30 seconds ([Observability](#observability)).                                         | Measured separately: 300 SMS in 4.8 s instead of 169 s.                                            |
+| The API dies after storing, before pushing       | The notifications stay `waiting`, and the sweep pushes them after 2 minutes.                                                         | Not in the run; covered by tests.                                                                  |
+
+All 3000 notifications were sent after 354 seconds; most of that time was the wait for the sweep. None failed and none was lost. The provider received 3596 calls: 3000 accepted, 587 failed on purpose, and 9 repeats of accepted messages. The repeats had the same `Idempotency-Key`, so a provider can drop them; delivery is at-least-once.
 
 ## Local development without Docker
 
-Requirements: PHP 8.5 with `pdo_pgsql`, `redis` (phpredis), `intl` and `pcntl`; PostgreSQL 18; Redis; Node 22. The `opentelemetry` extension is optional.
+You need PHP 8.5 with `pdo_pgsql`, `redis` (phpredis), `intl` and `pcntl`, PostgreSQL 18, Redis and Node 22. The `opentelemetry` extension is optional.
 
 ```bash
 composer install
@@ -428,7 +521,7 @@ Run `php artisan serve`, `php artisan horizon`, `php artisan schedule:work` and 
 
 ## Known limitations
 
-- **At-least-once delivery:** a message whose result could not be recorded is sent again; only a provider that honours the `Idempotency-Key` drops the duplicate.
-- **Redis is needed to accept notifications:** the API's rate limit and the `Idempotency-Key` lock live in Redis, so while Redis is down the API answers `503`. Notifications stored before are not lost; the sweep pushes their jobs once Redis is back.
-- **webhook.site:** the free URL answers every request with the same `messageId`, expires after seven days and limits the number of requests.
-- **Not a production setup:** Docker Compose runs with `APP_ENV=local`, small worker pools and a seeded demo operator, and the published images are deployed nowhere. Sizing, deployment, data retention and the other deferred work are in [`docs/backlog.md`](docs/backlog.md).
+- **At-least-once delivery:** a message whose result was not recorded is sent again. Only a provider that honours `Idempotency-Key` drops the repeat.
+- **Redis is needed to accept notifications:** the API's rate limit and the `Idempotency-Key` lock are in Redis, so the API answers `503` while Redis is down. Stored notifications are not lost; the sweep pushes their jobs when Redis is back.
+- **webhook.site:** a free URL expires after seven days and limits the number of requests. A URL that you set up by hand with a fixed body gives every notification the same `messageId`.
+- **Not a production setup:** Docker Compose runs with `APP_ENV=local`, small worker pools and a demo operator. The published images are not deployed anywhere. Sizing, deployment, data retention and other deferred work are in [`docs/backlog.md`](docs/backlog.md).
