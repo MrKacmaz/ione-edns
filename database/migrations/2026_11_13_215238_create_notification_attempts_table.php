@@ -8,6 +8,8 @@ return new class extends Migration
 {
     /**
      * Run the migrations.
+     *
+     * provider_message_id is text because the provider decides how long its ids are.
      */
     public function up(): void
     {
@@ -17,7 +19,7 @@ return new class extends Migration
             $table->unsignedSmallInteger('attempt');
             $table->string('outcome', 32);
             $table->unsignedSmallInteger('http_status')->nullable();
-            $table->string('provider_message_id')->nullable();
+            $table->text('provider_message_id')->nullable();
             $table->text('error')->nullable();
             $table->unsignedInteger('duration_ms');
             $table->timestamp('created_at', precision: 6);
