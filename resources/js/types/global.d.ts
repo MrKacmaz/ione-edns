@@ -22,6 +22,12 @@ declare module '@inertiajs/core' {
             sidebarOpen: boolean;
             [key: string]: unknown;
         };
+        flashDataType: {
+            notificationsAccepted?: {
+                message: string;
+                batch_id: string | null;
+            };
+        };
     }
 }
 

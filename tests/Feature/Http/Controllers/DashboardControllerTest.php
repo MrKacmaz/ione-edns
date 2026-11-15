@@ -2,6 +2,7 @@
 
 use App\Enums\CircuitState;
 use App\Models\Notification;
+use App\Models\NotificationTemplate;
 use App\Models\User;
 use App\Services\Delivery\Contracts\CircuitBreaker;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -33,6 +34,36 @@ test('shows operators the system metrics and their own latest notifications', fu
         ->has('notifications', 1)
         ->where('notifications.0.id', $own->id)
         ->where('notifications.0.status', 'sent'));
+});
+
+test('offers the operator\'s own templates, the batch size and the trace link base to the send form', function () {
+    config(['notifications.batch.max_size' => 250, 'services.jaeger.ui_url' => 'http://localhost:16686/']);
+    $operator = User::factory()->operator()->create();
+    NotificationTemplate::factory()->for($operator)->create(['name' => 'welcome', 'channel' => 'push', 'content' => 'Welcome, {{ name }}! Your code is {{ code }}.']);
+    NotificationTemplate::factory()->create(['name' => 'someone-elses']);
+
+    $response = $this->actingAs($operator)->get(route('dashboard'));
+
+    $response->assertInertia(fn (Assert $page) => $page
+        ->where('templates', [['name' => 'welcome', 'channel' => 'push', 'variables' => ['name', 'code']]])
+        ->where('maxBatchSize', 250)
+        ->where('jaegerUrl', 'http://localhost:16686'));
+});
+
+test('shows each channel\'s rate limit, 0 for a paused channel', function () {
+    config(['notifications.delivery.rate_limit_per_second' => ['sms' => 0, 'email' => 50, 'push' => 100]]);
+
+    $response = $this->actingAs(User::factory()->operator()->create())->get(route('dashboard'));
+
+    $response->assertInertia(fn (Assert $page) => $page->where('rateLimits', ['sms' => 0, 'email' => 50, 'push' => 100]));
+});
+
+test('shows no trace links while no tracing UI is configured', function () {
+    config(['services.jaeger.ui_url' => null]);
+
+    $response = $this->actingAs(User::factory()->operator()->create())->get(route('dashboard'));
+
+    $response->assertInertia(fn (Assert $page) => $page->where('jaegerUrl', null));
 });
 
 test('starts the feed with the operator\'s twenty newest notifications', function () {

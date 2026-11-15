@@ -28,6 +28,12 @@ return [
         'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
     ],
 
+    // The Jaeger UI as the operator's browser reaches it; the dashboard links each
+    // notification to its trace there. Without it, no trace links are shown.
+    'jaeger' => [
+        'ui_url' => env('JAEGER_UI_URL'),
+    ],
+
     'slack' => [
         'notifications' => [
             'bot_user_oauth_token' => env('SLACK_BOT_USER_OAUTH_TOKEN'),

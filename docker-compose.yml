@@ -59,6 +59,8 @@ x-app-env: &app-env
     NOTIFICATIONS_SMS_RATE_LIMIT_PER_SECOND: ${NOTIFICATIONS_SMS_RATE_LIMIT_PER_SECOND:-${NOTIFICATIONS_RATE_LIMIT_PER_SECOND:-100}}
     NOTIFICATIONS_EMAIL_RATE_LIMIT_PER_SECOND: ${NOTIFICATIONS_EMAIL_RATE_LIMIT_PER_SECOND:-${NOTIFICATIONS_RATE_LIMIT_PER_SECOND:-100}}
     NOTIFICATIONS_PUSH_RATE_LIMIT_PER_SECOND: ${NOTIFICATIONS_PUSH_RATE_LIMIT_PER_SECOND:-${NOTIFICATIONS_RATE_LIMIT_PER_SECOND:-100}}
+    # Where the browser opens Jaeger; the dashboard links each notification's trace there.
+    JAEGER_UI_URL: http://localhost:${JAEGER_UI_PORT:-16686}
 
 # The build every PHP service shares; the browser reaches Reverb on the host port.
 x-app-build: &app-build

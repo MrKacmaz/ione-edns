@@ -53,3 +53,46 @@ test('stays available but reports the service degraded while a delivery circuit 
         ->assertJsonPath('status', 'warn')
         ->assertJsonPath('checks.delivery_circuits.status', 'warn');
 });
+
+test('keeps answering JSON to clients that accept anything, such as curl', function () {
+    horizonMasters([(object) ['name' => 'master-1', 'status' => 'running']]);
+
+    $response = $this->get(route('health'), ['Accept' => '*/*']);
+
+    $response->assertOk()
+        ->assertHeader('Content-Type', 'application/json')
+        ->assertJsonPath('status', 'ok');
+});
+
+test('shows a browser the status page with every check and useful links', function () {
+    horizonMasters([(object) ['name' => 'master-1', 'status' => 'running']]);
+    config(['services.jaeger.ui_url' => 'http://jaeger.test']);
+
+    $response = $this->get(route('health'), ['Accept' => 'text/html,application/xhtml+xml,*/*;q=0.8']);
+
+    $response->assertOk()
+        ->assertHeader('Content-Type', 'text/html; charset=utf-8')
+        ->assertSee('All systems are working')
+        ->assertSee(['Database', 'Redis', 'Queue workers', 'Gateway', 'Delivery circuits', 'Delivery channels'])
+        ->assertSee(route('dashboard'))
+        ->assertSee('http://jaeger.test')
+        ->assertSee(route('health', ['format' => 'json']), escape: false);
+});
+
+test('answers the status page with 503 and the failing reason when a check fails', function () {
+    horizonMasters([]);
+
+    $response = $this->get(route('health'), ['Accept' => 'text/html']);
+
+    $response->assertServiceUnavailable()
+        ->assertSee('The service is down')
+        ->assertSee(__('health.horizon_inactive'));
+});
+
+test('answers JSON to a browser that asks for it with the format parameter', function () {
+    horizonMasters([(object) ['name' => 'master-1', 'status' => 'running']]);
+
+    $response = $this->get(route('health', ['format' => 'json']), ['Accept' => 'text/html']);
+
+    $response->assertOk()->assertJsonPath('status', 'ok');
+});

@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { Head, Link, usePage } from '@inertiajs/vue3';
 import { useConnectionStatus, useEcho } from '@laravel/echo-vue';
-import { computed, onMounted, onUnmounted, ref } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
+import SendNotificationsForm from '@/components/dashboard/SendNotificationsForm.vue';
 import StatTile from '@/components/dashboard/StatTile.vue';
 import StatusBadge from '@/components/dashboard/StatusBadge.vue';
 import {
@@ -15,6 +16,7 @@ import { cn } from '@/lib/utils';
 import { logout } from '@/routes';
 import type {
     CircuitChangedEvent,
+    DashboardTemplate,
     MetricsSnapshot,
     MetricsUpdatedEvent,
     NotificationRow,
@@ -26,6 +28,10 @@ const FEED_SIZE = 20;
 const props = defineProps<{
     metrics: MetricsSnapshot;
     notifications: NotificationRow[];
+    templates: DashboardTemplate[];
+    maxBatchSize: number;
+    jaegerUrl: string | null;
+    rateLimits: Record<string, number>;
 }>();
 
 const page = usePage();
@@ -33,6 +39,22 @@ const user = computed(() => page.props.auth.user);
 
 const metrics = ref<MetricsSnapshot>(props.metrics);
 const notifications = ref<NotificationRow[]>([...props.notifications]);
+
+// After a send, the redirect brings the new notifications in the props.
+watch(
+    () => props.notifications,
+    (latest) => {
+        notifications.value = [...latest];
+    },
+);
+
+const accepted = computed(() => page.flash.notificationsAccepted);
+
+function traceUrl(notification: NotificationRow): string | null {
+    return props.jaegerUrl && notification.trace_id
+        ? `${props.jaegerUrl}/trace/${notification.trace_id}`
+        : null;
+}
 const highlightedId = ref<string | null>(null);
 const selectedWindow = ref(props.metrics.windows[0]?.window ?? '5m');
 
@@ -79,6 +101,13 @@ useEcho<NotificationStatusChangedEvent>(
         const known = notifications.value.find(
             (notification) => notification.id === event.notification.id,
         );
+
+        // An event can arrive after the page already shows a later status, for example the
+        // creation of a notification sent from the form; the same-format timestamps sort as text.
+        if (known && event.notification.updated_at < known.updated_at) {
+            return;
+        }
+
         const others = notifications.value.filter(
             (notification) => notification.id !== event.notification.id,
         );
@@ -154,7 +183,7 @@ const inFlightTotal = computed(() =>
                 <h2
                     class="text-sm font-semibold text-zinc-700 dark:text-zinc-300"
                 >
-                    Delivery circuits
+                    Delivery channels
                 </h2>
                 <div class="grid gap-4 sm:grid-cols-3">
                     <div
@@ -162,12 +191,30 @@ const inFlightTotal = computed(() =>
                         :key="channel"
                         class="flex items-center justify-between rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900"
                     >
+                        <div class="flex flex-col">
+                            <span
+                                class="text-sm font-medium text-zinc-900 uppercase dark:text-zinc-50"
+                            >
+                                {{ channel }}
+                            </span>
+                            <span
+                                class="text-xs text-zinc-500 dark:text-zinc-400"
+                            >
+                                {{
+                                    rateLimits[channel] === 0
+                                        ? 'Paused by its rate limit of 0'
+                                        : `Up to ${formatCount(rateLimits[channel] ?? 0)} per second`
+                                }}
+                            </span>
+                        </div>
                         <span
-                            class="text-sm font-medium text-zinc-900 uppercase dark:text-zinc-50"
+                            v-if="rateLimits[channel] === 0"
+                            class="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-950 dark:text-amber-300"
+                            data-test="channel-paused"
                         >
-                            {{ channel }}
+                            paused
                         </span>
-                        <StatusBadge :status="state" />
+                        <StatusBadge v-else :status="state" />
                     </div>
                 </div>
             </section>
@@ -204,12 +251,12 @@ const inFlightTotal = computed(() =>
                     <StatTile
                         label="Success rate"
                         :value="formatRatio(currentWindow.success_rate)"
-                        :hint="`${formatCount(currentWindow.notifications.sent)} sent, ${formatCount(currentWindow.notifications.failed)} failed`"
+                        :hint="`${formatCount(currentWindow.notifications.sent)} sent, ${formatCount(currentWindow.notifications.failed)} failed (${formatRatio(currentWindow.failure_rate)})`"
                     />
                     <StatTile
                         label="Provider calls"
                         :value="formatCount(currentWindow.attempts.total)"
-                        :hint="`${formatCount(currentWindow.attempts.retryable_failure)} retryable, ${formatCount(currentWindow.attempts.permanent_failure)} permanent failures`"
+                        :hint="`${formatCount(currentWindow.attempts.retryable_failure)} retryable, ${formatCount(currentWindow.attempts.throttled)} throttled, ${formatCount(currentWindow.attempts.permanent_failure)} permanent`"
                     />
                     <StatTile
                         label="Provider latency p95"
@@ -335,6 +382,26 @@ const inFlightTotal = computed(() =>
                 <h2
                     class="text-sm font-semibold text-zinc-700 dark:text-zinc-300"
                 >
+                    Send notifications
+                </h2>
+                <SendNotificationsForm
+                    :templates="templates"
+                    :max-batch-size="maxBatchSize"
+                />
+                <p
+                    v-if="accepted"
+                    class="rounded-md border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300"
+                    role="status"
+                    data-test="notifications-accepted"
+                >
+                    {{ accepted.message }}
+                </p>
+            </section>
+
+            <section class="flex flex-col gap-3">
+                <h2
+                    class="text-sm font-semibold text-zinc-700 dark:text-zinc-300"
+                >
                     Your latest notifications
                 </h2>
                 <div
@@ -344,8 +411,8 @@ const inFlightTotal = computed(() =>
                         v-if="notifications.length === 0"
                         class="px-4 py-6 text-center text-sm text-zinc-500 dark:text-zinc-400"
                     >
-                        No notifications yet. Notifications you send through the
-                        API show up here as they finish.
+                        No notifications yet. Notifications you send with the
+                        form above or through the API show up here.
                     </p>
                     <table v-else class="w-full text-left text-sm">
                         <thead
@@ -359,6 +426,12 @@ const inFlightTotal = computed(() =>
                                     Attempts
                                 </th>
                                 <th class="px-4 py-2 font-medium">Updated</th>
+                                <th
+                                    v-if="jaegerUrl"
+                                    class="px-4 py-2 font-medium"
+                                >
+                                    Trace
+                                </th>
                             </tr>
                         </thead>
                         <tbody
@@ -403,6 +476,20 @@ const inFlightTotal = computed(() =>
                                             now,
                                         )
                                     }}
+                                </td>
+                                <td v-if="jaegerUrl" class="px-4 py-2">
+                                    <a
+                                        v-if="traceUrl(notification)"
+                                        :href="
+                                            traceUrl(notification) ?? undefined
+                                        "
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        class="text-sky-700 underline-offset-2 hover:underline dark:text-sky-400"
+                                    >
+                                        View
+                                    </a>
+                                    <span v-else class="text-zinc-400">–</span>
                                 </td>
                             </tr>
                         </tbody>

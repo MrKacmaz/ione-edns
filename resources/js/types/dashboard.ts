@@ -19,10 +19,12 @@ export type WindowMetrics = {
         total: number;
         accepted: number;
         retryable_failure: number;
+        throttled: number;
         permanent_failure: number;
     };
     notifications: { sent: number; failed: number };
     success_rate: number | null;
+    failure_rate: number | null;
     latency_ms: { provider: Latency; end_to_end: Latency };
 };
 
@@ -57,7 +59,16 @@ export type NotificationRow = {
     recipient: string;
     attempts: number;
     last_error: string | null;
+    trace_id: string | null;
+    scheduled_at?: string | null;
+    next_attempt_at?: string | null;
     updated_at: string;
+};
+
+export type DashboardTemplate = {
+    name: string;
+    channel: string;
+    variables: string[];
 };
 
 export type MetricsUpdatedEvent = { metrics: MetricsSnapshot };
