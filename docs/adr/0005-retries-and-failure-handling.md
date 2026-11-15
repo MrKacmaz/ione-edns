@@ -42,4 +42,4 @@ The provider can time out, answer `5xx`, throttle with `429` (possibly with `Ret
 - All channels currently share one provider URL, so an outage opens the three circuits one by one rather than together.
 - A job still gives up one day after its first dispatch; if a circuit stays open longer, its notifications fail and need a manual retry.
 - Below 20 calls a minute a circuit cannot open, so with little traffic an expired provider URL still fails the notifications after their five attempts; once the URL is fixed they are retried one by one with `POST /notifications/{id}/retry`.
-- The thresholds are global defaults; a provider with a different error profile needs tuning through `NOTIFICATIONS_CIRCUIT_*`.
+- The thresholds are global defaults; a provider with a different error profile needs them tuned in `config/notifications.php`.

@@ -222,7 +222,7 @@ After the n-th failed attempt the next one waits a **random** time between zero 
 | 4               | 0–240 s                  |
 | 5               | — the notification fails |
 
-A provider's `Retry-After` (delay seconds or an HTTP date, parsed strictly) is a lower bound for the wait, capped at one hour so a wrong header cannot park a notification for days. Without `Retry-After`, the defaults give up on a notification after at most about 7.5 minutes of waiting. Everything is configurable (`NOTIFICATIONS_MAX_ATTEMPTS`, `NOTIFICATIONS_BACKOFF_*`).
+A provider's `Retry-After` (delay seconds or an HTTP date, parsed strictly) is a lower bound for the wait, capped at one hour so a wrong header cannot park a notification for days. Without `Retry-After`, the defaults give up on a notification after at most about 7.5 minutes of waiting. The attempts and the backoff window are configurable (`NOTIFICATIONS_MAX_ATTEMPTS`, `NOTIFICATIONS_BACKOFF_BASE_SECONDS`, `NOTIFICATIONS_BACKOFF_CAP_SECONDS`).
 
 **Why full jitter:** when the provider has a problem, many notifications fail in the same second. Plain exponential backoff would send them all back in the same second again and hit the recovering provider with the same spike. Spreading each retry randomly over its window removes the spike without any coordination between workers.
 
@@ -372,7 +372,7 @@ The operator dashboard at http://localhost:8000 shows queue depth, success rate,
 
 ## Configuration
 
-Everything is set with environment variables. [`config/notifications.php`](config/notifications.php) describes every setting and its default, and [`.env.example`](.env.example) lists them. The ones you are most likely to change:
+[`config/notifications.php`](config/notifications.php) holds every setting of the notification system with its value and what it does. The ones an operator is likely to change are read from environment variables, listed in [`.env.example`](.env.example):
 
 | Variable                                              | Default  | Meaning                                                                         |
 | ----------------------------------------------------- | -------- | ------------------------------------------------------------------------------- |

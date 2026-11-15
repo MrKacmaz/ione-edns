@@ -1,5 +1,16 @@
 <?php
 
+/*
+|--------------------------------------------------------------------------
+| Notifications
+|--------------------------------------------------------------------------
+|
+| Every setting of the notification system. Only the ones an operator is
+| likely to change are read from the environment (NOTIFICATIONS_*); the
+| others are fixed here.
+|
+*/
+
 return [
 
     /*
@@ -40,14 +51,13 @@ return [
     | response stored so retries can replay it. "retention_hours" controls how
     | long a response stays replayable, and "lock_seconds" how long the first
     | request may hold its key before a concurrent retry can take it over.
-    | Keep the lock longer than the slowest request it protects. The lock is at
-    | least one second, because a zero second lock never expires.
+    | Keep the lock longer than the slowest request it protects.
     |
     */
 
     'idempotency' => [
-        'retention_hours' => (int) env('NOTIFICATIONS_IDEMPOTENCY_RETENTION_HOURS', 24),
-        'lock_seconds' => max(1, (int) env('NOTIFICATIONS_IDEMPOTENCY_LOCK_SECONDS', 30)),
+        'retention_hours' => 24,
+        'lock_seconds' => 30,
     ],
 
     /*
@@ -78,16 +88,16 @@ return [
         'backoff' => [
             'base_seconds' => max(1, (int) env('NOTIFICATIONS_BACKOFF_BASE_SECONDS', 30)),
             'cap_seconds' => max(1, (int) env('NOTIFICATIONS_BACKOFF_CAP_SECONDS', 300)),
-            'max_retry_after_seconds' => max(1, (int) env('NOTIFICATIONS_BACKOFF_MAX_RETRY_AFTER_SECONDS', 3600)),
+            'max_retry_after_seconds' => 3600,
         ],
 
         'rate_limit_per_second' => max(1, (int) env('NOTIFICATIONS_RATE_LIMIT_PER_SECOND', 100)),
-        'rate_limit_max_wait_ms' => max(0, (int) env('NOTIFICATIONS_RATE_LIMIT_MAX_WAIT_MS', 2000)),
+        'rate_limit_max_wait_ms' => 2000,
 
         'stale_after_seconds' => [
-            'waiting' => max(1, (int) env('NOTIFICATIONS_STALE_WAITING_SECONDS', 120)),
-            'processing' => max(1, (int) env('NOTIFICATIONS_STALE_PROCESSING_SECONDS', 300)),
-            'queued' => max(86_400 + 1, (int) env('NOTIFICATIONS_STALE_QUEUED_SECONDS', 90_000)),
+            'waiting' => 120,
+            'processing' => 300,
+            'queued' => 90_000,
         ],
     ],
 
@@ -108,11 +118,11 @@ return [
     */
 
     'circuit_breaker' => [
-        'window_seconds' => max(1, (int) env('NOTIFICATIONS_CIRCUIT_WINDOW_SECONDS', 60)),
-        'minimum_attempts' => max(1, (int) env('NOTIFICATIONS_CIRCUIT_MINIMUM_ATTEMPTS', 20)),
-        'failure_rate_percent' => min(100, max(1, (int) env('NOTIFICATIONS_CIRCUIT_FAILURE_RATE_PERCENT', 50))),
-        'cooldown_seconds' => max(1, (int) env('NOTIFICATIONS_CIRCUIT_COOLDOWN_SECONDS', 30)),
-        'probe_timeout_seconds' => max(1, (int) env('NOTIFICATIONS_CIRCUIT_PROBE_TIMEOUT_SECONDS', 20)),
+        'window_seconds' => 60,
+        'minimum_attempts' => 20,
+        'failure_rate_percent' => 50,
+        'cooldown_seconds' => 30,
+        'probe_timeout_seconds' => 20,
     ],
 
     /*
@@ -128,7 +138,7 @@ return [
     'gateway' => [
         'url' => env('NOTIFICATIONS_GATEWAY_URL'),
         'timeout_seconds' => max(1, (int) env('NOTIFICATIONS_GATEWAY_TIMEOUT_SECONDS', 10)),
-        'connect_timeout_seconds' => max(1, (int) env('NOTIFICATIONS_GATEWAY_CONNECT_TIMEOUT_SECONDS', 5)),
+        'connect_timeout_seconds' => 5,
     ],
 
     /*
@@ -143,7 +153,7 @@ return [
     */
 
     'metrics' => [
-        'cache_seconds' => max(0, (int) env('NOTIFICATIONS_METRICS_CACHE_SECONDS', 5)),
+        'cache_seconds' => 5,
     ],
 
     /*
@@ -159,7 +169,7 @@ return [
     */
 
     'api' => [
-        'requests_per_minute' => max(1, (int) env('NOTIFICATIONS_API_REQUESTS_PER_MINUTE', 600)),
+        'requests_per_minute' => 600,
     ],
 
 ];

@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\NotificationChannel;
 use App\Enums\NotificationStatus;
 use App\Events\NotificationStatusChanged;
 use App\Jobs\SendNotificationJob;
@@ -202,29 +203,9 @@ test('pushes a queued notification again once it has outlived any job, as its jo
         ->and($stillWaitingForItsJob->refresh()->status)->toBe(NotificationStatus::Queued);
 });
 
-test('keeps the lost-job threshold above the one day a delivery job lives, whatever the environment says', function () {
-    $variable = 'NOTIFICATIONS_STALE_QUEUED_SECONDS';
-    $original = ['server' => $_SERVER[$variable] ?? null, 'env' => $_ENV[$variable] ?? null, 'process' => getenv($variable)];
+test('keeps the lost-job threshold above the time a delivery job lives, so only notifications without a job are pushed again', function () {
+    $this->freezeTime();
+    $jobLifetimeSeconds = now()->diffInSeconds((new SendNotificationJob('notification-id', NotificationChannel::Sms))->retryUntil());
 
-    // Laravel reads $_SERVER and $_ENV before getenv() and never overwrites them, so a .env value would win over putenv() alone.
-    $_SERVER[$variable] = $_ENV[$variable] = '60';
-    putenv("{$variable}=60");
-
-    try {
-        $threshold = (require base_path('config/notifications.php'))['delivery']['stale_after_seconds']['queued'];
-    } finally {
-        unset($_SERVER[$variable], $_ENV[$variable]);
-
-        if ($original['server'] !== null) {
-            $_SERVER[$variable] = $original['server'];
-        }
-
-        if ($original['env'] !== null) {
-            $_ENV[$variable] = $original['env'];
-        }
-
-        putenv($original['process'] === false ? $variable : "{$variable}={$original['process']}");
-    }
-
-    expect($threshold)->toBe(86_401);
+    expect(config('notifications.delivery.stale_after_seconds.queued'))->toBeGreaterThan($jobLifetimeSeconds);
 });
