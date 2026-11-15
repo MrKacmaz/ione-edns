@@ -67,3 +67,19 @@ test('rebuilds the same snapshot from its array form', function () {
     expect($rebuilt->toArray())->toBe($snapshot->toArray())
         ->and($rebuilt->generatedAt->equalTo($snapshot->generatedAt))->toBeTrue();
 });
+
+test('replaces only the circuit states in a copy', function () {
+    $snapshot = new MetricsSnapshotData(
+        generatedAt: CarbonImmutable::parse('2026-11-14T10:15:30.123456Z'),
+        queues: [['queue' => 'notifications-high', 'pending' => 3, 'delayed' => 1, 'reserved' => 2, 'oldest_pending_age_seconds' => 12]],
+        inFlight: ['queued' => 3],
+        windows: [],
+        circuits: ['sms' => 'closed'],
+    );
+
+    $copy = $snapshot->withCircuits(['sms' => 'open']);
+
+    expect($copy->circuits)->toBe(['sms' => 'open'])
+        ->and($snapshot->circuits)->toBe(['sms' => 'closed'])
+        ->and(array_diff_key($copy->toArray(), ['circuits' => true]))->toBe(array_diff_key($snapshot->toArray(), ['circuits' => true]));
+});

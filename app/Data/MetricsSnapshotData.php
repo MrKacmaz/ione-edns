@@ -51,6 +51,16 @@ final readonly class MetricsSnapshotData
     }
 
     /**
+     * Get a copy of the snapshot with other circuit states.
+     *
+     * @param  array<string, string>  $circuits  The circuit state per channel.
+     */
+    public function withCircuits(array $circuits): self
+    {
+        return new self($this->generatedAt, $this->queues, $this->inFlight, $this->windows, $circuits);
+    }
+
+    /**
      * @return array{generated_at: string, queues: list<QueueMetrics>, notifications_in_flight: array<string, int>, windows: list<WindowMetrics>, circuits: array<string, string>}
      */
     public function toArray(): array

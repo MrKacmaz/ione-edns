@@ -208,6 +208,19 @@ test('shares one snapshot between callers until the cache period ends', function
         ->and($afterPeriod->inFlight['queued'])->toBe(2);
 });
 
+test('reports the current circuit states with a shared snapshot, so a circuit that has just opened is not shown closed again', function () {
+    config(['notifications.metrics.cache_seconds' => 5]);
+    $this->freezeSecond();
+    $first = app(MetricsCollector::class)->snapshot();
+    $this->app->instance(CircuitBreaker::class, new FakeCircuitBreaker(states: ['sms' => CircuitState::Open]));
+
+    $withinPeriod = app(MetricsCollector::class)->snapshot();
+
+    expect($withinPeriod->generatedAt->equalTo($first->generatedAt))->toBeTrue()
+        ->and($first->circuits['sms'])->toBe('closed')
+        ->and($withinPeriod->circuits)->toBe(['sms' => 'open', 'email' => 'closed', 'push' => 'closed']);
+});
+
 test('reads the shared snapshot back from a cache that serializes its values, as Redis does', function () {
     config(['notifications.metrics.cache_seconds' => 5]);
     $this->travelTo('2026-11-14 12:00:00.250000');

@@ -53,6 +53,10 @@ final readonly class MetricsCollector
      * the aggregate queries run at most once per cache period however many
      * dashboards and scrapers ask. The cache keeps the snapshot as an array,
      * because it refuses to unserialize objects (`cache.serializable_classes`).
+     *
+     * The circuit states are read live on every call: they are a few Redis reads,
+     * and a cached state would put a circuit that has just opened or closed back
+     * on the dashboard, which replaces its state with each broadcast snapshot.
      */
     public function snapshot(): MetricsSnapshotData
     {
@@ -62,7 +66,7 @@ final readonly class MetricsCollector
 
         return MetricsSnapshotData::fromArray(
             $this->cache->remember(self::CACHE_KEY, $this->cacheSeconds, fn (): array => $this->collect()->toArray()),
-        );
+        )->withCircuits($this->circuitStates());
     }
 
     /**
