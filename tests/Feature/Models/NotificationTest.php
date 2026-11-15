@@ -97,16 +97,16 @@ describe('secondsUntilDue', function () {
         'queued, next attempt ahead' => [fn (NotificationFactory $factory) => $factory->queued(), ['next_attempt_at' => '2026-11-14 10:00:44.100000'], 45],
         'queued, scheduled within the second' => [fn (NotificationFactory $factory) => $factory->queued(), ['scheduled_at' => '2026-11-14 10:00:00.250000'], 1],
         'scheduled' => [fn (NotificationFactory $factory) => $factory->scheduled(), ['scheduled_at' => '2026-11-14 10:05:00.000000'], 300],
+        'queued and already due, after a claim that read the clock earlier' => [fn (NotificationFactory $factory) => $factory->queued(), ['next_attempt_at' => '2026-11-14 09:59:59.000000'], 1],
     ]);
 
-    test('has nothing to wait for when the notification is due or no attempt is pending', function (Closure $state, array $attributes) {
+    test('has nothing to wait for when the notification has no due time or no attempt is pending', function (Closure $state, array $attributes) {
         $this->travelTo('2026-11-14 10:00:00.000000');
         /** @var Notification $notification */
         $notification = $state(Notification::factory())->create($attributes);
 
         expect(Notification::secondsUntilDue($notification->id))->toBeNull();
     })->with([
-        'queued and due' => [fn (NotificationFactory $factory) => $factory->queued(), ['next_attempt_at' => '2026-11-14 09:59:59.000000']],
         'waiting' => [fn (NotificationFactory $factory) => $factory, []],
         'processing' => [fn (NotificationFactory $factory) => $factory->processing(), ['next_attempt_at' => '2026-11-14 10:01:00.000000']],
         'cancelled' => [fn (NotificationFactory $factory) => $factory->cancelled(), ['scheduled_at' => '2026-11-14 10:05:00.000000']],

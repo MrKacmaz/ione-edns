@@ -192,10 +192,15 @@ class Notification extends Model
     }
 
     /**
-     * Get the seconds until a notification that is not due yet may be claimed.
+     * Get the seconds until a pending notification with a due time may be claimed.
      *
-     * Null when the notification is due, or when no attempt is pending for it at
-     * all (it was cancelled, is being delivered or already finished).
+     * At least one second: a claim that has just failed because the notification
+     * was not due may find its due time passed by now, as the two read the clock
+     * at different moments; the job then waits a second and claims it, instead
+     * of leaving the notification queued without a job.
+     *
+     * Null when the notification has no due time, or when no attempt is pending
+     * for it at all (it was cancelled, is being delivered or already finished).
      */
     public static function secondsUntilDue(string $id): ?int
     {
@@ -213,7 +218,7 @@ class Notification extends Model
 
         $secondsUntilDue = now()->diffInMicroseconds((new self)->asDateTime($dueAt)) / 1_000_000;
 
-        return $secondsUntilDue > 0 ? (int) ceil($secondsUntilDue) : null;
+        return max(1, (int) ceil($secondsUntilDue));
     }
 
     /**

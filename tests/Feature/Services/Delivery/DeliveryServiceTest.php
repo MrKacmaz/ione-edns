@@ -330,6 +330,24 @@ test('reports an unexpected gateway error', function () {
     Exceptions::assertReported(fn (RuntimeException $exception): bool => $exception->getMessage() === 'Gateway exploded');
 });
 
+test('defers instead of skipping a notification that became due between the claim and the due-time lookup', function () {
+    Http::fake();
+    $this->travelTo('2026-11-14 10:00:29.998000');
+    $notification = Notification::factory()->queued()->create(['attempts' => 1, 'next_attempt_at' => '2026-11-14 10:00:30.000000']);
+    DB::beforeExecuting(function (string $query): void {
+        if (str_starts_with($query, 'select coalesce(next_attempt_at, scheduled_at) as due_at')) {
+            $this->travelTo('2026-11-14 10:00:30.003000');
+        }
+    });
+
+    $result = app(DeliveryService::class)->deliver($notification->id);
+
+    expect($result->outcome)->toBe(DeliveryOutcome::Deferred)
+        ->and($result->retryDelaySeconds)->toBe(1);
+    expect($notification->refresh())->status->toBe(NotificationStatus::Queued)->attempts->toBe(1);
+    Http::assertNothingSent();
+});
+
 test('logs that it skipped a notification that is no longer claimable', function () {
     Log::spy();
     $notification = Notification::factory()->cancelled()->create();
