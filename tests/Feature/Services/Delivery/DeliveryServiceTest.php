@@ -76,6 +76,21 @@ test('records when the next attempt is due, so no other job for the notification
         ->toBe(now()->addSeconds((int) $result->retryDelaySeconds)->format('Y-m-d H:i:s.u'));
 });
 
+test('makes the next attempt due on a whole second, so the released job, which the queue wakes on whole seconds, never comes early', function () {
+    Http::fake(['gateway.test/*' => Http::response([], 503)]);
+    $this->travelTo('2026-11-14 10:00:00.700000');
+    $notification = Notification::factory()->queued()->create();
+
+    $result = app(DeliveryService::class)->deliver($notification->id);
+
+    expect($notification->refresh()->next_attempt_at?->format('Y-m-d H:i:s.u'))
+        ->toBe(now()->startOfSecond()->addSeconds((int) $result->retryDelaySeconds)->format('Y-m-d H:i:s.u'));
+
+    $this->travelTo(now()->startOfSecond()->addSeconds((int) $result->retryDelaySeconds));
+
+    expect(app(DeliveryService::class)->deliver($notification->id)->outcome)->not->toBe(DeliveryOutcome::Deferred);
+});
+
 test('fails the notification when the last attempt fails', function () {
     Http::fake(['gateway.test/*' => Http::response([], 503)]);
     $notification = Notification::factory()->queued()->create(['attempts' => 4]);

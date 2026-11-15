@@ -200,11 +200,19 @@ final readonly class DeliveryService
         return DeliveryResultData::failed();
     }
 
+    /**
+     * Put the notification back for a later attempt.
+     *
+     * The next attempt is due at the start of its second, because the queue makes
+     * the released job available on whole seconds; a due time with a fraction of a
+     * second would make the job come early and spend a claim, a rate-limit slot and
+     * a release before it may run.
+     */
     private function scheduleRetry(Notification $notification, GatewayResponseData $response, int $durationMilliseconds): DeliveryResultData
     {
         $delaySeconds = $this->backoff->delayAfter($notification->attempts, $response->retryAfterSeconds);
 
-        $notification->markRetryPending((string) $response->error, now()->addSeconds($delaySeconds));
+        $notification->markRetryPending((string) $response->error, now()->addSeconds($delaySeconds)->startOfSecond());
 
         $this->logger->warning('notification.delivery.retry_scheduled', [
             ...$this->logContext($notification, $response, $durationMilliseconds),
