@@ -7,7 +7,6 @@ use App\Enums\NotificationChannel;
 use App\Jobs\Middleware\AssignDeliveryTraceContext;
 use App\Jobs\Middleware\CheckDeliveryChannelCircuit;
 use App\Jobs\Middleware\RateLimitDeliveryChannel;
-use App\Jobs\Middleware\ReleaseDuringInfrastructureOutage;
 use App\Models\Notification as NotificationModel;
 use App\Services\Delivery\DeliveryService;
 use DateTimeInterface;
@@ -36,15 +35,6 @@ class SendNotificationJob implements ShouldQueue, TracingLinked
      */
     public int $timeout = 30;
 
-    /**
-     * Unexpected exceptions tolerated before the job fails.
-     *
-     * Provider errors never get here, the delivery service handles them, and neither
-     * do database or Redis outages, which ReleaseDuringInfrastructureOutage waits
-     * out without counting. What is left are genuine errors in the code.
-     */
-    public int $maxExceptions = 5;
-
     public function __construct(
         public readonly string $notificationId,
         public readonly NotificationChannel $channel,
@@ -53,9 +43,10 @@ class SendNotificationJob implements ShouldQueue, TracingLinked
     /**
      * Get the seconds to wait before running again after an unexpected exception.
      *
-     * Without a wait, a short burst of errors would use up every tolerated exception
-     * within milliseconds and fail a notification the provider never saw. Retries the
-     * delivery service schedules set their own delay and do not use these.
+     * Provider errors never get here, the delivery service handles them. What is left
+     * is mostly a database or Redis outage: the job tries again every two minutes at
+     * most until it runs out of time, so it is delivered soon after the outage ends.
+     * Retries the delivery service schedules set their own delay and do not use these.
      *
      * @return list<int>
      */
@@ -76,15 +67,14 @@ class SendNotificationJob implements ShouldQueue, TracingLinked
      * Get the middleware the job should pass through.
      *
      * The trace context comes first, so every log entry of the job leads to the
-     * delivery's trace. The outage guard wraps the others, as the circuit breaker and
-     * the rate limiter read Redis too. The circuit is checked before the rate limit, so a job of a
+     * delivery's trace. The circuit is checked before the rate limit, so a job of a
      * channel with an open circuit does not take up a send slot.
      *
      * @return list<object>
      */
     public function middleware(): array
     {
-        return [new AssignDeliveryTraceContext, new ReleaseDuringInfrastructureOutage, new CheckDeliveryChannelCircuit, new RateLimitDeliveryChannel];
+        return [new AssignDeliveryTraceContext, new CheckDeliveryChannelCircuit, new RateLimitDeliveryChannel];
     }
 
     /**

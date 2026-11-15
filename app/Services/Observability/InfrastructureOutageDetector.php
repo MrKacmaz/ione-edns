@@ -11,8 +11,8 @@ use Throwable;
 /**
  * Tells an error that only means the database or Redis cannot be reached from any other error.
  *
- * Such an error passes once the service is back, so a queued job waits it out
- * and an API request is answered with 503 and a Retry-After instead of 500.
+ * Such an error passes once the service is back, so an API request that runs
+ * into it is answered with 503 and a Retry-After instead of 500.
  */
 final class InfrastructureOutageDetector
 {

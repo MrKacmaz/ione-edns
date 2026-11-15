@@ -96,9 +96,10 @@ test('takes a send slot of the notification\'s channel before delivering it', fu
     expect($notification->refresh()->status)->toBe(NotificationStatus::Sent);
 });
 
-test('waits longer after each unexpected exception, so a short outage does not fail the notification at once', function () {
+test('waits longer after each unexpected exception and does not count them, so a database or Redis outage only delays the notification', function () {
     $job = new SendNotificationJob('notification-id', NotificationChannel::Sms);
 
+    // Without a limit on exceptions, only the one-day retry window ends the job.
     expect($job->backoff())->toBe([10, 30, 60, 120])
-        ->and($job->maxExceptions)->toBe(5);
+        ->and(property_exists($job, 'maxExceptions'))->toBeFalse();
 });
