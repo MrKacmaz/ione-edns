@@ -189,7 +189,7 @@ services:
     # A stand-in for the webhook.site provider, used while NOTIFICATIONS_GATEWAY_URL
     # is not set: it accepts every delivery with 202 and a fresh messageId.
     provider:
-        image: nginx:1.30.6-alpine
+        image: nginx:1.31.7-alpine
         volumes:
             - ./docker/mock-provider/default.conf:/etc/nginx/conf.d/default.conf:ro
         restart: unless-stopped
