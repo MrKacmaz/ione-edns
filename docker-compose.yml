@@ -16,11 +16,14 @@ name: ione-edns
 x-otel-env: &otel-env
     OTEL_PHP_AUTOLOAD_ENABLED: 'true'
     OTEL_SERVICE_NAME: ione-edns
-    OTEL_TRACES_EXPORTER: otlp
+    # OTLP that stops calling a backend that does not answer (bootstrap/tracing.php).
+    OTEL_TRACES_EXPORTER: otlp_resilient
     OTEL_METRICS_EXPORTER: none
     OTEL_LOGS_EXPORTER: none
     OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
     OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
+    # Milliseconds; an export holds up its request or job, so a dead backend costs at most this.
+    OTEL_EXPORTER_OTLP_TIMEOUT: '1000'
     OTEL_PROPAGATORS: tracecontext,baggage
 
 # Settings shared by every PHP service. APP_KEY and REVERB_APP_SECRET are not

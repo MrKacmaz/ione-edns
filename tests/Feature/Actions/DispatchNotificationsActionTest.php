@@ -8,9 +8,13 @@ use App\Jobs\SendNotificationJob;
 use App\Models\Notification;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Context;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Facades\Redis;
 use Illuminate\Support\Testing\Fakes\QueueFake;
+use OpenTelemetry\API\Trace\Span;
+use OpenTelemetry\API\Trace\SpanContext;
+use OpenTelemetry\API\Trace\SpanContextInterface;
+use OpenTelemetry\API\Trace\TraceFlags;
 
 test('pushes each notification onto the queue of its channel and priority and marks it queued', function () {
     Queue::fake([SendNotificationJob::class]);
@@ -115,8 +119,60 @@ test('leaves the notifications waiting when the queue refuses their jobs', funct
         ->queued_at->toBeNull();
 });
 
-test('gives each job its notification\'s id and correlation id as log context, whoever pushes it', function () {
-    config(['queue.default' => 'database']);
+test('pushes the jobs of each queue together, in one bulk push', function () {
+    $queue = new class(app()) extends QueueFake
+    {
+        /** @var array<string, int> */
+        public array $bulkPushes = [];
+
+        public function bulk($jobs, $data = '', $queue = null): void
+        {
+            $this->bulkPushes[$queue] = count($jobs);
+
+            parent::bulk($jobs, $data, $queue);
+        }
+    };
+    Queue::swap($queue);
+    $notifications = Notification::factory()->count(5)->sequence(
+        ['channel' => NotificationChannel::Sms, 'priority' => NotificationPriority::High],
+        ['channel' => NotificationChannel::Sms, 'priority' => NotificationPriority::High],
+        ['channel' => NotificationChannel::Sms, 'priority' => NotificationPriority::High],
+        ['channel' => NotificationChannel::Email, 'priority' => NotificationPriority::Normal],
+        ['channel' => NotificationChannel::Email, 'priority' => NotificationPriority::Normal],
+    )->create();
+
+    app(DispatchNotificationsAction::class)->handle($notifications);
+
+    expect($queue->bulkPushes)->toBe(['notifications-sms-high' => 3, 'notifications-email-normal' => 2]);
+});
+
+test('pushes the jobs without recording a span for each of them, linked to the current span', function () {
+    $queue = new class(app()) extends QueueFake
+    {
+        public ?SpanContextInterface $spanWhilePushing = null;
+
+        public function bulk($jobs, $data = '', $queue = null): void
+        {
+            $this->spanWhilePushing = Span::getCurrent()->getContext();
+
+            parent::bulk($jobs, $data, $queue);
+        }
+    };
+    Queue::swap($queue);
+    $scope = Span::wrap(SpanContext::create('4bf92f3577b34da6a3ce929d0e0e4736', '00f067aa0ba902b7', TraceFlags::SAMPLED))->activate();
+
+    try {
+        app(DispatchNotificationsAction::class)->handle(new Collection([Notification::factory()->create()]));
+    } finally {
+        $scope->detach();
+    }
+
+    expect($queue->spanWhilePushing->getSpanId())->toBe('00f067aa0ba902b7')
+        ->and($queue->spanWhilePushing->isSampled())->toBeFalse();
+});
+
+test('gives each job its notification\'s correlation id, whoever pushes it', function () {
+    Queue::fake([SendNotificationJob::class]);
     Context::add('correlation_id', 'f6b2a4e0-0d1c-4f53-9c1e-2a7b8c9d0e1f');
     $notifications = Notification::factory()->count(2)->sequence(
         ['correlation_id' => '0195d3c2-7a8e-7c4b-9a1e-3f6b2d8c4e10'],
@@ -125,12 +181,33 @@ test('gives each job its notification\'s id and correlation id as log context, w
 
     app(DispatchNotificationsAction::class)->handle($notifications);
 
-    $jobContexts = DB::table('jobs')->orderBy('id')->pluck('payload')
-        ->map(fn (string $payload): array => array_map(unserialize(...), json_decode($payload, true)['illuminate:log:context']['data']))
-        ->all();
-    expect($jobContexts)->toBe([
-        ['correlation_id' => '0195d3c2-7a8e-7c4b-9a1e-3f6b2d8c4e10', 'notification_id' => $notifications[0]->id],
-        ['correlation_id' => '0195d3c2-7a8e-7c4b-9a1e-3f6b2d8c4e11', 'notification_id' => $notifications[1]->id],
-    ]);
+    foreach ($notifications as $notification) {
+        Queue::assertPushed(SendNotificationJob::class, fn (SendNotificationJob $job): bool => $job->notificationId === $notification->id
+            && $job->correlationId === $notification->correlation_id);
+    }
     expect(Context::all())->toBe(['correlation_id' => 'f6b2a4e0-0d1c-4f53-9c1e-2a7b8c9d0e1f']);
+});
+
+test('pushes the jobs into Redis in one pipeline, the scheduled ones onto the delayed queue', function () {
+    config(['queue.default' => 'redis']);
+    $redis = Redis::connection();
+    $redis->del('queues:notifications-sms-high', 'queues:notifications-sms-high:delayed');
+    $this->travelTo('2026-11-14 10:00:00');
+    $notifications = Notification::factory()->count(3)->sequence(
+        ['priority' => NotificationPriority::High],
+        ['priority' => NotificationPriority::High],
+        ['priority' => NotificationPriority::High, 'status' => NotificationStatus::Scheduled, 'scheduled_at' => '2026-11-14 10:00:40'],
+    )->create();
+
+    try {
+        app(DispatchNotificationsAction::class)->handle($notifications);
+
+        $ready = array_map(fn (string $payload): string => unserialize(json_decode($payload, true)['data']['command'])->notificationId, $redis->lrange('queues:notifications-sms-high', 0, -1));
+        $delayed = $redis->zrange('queues:notifications-sms-high:delayed', 0, -1, ['withscores' => true]);
+
+        expect($ready)->toBe([$notifications[0]->id, $notifications[1]->id])
+            ->and(array_values($delayed))->toBe([(float) now()->addSeconds(40)->getTimestamp()]);
+    } finally {
+        $redis->del('queues:notifications-sms-high', 'queues:notifications-sms-high:delayed');
+    }
 });

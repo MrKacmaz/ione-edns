@@ -5,11 +5,18 @@ namespace App\Actions;
 use App\Enums\NotificationStatus;
 use App\Jobs\SendNotificationJob;
 use App\Models\Notification;
+use App\Services\Observability\NotificationTracer;
+use Illuminate\Contracts\Queue\Factory as QueueFactory;
 use Illuminate\Database\Eloquent\Collection;
-use Illuminate\Support\Facades\Context;
 
 /**
  * Hands notifications to the queue of their channel and priority.
+ *
+ * The jobs of each queue are pushed together, in one Redis pipeline: a batch of
+ * 1000 notifications takes one round trip per queue instead of 1000. The span the
+ * queue instrumentation records for every pushed job is left out, as recording
+ * 1000 of them cost about a second per batch; each notification's delivery has
+ * its own trace (see NotificationTracer).
  *
  * Jobs are pushed before the notifications are marked as queued: if the push
  * fails, the notifications stay waiting or scheduled and the sweeper or the
@@ -19,10 +26,10 @@ use Illuminate\Support\Facades\Context;
  *
  * A notification scheduled for the future is delayed until its delivery time.
  *
- * Each job carries its notification's id and correlation id in its log context,
- * also when the stale sweep or the scheduler pushes it rather than the request
- * that created the notification. Its log entries from before the claim, such as
- * waits for an open circuit, can then be found by either id.
+ * Each job carries its notification's id and correlation id, also when the stale
+ * sweep or the scheduler pushes it rather than the request that created the
+ * notification; the worker puts both into the job's log context (see
+ * AssignNotificationContext).
  */
 class DispatchNotificationsAction
 {
@@ -30,6 +37,11 @@ class DispatchNotificationsAction
      * The statuses a notification leaves when it is put on a queue.
      */
     private const array DISPATCHABLE_STATUSES = [NotificationStatus::Waiting, NotificationStatus::Scheduled];
+
+    public function __construct(
+        private readonly QueueFactory $queues,
+        private readonly NotificationTracer $tracer,
+    ) {}
 
     /**
      * @param  Collection<int, Notification>  $notifications
@@ -40,12 +52,17 @@ class DispatchNotificationsAction
             return;
         }
 
+        $jobsByQueue = [];
+
         foreach ($notifications as $notification) {
-            Context::scope(
-                fn () => $this->push($notification),
-                array_filter(['notification_id' => $notification->id, 'correlation_id' => $notification->correlation_id]),
-            );
+            $jobsByQueue[$notification->priority->queueFor($notification->channel)][] = $this->jobFor($notification);
         }
+
+        $this->tracer->withoutRecordingSpans(function () use ($jobsByQueue): void {
+            foreach ($jobsByQueue as $queue => $jobs) {
+                $this->queues->connection()->bulk($jobs, '', $queue);
+            }
+        });
 
         // Formatted with the model's date format, as the query builder alone would drop the microseconds.
         $queuedAt = (new Notification)->freshTimestampString();
@@ -73,15 +90,14 @@ class DispatchNotificationsAction
     }
 
     /**
-     * Push the delivery job of one notification onto its queue.
+     * Build the delivery job of one notification.
      *
      * The queue keeps whole seconds and would round a delay down, waking the job
      * before its time; rounding up never runs it early.
      */
-    private function push(Notification $notification): void
+    private function jobFor(Notification $notification): SendNotificationJob
     {
-        SendNotificationJob::dispatch($notification->id, $notification->channel)
-            ->onQueue($notification->priority->queueFor($notification->channel))
+        return (new SendNotificationJob($notification->id, $notification->channel, $notification->correlation_id))
             ->delay($notification->scheduled_at?->isFuture() ? $notification->scheduled_at->ceilSecond() : null);
     }
 }

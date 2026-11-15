@@ -3,6 +3,10 @@
 use App\Data\RateLimitReservationData;
 use App\Enums\NotificationChannel;
 use App\Enums\NotificationStatus;
+use App\Jobs\Middleware\AssignDeliveryTraceContext;
+use App\Jobs\Middleware\AssignNotificationContext;
+use App\Jobs\Middleware\CheckDeliveryChannelCircuit;
+use App\Jobs\Middleware\RateLimitDeliveryChannel;
 use App\Jobs\SendNotificationJob;
 use App\Models\Notification;
 use App\Services\Delivery\Contracts\ChannelRateLimiter;
@@ -102,4 +106,15 @@ test('waits longer after each unexpected exception and does not count them, so a
     // Without a limit on exceptions, only the one-day retry window ends the job.
     expect($job->backoff())->toBe([10, 30, 60, 120])
         ->and(property_exists($job, 'maxExceptions'))->toBeFalse();
+});
+
+test('sets up the log context before the circuit and the rate limit can log anything', function () {
+    $middleware = array_map(get_class(...), (new SendNotificationJob('notification-id', NotificationChannel::Sms))->middleware());
+
+    expect($middleware)->toBe([
+        AssignNotificationContext::class,
+        AssignDeliveryTraceContext::class,
+        CheckDeliveryChannelCircuit::class,
+        RateLimitDeliveryChannel::class,
+    ]);
 });

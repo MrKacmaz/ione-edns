@@ -13,6 +13,10 @@ use Illuminate\Support\Facades\Exceptions;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Testing\Fakes\QueueFake;
 use Illuminate\Validation\ValidationException;
+use OpenTelemetry\API\Trace\Span;
+use OpenTelemetry\API\Trace\SpanContext;
+use OpenTelemetry\API\Trace\TraceFlags;
+use Tests\Support\InMemoryTracing;
 
 test('returns the notifications in request order and flags only the new ones as created', function () {
     Queue::fake([SendNotificationJob::class]);
@@ -103,22 +107,64 @@ test('holds the new notifications as waiting or scheduled and queues none until 
     Queue::assertPushedTimes(SendNotificationJob::class, 2);
 });
 
-test('stores the template and the request\'s correlation id with each new notification', function () {
+test('stores the template, the request\'s correlation id and the request\'s span with each new notification', function () {
     Queue::fake([SendNotificationJob::class]);
     Context::add('correlation_id', '0195d3c2-7a8e-7c4b-9a1e-3f6b2d8c4e10');
     $user = User::factory()->create();
     $template = NotificationTemplate::factory()->for($user)->create();
+    $scope = Span::wrap(SpanContext::create('4bf92f3577b34da6a3ce929d0e0e4736', '00f067aa0ba902b7', TraceFlags::SAMPLED))->activate();
 
-    $notifications = app(CreateNotificationsAction::class)->handle($user, [
-        NewNotificationData::fromValidated(smsNotificationPayload(['content' => 'Hi Ada, your order 1 has shipped.', 'template_id' => $template->id])),
-    ]);
+    try {
+        $notifications = app(CreateNotificationsAction::class)->handle($user, [
+            NewNotificationData::fromValidated(smsNotificationPayload(['content' => 'Hi Ada, your order 1 has shipped.', 'template_id' => $template->id])),
+        ]);
+    } finally {
+        $scope->detach();
+    }
 
     $this->assertDatabaseHas('notifications', [
         'id' => $notifications->sole()->id,
         'template_id' => $template->id,
         'correlation_id' => '0195d3c2-7a8e-7c4b-9a1e-3f6b2d8c4e10',
+        'trace_id' => '4bf92f3577b34da6a3ce929d0e0e4736',
+        'span_id' => '00f067aa0ba902b7',
         'content' => 'Hi Ada, your order 1 has shipped.',
     ]);
+});
+
+test('starts a trace of its own for every new notification of a batch, linked to the request', function () {
+    Queue::fake([SendNotificationJob::class]);
+    $tracing = InMemoryTracing::bind($this->app);
+    $user = User::factory()->create();
+    $scope = Span::wrap(SpanContext::create('4bf92f3577b34da6a3ce929d0e0e4736', '00f067aa0ba902b7', TraceFlags::SAMPLED))->activate();
+
+    try {
+        ['notifications' => $notifications] = app(CreateNotificationsAction::class)->handleBatch($user, [
+            NewNotificationData::fromValidated(smsNotificationPayload()),
+            NewNotificationData::fromValidated(smsNotificationPayload()),
+        ]);
+    } finally {
+        $scope->detach();
+    }
+
+    $accepted = $tracing->spansNamed('notification.accepted');
+    expect($accepted)->toHaveCount(2)
+        ->and($notifications->pluck('trace_id')->all())->toBe(array_map(fn ($span) => $span->getContext()->getTraceId(), $accepted))
+        ->and($notifications->pluck('span_id')->all())->toBe(array_map(fn ($span) => $span->getContext()->getSpanId(), $accepted))
+        ->and($notifications->pluck('trace_id')->unique())->toHaveCount(2)
+        ->and($notifications->pluck('trace_id'))->not->toContain('4bf92f3577b34da6a3ce929d0e0e4736')
+        ->and($accepted[0]->getLinks()[0]->getSpanContext()->getTraceId())->toBe('4bf92f3577b34da6a3ce929d0e0e4736');
+});
+
+test('stores no trace while the request is not traced', function () {
+    Queue::fake([SendNotificationJob::class]);
+    $user = User::factory()->create();
+
+    $single = app(CreateNotificationsAction::class)->handle($user, [NewNotificationData::fromValidated(smsNotificationPayload())]);
+    ['notifications' => $batched] = app(CreateNotificationsAction::class)->handleBatch($user, [NewNotificationData::fromValidated(smsNotificationPayload())]);
+
+    expect($single->concat($batched)->map->only('trace_id', 'span_id')->all())
+        ->toBe([['trace_id' => null, 'span_id' => null], ['trace_id' => null, 'span_id' => null]]);
 });
 
 test('creates a batch for the user with every new notification, while a reused key keeps its original batch', function () {

@@ -31,6 +31,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property string $content
  * @property string|null $idempotency_key
  * @property string|null $correlation_id
+ * @property string|null $trace_id
+ * @property string|null $span_id
  * @property int $attempts
  * @property string|null $provider_message_id
  * @property string|null $last_error
@@ -51,6 +53,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'content',
     'idempotency_key',
     'correlation_id',
+    'trace_id',
+    'span_id',
     'scheduled_at',
 ])]
 class Notification extends Model

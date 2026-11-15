@@ -7,6 +7,7 @@ use App\Enums\NotificationStatus;
 use App\Models\Notification;
 use App\Models\NotificationBatch;
 use App\Models\User;
+use App\Services\Observability\NotificationTracer;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Context;
 use Illuminate\Support\Facades\DB;
@@ -22,7 +23,10 @@ class CreateNotificationsAction
      */
     private const int INSERT_CHUNK_SIZE = 500;
 
-    public function __construct(private readonly DispatchNotificationsAction $dispatchNotifications) {}
+    public function __construct(
+        private readonly DispatchNotificationsAction $dispatchNotifications,
+        private readonly NotificationTracer $tracer,
+    ) {}
 
     /**
      * Persist the notifications for the user in a single transaction and queue the new ones.
@@ -31,6 +35,9 @@ class CreateNotificationsAction
      * existing notification instead of creating a duplicate. The result follows
      * the order of the given notifications, and only the notifications created by
      * this call are flagged with `wasRecentlyCreated`.
+     *
+     * Each new notification remembers the span its delivery attempts are traced
+     * under: the current request's, or for a batch a trace of its own.
      *
      * @param  list<NewNotificationData>  $newNotifications
      * @return Collection<int, Notification>
@@ -44,6 +51,7 @@ class CreateNotificationsAction
             $newIdsByPosition = [];
             $timestamp = now()->format('Y-m-d H:i:s.u');
             $correlationId = Context::get('correlation_id');
+            $requestSpan = $batch === null ? $this->tracer->currentSpan() : null;
 
             foreach ($newNotifications as $position => $newNotification) {
                 if ($newNotification->idempotencyKey !== null && $existingByKey->has($newNotification->idempotencyKey)) {
@@ -51,6 +59,9 @@ class CreateNotificationsAction
                 }
 
                 $newIdsByPosition[$position] = (string) Str::uuid7();
+                $span = $batch === null
+                    ? $requestSpan
+                    : $this->tracer->startNotificationTrace($newIdsByPosition[$position], $newNotification->channel, $batch->id);
 
                 $rows[] = [
                     'id' => $newIdsByPosition[$position],
@@ -66,6 +77,8 @@ class CreateNotificationsAction
                     'content' => $newNotification->content,
                     'idempotency_key' => $newNotification->idempotencyKey,
                     'correlation_id' => is_string($correlationId) ? $correlationId : null,
+                    'trace_id' => $span?->getTraceId(),
+                    'span_id' => $span?->getSpanId(),
                     'scheduled_at' => $newNotification->scheduledAt?->format('Y-m-d H:i:s.u'),
                     'created_at' => $timestamp,
                     'updated_at' => $timestamp,

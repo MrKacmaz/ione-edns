@@ -10,6 +10,8 @@
     "license": "MIT",
     "require": {
         "php": "^8.5",
+        "ext-pdo": "*",
+        "ext-redis": "*",
         "dedoc/scramble": "^0.13.53",
         "inertiajs/inertia-laravel": "^3.0",
         "laravel/framework": "^13.17",
@@ -18,11 +20,10 @@
         "laravel/sanctum": "^4.0",
         "laravel/tinker": "^3.0",
         "laravel/wayfinder": "^0.1.14",
-        "open-telemetry/exporter-otlp": "^1.5",
+        "open-telemetry/exporter-otlp": "~1.4.0",
         "open-telemetry/opentelemetry-auto-laravel": "^1.10",
-        "open-telemetry/sdk": "^1.16",
-        "ext-pdo": "*",
-        "ext-redis": "*"
+        "open-telemetry/sdk": "~1.15.0",
+        "open-telemetry/sem-conv": "1.44.*"
     },
     "require-dev": {
         "fakerphp/faker": "^1.24",
@@ -42,7 +43,10 @@
             "App\\": "app/",
             "Database\\Factories\\": "database/factories/",
             "Database\\Seeders\\": "database/seeders/"
-        }
+        },
+        "files": [
+            "bootstrap/tracing.php"
+        ]
     },
     "autoload-dev": {
         "psr-4": {

@@ -600,6 +600,7 @@ describe('show', function () {
             'content',
             'idempotency_key',
             'correlation_id',
+            'trace_id',
             'attempts',
             'provider_message_id',
             'last_error',

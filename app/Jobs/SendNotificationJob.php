@@ -5,6 +5,7 @@ namespace App\Jobs;
 use App\Enums\DeliveryOutcome;
 use App\Enums\NotificationChannel;
 use App\Jobs\Middleware\AssignDeliveryTraceContext;
+use App\Jobs\Middleware\AssignNotificationContext;
 use App\Jobs\Middleware\CheckDeliveryChannelCircuit;
 use App\Jobs\Middleware\RateLimitDeliveryChannel;
 use App\Models\Notification as NotificationModel;
@@ -22,9 +23,10 @@ use Throwable;
  * attempt limit: the notification's own attempt counter decides when to give up,
  * and waits for a rate-limit slot or an open circuit must not use up any attempts.
  *
- * With tracing enabled, each delivery starts its own trace linked to the trace of
- * the request that created the notification. A batch of 1000 notifications thus
- * yields 1000 small traces instead of one trace with 1000 job spans.
+ * With tracing enabled, each job run has its own trace linked to the trace of the
+ * request that created the notification, so the request's trace does not collect a
+ * span for every run, including the ones that only wait. The delivery attempt
+ * itself is traced in the notification's trace (see NotificationTracer).
  */
 class SendNotificationJob implements ShouldQueue, TracingLinked
 {
@@ -35,9 +37,14 @@ class SendNotificationJob implements ShouldQueue, TracingLinked
      */
     public int $timeout = 30;
 
+    /**
+     * @param  NotificationChannel  $channel  The notification's channel, so the rate limiter needs no database read.
+     * @param  string|null  $correlationId  The notification's correlation id, for the job's log entries.
+     */
     public function __construct(
         public readonly string $notificationId,
         public readonly NotificationChannel $channel,
+        public readonly ?string $correlationId = null,
     ) {}
 
     /**
@@ -66,15 +73,21 @@ class SendNotificationJob implements ShouldQueue, TracingLinked
     /**
      * Get the middleware the job should pass through.
      *
-     * The trace context comes first, so every log entry of the job leads to the
-     * delivery's trace. The circuit is checked before the rate limit, so a job of a
-     * channel with an open circuit does not take up a send slot.
+     * The log context comes first, so every log entry of the job carries the
+     * notification's ids and leads to the job's trace. The circuit is checked
+     * before the rate limit, so a job of a channel with an open circuit does not
+     * take up a send slot.
      *
      * @return list<object>
      */
     public function middleware(): array
     {
-        return [new AssignDeliveryTraceContext, new CheckDeliveryChannelCircuit, new RateLimitDeliveryChannel];
+        return [
+            new AssignNotificationContext,
+            new AssignDeliveryTraceContext,
+            new CheckDeliveryChannelCircuit,
+            new RateLimitDeliveryChannel,
+        ];
     }
 
     /**

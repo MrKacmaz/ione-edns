@@ -10,6 +10,7 @@ use App\Enums\NotificationChannel;
 use App\Models\Notification;
 use App\Services\Delivery\Contracts\CircuitBreaker;
 use App\Services\Delivery\Contracts\NotificationGateway;
+use App\Services\Observability\NotificationTracer;
 use Illuminate\Container\Attributes\Config;
 use Illuminate\Support\Facades\Context;
 use Illuminate\Support\Facades\DB;
@@ -32,6 +33,7 @@ final readonly class DeliveryService
         private CircuitBreaker $circuitBreaker,
         private ReportCircuitChangeAction $reportCircuitChange,
         private LoggerInterface $logger,
+        private NotificationTracer $tracer,
         #[Config('notifications.delivery.max_attempts')] private int $maxAttempts,
     ) {}
 
@@ -40,7 +42,8 @@ final readonly class DeliveryService
      *
      * Log entries written during the attempt carry the notification's id and the
      * correlation id of the request that created it, also when the job was pushed
-     * by the stale-notification sweeper rather than by that request.
+     * by the stale-notification sweeper rather than by that request. The attempt
+     * is traced in the notification's own trace (see NotificationTracer).
      */
     public function deliver(string $notificationId): DeliveryResultData
     {
@@ -51,7 +54,7 @@ final readonly class DeliveryService
         }
 
         return Context::scope(
-            fn (): DeliveryResultData => $this->attempt($notification),
+            fn (): DeliveryResultData => $this->tracer->traceAttempt($notification, fn (): DeliveryResultData => $this->attempt($notification)),
             ['notification_id' => $notification->id, 'correlation_id' => $notification->correlation_id],
         );
     }

@@ -8,13 +8,14 @@ use Illuminate\Support\Facades\Context;
 use OpenTelemetry\API\Trace\Span;
 
 /**
- * Points the job's log entries at the delivery's own trace.
+ * Points the job's log entries at the job's own trace.
  *
  * The context of the request that created the notification travels with the job,
- * including that request's trace id. Each delivery runs in its own trace, linked
- * to the request's (see SendNotificationJob), so without this every log entry of
- * the delivery would lead to the request's trace in Jaeger instead. The request's
- * trace id is kept as request_trace_id.
+ * including that request's trace id. Each job run has its own trace, linked to the
+ * request's (see SendNotificationJob), so without this the job's log entries, such
+ * as a wait for a closed circuit, would lead to the request's trace in Jaeger. The
+ * request's trace id is kept as request_trace_id. Entries of the delivery attempt
+ * itself carry the notification's trace (see NotificationTracer).
  */
 class AssignDeliveryTraceContext
 {

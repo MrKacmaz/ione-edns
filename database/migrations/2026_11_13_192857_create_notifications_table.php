@@ -18,6 +18,11 @@ return new class extends Migration
      * time (or else its scheduled_at) has come, so a duplicate or early job can
      * neither skip the backoff nor send ahead of the schedule.
      *
+     * trace_id and span_id (32 and 16 hex characters) are the OpenTelemetry span
+     * every delivery attempt of the notification is traced under: the request that
+     * created it, or for a batch the notification's own trace. Null while tracing
+     * is off.
+     *
      * The owner-scoped indexes serve the listing and its status and channel
      * filters. Beyond them, (status, scheduled_at) serves
      * notifications:dispatch-due, (status, updated_at) serves
@@ -39,6 +44,8 @@ return new class extends Migration
             $table->text('content');
             $table->string('idempotency_key')->nullable();
             $table->uuid('correlation_id')->nullable();
+            $table->char('trace_id', 32)->nullable();
+            $table->char('span_id', 16)->nullable();
             $table->unsignedSmallInteger('attempts')->default(0);
             $table->text('provider_message_id')->nullable();
             $table->text('last_error')->nullable();

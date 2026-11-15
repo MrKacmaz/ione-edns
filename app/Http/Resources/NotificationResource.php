@@ -29,6 +29,7 @@ class NotificationResource extends JsonResource
             'content' => $this->content,
             'idempotency_key' => $this->idempotency_key,
             'correlation_id' => $this->correlation_id,
+            'trace_id' => $this->trace_id,
             'attempts' => $this->attempts,
             'provider_message_id' => $this->provider_message_id,
             'last_error' => $this->last_error,
