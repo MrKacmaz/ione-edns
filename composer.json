@@ -23,7 +23,7 @@
         "open-telemetry/exporter-otlp": "~1.4.0",
         "open-telemetry/opentelemetry-auto-laravel": "^1.10",
         "open-telemetry/sdk": "~1.15.0",
-        "open-telemetry/sem-conv": "1.44.*"
+        "open-telemetry/sem-conv": "1.45.*"
     },
     "require-dev": {
         "fakerphp/faker": "^1.24",
