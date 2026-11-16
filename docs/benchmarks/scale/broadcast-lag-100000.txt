@@ -1,0 +1,5 @@
+Broadcast queue after the 100,000 run had delivered everything (sampled 2026-11-16T04:20:39Z):
+  edns-database-queues:broadcasts: 254973 jobs, then 237931 jobs 30 s later = 568 broadcasts a second with the 2 workers of supervisor-1
+used_memory_human:2.18G
+used_memory_peak_human:2.28G
+  Horizon job records in Redis: 555398

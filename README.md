@@ -457,7 +457,7 @@ GitHub Actions ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs on 
 | Job                     | What it does                                                                                                                              |
 | ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
 | **Quality**             | Pint, PHPStan (Larastan level 8), the frontend build and checks, `composer audit` and `npm audit`                                         |
-| **Tests**               | Checks that `spec/openapi.json` matches the code, runs the unit and feature suites in random order, then the integration suite             |
+| **Tests**               | Checks that `spec/openapi.json` matches the code, runs the unit and feature suites in random order, then the integration suite            |
 | **End-to-end (Docker)** | Starts the stack with the mock provider, runs the [Postman smoke flow](#postman), and checks that a notification's trace reaches Jaeger   |
 | **Publish**             | On `master` and `v*` tags: pushes the `ione-edns-app` and `ione-edns-web` images to GitHub Container Registry; a tag also makes a release |
 
@@ -484,6 +484,42 @@ It sends 20 batches of 1000 notifications at the same time, and 9 single notific
 | Provider call                              | p50 2 ms, p95 7 ms                                         |
 
 The rate limit, not the workers, sets the delivery speed: three channels at about 100 a second. The 20 large batches occupy all 20 PHP-FPM workers of the `app` container, so a single request waits behind them. More `app` replicas or a larger pool would keep that latency low.
+
+### Scale test
+
+[`tests/k6/scale.sh`](tests/k6/scale.sh) sends 100, 1,000, 10,000, 100,000 and 1,000,000 notifications, each size in batches of 1000 with 20 requests at a time, spread evenly over the channels and priorities. For each size it waits until every notification is delivered, and it records the k6 output, the mock provider's counters, the largest Redis memory and queue backlog, the end-to-end latency from the database, and the time of typical reads. It ran on a separate Compose project with the mock provider and 1% trace sampling, on an Apple M5 laptop (Docker VM: 10 CPUs, 7.7 GB).
+
+```bash
+tests/k6/scale.sh                 # all sizes; or for example: tests/k6/scale.sh 100 1000
+```
+
+| Notifications | Accepted in        | Batch request p50 / p95 | All delivered after | Busiest second per channel | Lost / sent twice | End-to-end p50 / p95 | Largest backlog: deliveries / broadcasts | Redis peak |
+| ------------- | ------------------ | ----------------------- | ------------------- | -------------------------- | ----------------- | -------------------- | ---------------------------------------- | ---------- |
+| 100           | 0.4 s              | 0.4 s                   | 6.6 s               | 33                         | 0 / 0             | 1.3 s / 1.5 s        | 0 / 0                                    | 4 MB       |
+| 1,000         | 1.6 s              | 1.6 s                   | 10 s                | 100                        | 0 / 0             | 4.3 s / 6.1 s        | 573 / 2,582                              | 19 MB      |
+| 10,000        | 9.2 s (1,090/s)    | 4.8 s / 8.8 s           | 43 s                | 101                        | 0 / 0             | 21 s / 36 s          | 8,744 / 25,158                           | 213 MB     |
+| 100,000       | 79 s (1,270/s)     | 15.0 s / 19.4 s         | 6 min 55 s          | 101                        | 0 / 0             | 3.1 min / 5.5 min    | 89,236 / 285,221                         | 2.3 GB     |
+| 1,000,000     | stopped at 309,000 | 0.1 s / 16.6 s          | stopped at 21,077   | 83                         | 0 / 0             | —                    | 187,007 / 435,171                        | 3 GB (cap) |
+
+With 111,100 notifications in the table, a filtered list page takes 35 ms, a list by recipient 33 ms, and the metrics 25 ms.
+
+**What it shows**
+
+- **Delivery speed is the rate limit.** Every size above 1000 sends at 100 a second per channel, 300 in all; the provider never counted more than 101 in one second. So the last of N notifications is delivered about N / 300 seconds after the first, and the end-to-end latency grows with N. Up to 100,000, no notification was lost, sent twice, retried or failed.
+- **The API accepts about 1,100 to 1,300 notifications a second** with 20 batch requests at a time, one per PHP-FPM worker.
+- **Live updates fall behind.** Each notification announces four status changes. Two workers send about 460 to 570 broadcasts a second, less than the batches produce. After the 100,000 notifications were delivered, 260,717 broadcasts still waited, so the dashboard and WebSocket clients were minutes behind.
+- **Redis memory limits the size.** Horizon keeps a record of every job, broadcasts included, for 60 minutes: about 4 KB each. 100,000 notifications left 555,398 records and 2.3 GB.
+- **1,000,000 does not fit** into this machine. Redis was capped at 3 GB for the run so that it could not exhaust the Docker VM. It was full after about 4.5 minutes. Then Redis refused writes, the API answered `503`, the workers stopped, and `/health` reported `fail`, as for a Redis outage. 309 of the 1000 batch requests were accepted. Nothing was lost: of those 309,000 notifications, 21,077 were sent, and the rest waits in PostgreSQL (102,000 `waiting`, 185,878 `queued`, 45 `processing`); the sweeps push them again once Redis has room.
+
+To handle a million, the broadcasts need their own workers or fewer events per notification, Horizon needs a shorter retention for completed jobs, and Redis needs memory for the backlog.
+
+**Evidence** in [`docs/benchmarks/scale`](docs/benchmarks/scale): the k6 output and the provider's counters per size, [`results.jsonl`](docs/benchmarks/scale/results.jsonl) with every measurement, the [Redis timeline](docs/benchmarks/scale/redis-timeline-1000000.txt) and the [final state](docs/benchmarks/scale/state-after-1000000.txt) of the 1,000,000 run, and screenshots.
+
+![The dashboard 2.5 minutes into the 100,000 run: 40,970 sent, 70,132 queued, and the feed still shows the newest notifications as waiting because their broadcasts lag behind](docs/benchmarks/scale/screenshots/100k-during-dashboard.png)
+
+![Horizon after the 100,000 run: every delivery queue empty, 260,717 broadcasts still waiting](docs/benchmarks/scale/screenshots/100k-after-horizon.png)
+
+![The status page 6 minutes into the 1,000,000 run: Redis is full, so Horizon cannot run](docs/benchmarks/scale/screenshots/1m-6min-health.png)
 
 ### Resilience run
 
@@ -524,4 +560,5 @@ Run `php artisan serve`, `php artisan horizon`, `php artisan schedule:work` and 
 - **At-least-once delivery:** a message whose result was not recorded is sent again. Only a provider that honours `Idempotency-Key` drops the repeat.
 - **Redis is needed to accept notifications:** the API's rate limit and the `Idempotency-Key` lock are in Redis, so the API answers `503` while Redis is down. Stored notifications are not lost; the sweep pushes their jobs when Redis is back.
 - **webhook.site:** a free URL expires after seven days and limits the number of requests. A URL that you set up by hand with a fixed body gives every notification the same `messageId`.
+- **About a million notifications at once** fill Redis on a laptop-sized stack, and live updates fall behind from about 10,000 ([Scale test](#scale-test)).
 - **Not a production setup:** Docker Compose runs with `APP_ENV=local`, small worker pools and a demo operator. The published images are not deployed anywhere. Sizing, deployment, data retention and other deferred work are in [`docs/backlog.md`](docs/backlog.md).

@@ -1,0 +1,434 @@
+ Image edns-scale-web Building 
+ Image edns-scale-app Building 
+ Image edns-scale-app Building 
+#1 [internal] load local bake definitions
+#1 reading from stdin 2.10kB done
+#1 DONE 0.0s
+
+#2 [init internal] load build definition from Dockerfile
+#2 transferring dockerfile: 4.77kB 0.0s done
+#2 DONE 0.0s
+
+#3 [app] resolve image config for docker-image://docker.io/docker/dockerfile:1
+#3 DONE 0.3s
+
+#4 [app] docker-image://docker.io/docker/dockerfile:1@sha256:4edf897a3ffa55b89f906fc8cc78afdb3f1834cc9c7083565e611a8a7d5fe99e
+#4 resolve docker.io/docker/dockerfile:1@sha256:4edf897a3ffa55b89f906fc8cc78afdb3f1834cc9c7083565e611a8a7d5fe99e 0.0s done
+#4 CACHED
+
+#5 [web internal] load metadata for docker.io/library/php:8.5-fpm
+#5 DONE 0.2s
+
+#6 [web internal] load metadata for docker.io/library/node:22.23.5-slim
+#6 DONE 0.2s
+
+#7 [init internal] load metadata for docker.io/mlocati/php-extension-installer:2
+#7 DONE 0.2s
+
+#8 [web internal] load metadata for docker.io/library/nginx:1.31.7-alpine
+#8 DONE 0.2s
+
+#9 [app internal] load metadata for docker.io/library/composer:2
+#9 DONE 0.2s
+
+#10 [app internal] load .dockerignore
+#10 transferring context: 629B done
+#10 DONE 0.0s
+
+#11 [web web 1/3] FROM docker.io/library/nginx:1.31.7-alpine@sha256:892bb2152464f0c5d8972593a5f5afaf8054552580b699d95f8ff4af08c2d33d
+#11 resolve docker.io/library/nginx:1.31.7-alpine@sha256:892bb2152464f0c5d8972593a5f5afaf8054552580b699d95f8ff4af08c2d33d 0.0s done
+#11 DONE 0.0s
+
+#12 [web] FROM docker.io/library/node:22.23.5-slim@sha256:e9f565d32859f0cbfb52125eafe8be39390f24dac302dc3cdf566e8ba3ab21ee
+#12 resolve docker.io/library/node:22.23.5-slim@sha256:e9f565d32859f0cbfb52125eafe8be39390f24dac302dc3cdf566e8ba3ab21ee 0.0s done
+#12 DONE 0.0s
+
+#13 [app] FROM docker.io/mlocati/php-extension-installer:2@sha256:4fd45396c16685266d32bf147a24ecd5e81029d3820295895bf4a90131190ac9
+#13 resolve docker.io/mlocati/php-extension-installer:2@sha256:4fd45396c16685266d32bf147a24ecd5e81029d3820295895bf4a90131190ac9 0.0s done
+#13 DONE 0.0s
+
+#14 [app base 1/5] FROM docker.io/library/php:8.5-fpm@sha256:baf3ea13a8207fa18e1011bad1016e8b5e59fc974c6966d0efa6f36a16f875f0
+#14 resolve docker.io/library/php:8.5-fpm@sha256:baf3ea13a8207fa18e1011bad1016e8b5e59fc974c6966d0efa6f36a16f875f0 0.0s done
+#14 DONE 0.0s
+
+#15 [web] FROM docker.io/library/composer:2@sha256:ca11f643d7791ebdd90a34fc20caf11380d434007ae539a9ea75cd9212e13dca
+#15 resolve docker.io/library/composer:2@sha256:ca11f643d7791ebdd90a34fc20caf11380d434007ae539a9ea75cd9212e13dca 0.0s done
+#15 DONE 0.0s
+
+#16 [app internal] load build context
+#16 transferring context: 81.22kB 0.0s done
+#16 DONE 0.0s
+
+#17 [web base 2/5] COPY --from=mlocati/php-extension-installer:2 /usr/bin/install-php-extensions /usr/local/bin/
+#17 CACHED
+
+#18 [web vendor 2/2] RUN composer install --no-dev --no-interaction --no-scripts --no-autoloader --prefer-dist
+#18 CACHED
+
+#19 [web base 5/5] WORKDIR /var/www/html
+#19 CACHED
+
+#20 [web app 2/7] COPY docker/php/php-fpm.d/zz-pool.conf /usr/local/etc/php-fpm.d/zz-pool.conf
+#20 CACHED
+
+#21 [web base 3/5] COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+#21 CACHED
+
+#22 [web base 4/5] RUN install-php-extensions         intl         opcache         opentelemetry         pcntl         pdo_pgsql         redis         zip
+#22 CACHED
+
+#23 [web vendor 1/2] COPY composer.json composer.lock ./
+#23 CACHED
+
+#24 [web app 3/7] COPY docker/entrypoint.sh docker/init.sh /usr/local/bin/
+#24 CACHED
+
+#25 [web app 1/7] COPY docker/php/conf.d/app.ini /usr/local/etc/php/conf.d/zz-app.ini
+#25 CACHED
+
+#26 [web app 4/7] COPY --from=vendor /var/www/html/vendor ./vendor
+#26 CACHED
+
+#27 [init assets 2/7] COPY --from=node:22.23.5-slim /usr/local/lib/node_modules /usr/local/lib/node_modules
+#27 CACHED
+
+#28 [init assets 4/7] COPY package.json package-lock.json ./
+#28 CACHED
+
+#29 [init assets 3/7] RUN ln -s ../lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm
+#29 CACHED
+
+#30 [init assets 1/7] COPY --from=node:22.23.5-slim /usr/local/bin/node /usr/local/bin/node
+#30 CACHED
+
+#31 [init assets 5/7] RUN npm ci --no-audit --no-fund
+#31 CACHED
+
+#32 [app app 5/7] COPY . .
+#32 DONE 0.2s
+
+#33 [init assets 6/7] COPY . .
+#33 DONE 0.2s
+
+#34 [app assets 7/7] RUN composer dump-autoload --no-dev     && npm run build
+#34 0.211 Generating optimized autoload files
+#34 0.913 > Illuminate\Foundation\ComposerScripts::postAutoloadDump
+#34 0.920 > @php artisan package:discover --ansi
+#34 1.001 
+#34 1.001   [37;44m INFO [39;49m Discovering packages.  
+#34 1.001 
+#34 1.002   dedoc/scramble [90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m [32;1mDONE[39;22m
+#34 1.003   inertiajs/inertia-laravel [90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m [32;1mDONE[39;22m
+#34 1.003   laravel/horizon [90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m [32;1mDONE[39;22m
+#34 1.003   laravel/reverb [90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m [32;1mDONE[39;22m
+#34 1.003   laravel/sanctum [90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m [32;1mDONE[39;22m
+#34 1.003   laravel/sentinel [90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m [32;1mDONE[39;22m
+#34 1.003   laravel/tinker [90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m [32;1mDONE[39;22m
+#34 1.004   laravel/wayfinder [90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m [32;1mDONE[39;22m
+#34 1.004   nesbot/carbon [90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m [32;1mDONE[39;22m
+#34 1.004   nunomaduro/termwind [90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m [32;1mDONE[39;22m
+#34 1.004 
+#34 1.007 Generated optimized autoload files containing 7019 classes
+#34 1.068 
+#34 1.068 > build
+#34 1.068 > vp build
+#34 1.068 
+#34 1.943 [plugin @laravel/vite-plugin-wayfinder] Types generated for actions, routes, form variants
+#34 2.256 [plugin laravel:fonts] Optimized font fallbacks require the optional "fontaine" package. Install it, or set "optimizedFallbacks: false" on your fonts to disable the feature.
+#34 2.259 transforming...
+#34 3.294 ✓ 596 modules transformed.
+#34 3.329 rendering chunks...
+#34 3.433 computing gzip size...
+#34 3.446 public/build/manifest.json                                       2.23 kB │ gzip:  0.48 kB
+#34 3.446 public/build/fonts-manifest.json                                 5.74 kB │ gzip:  0.71 kB
+#34 3.446 public/build/assets/instrument-sans-400-normal-DRC__1Mx.woff2   16.86 kB
+#34 3.446 public/build/assets/instrument-sans-500-normal-Dk9ku72i.woff2   17.23 kB
+#34 3.446 public/build/assets/instrument-sans-600-normal-B7fBEWYG.woff2   17.40 kB
+#34 3.446 public/build/assets/instrument-sans-400-normal-D1W7dsQl.woff    21.24 kB
+#34 3.446 public/build/assets/instrument-sans-500-normal-Z6ESRlEs.woff    21.65 kB
+#34 3.446 public/build/assets/instrument-sans-600-normal-B9e8oLYv.woff    21.67 kB
+#34 3.446 public/build/assets/fonts-C9MNnjVw.css                           2.35 kB │ gzip:  0.38 kB
+#34 3.446 public/build/assets/app-BL-nkNL9.css                            25.21 kB │ gzip:  5.86 kB
+#34 3.446 public/build/assets/wayfinder-DtHkmodj.js                        0.78 kB │ gzip:  0.48 kB
+#34 3.446 public/build/assets/Login-CLSFBSmz.js                            2.64 kB │ gzip:  1.13 kB
+#34 3.446 public/build/assets/Dashboard-DH8qOGQc.js                       49.71 kB │ gzip: 15.43 kB
+#34 3.446 public/build/assets/app-cEBO_wqk.js                            298.97 kB │ gzip: 94.53 kB
+#34 3.446 
+#34 3.448 ✓ built in 1.90s
+#34 DONE 3.6s
+
+#35 [app app 6/7] COPY --from=assets /var/www/html/public/build ./public/build
+#35 DONE 0.0s
+
+#36 [init app 7/7] RUN composer dump-autoload --no-dev --optimize --classmap-authoritative     && touch .env     && mkdir -p /var/www/secrets     && chown -R www-data:www-data storage bootstrap/cache /var/www/secrets
+#36 0.221 Generating optimized autoload files (authoritative)
+#36 1.173 > Illuminate\Foundation\ComposerScripts::postAutoloadDump
+#36 1.182 > @php artisan package:discover --ansi
+#36 1.287 
+#36 1.287   [37;44m INFO [39;49m Discovering packages.  
+#36 1.287 
+#36 1.289   dedoc/scramble [90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m [32;1mDONE[39;22m
+#36 1.289   inertiajs/inertia-laravel [90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m [32;1mDONE[39;22m
+#36 1.289   laravel/horizon [90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m [32;1mDONE[39;22m
+#36 1.290   laravel/reverb [90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m [32;1mDONE[39;22m
+#36 1.290   laravel/sanctum [90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m [32;1mDONE[39;22m
+#36 1.290   laravel/sentinel [90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m [32;1mDONE[39;22m
+#36 1.290   laravel/tinker [90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m [32;1mDONE[39;22m
+#36 1.290   laravel/wayfinder [90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m [32;1mDONE[39;22m
+#36 1.290   nesbot/carbon [90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m [32;1mDONE[39;22m
+#36 1.291   nunomaduro/termwind [90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m [32;1mDONE[39;22m
+#36 1.291 
+#36 1.296 Generated optimized autoload files (authoritative) containing 7019 classes
+#36 DONE 1.4s
+
+#37 [app] exporting to image
+#37 exporting layers 0.1s done
+#37 ...
+
+#38 [web web 2/3] COPY docker/nginx/default.conf /etc/nginx/conf.d/default.conf
+#38 CACHED
+
+#39 [web web 3/3] COPY --from=app /var/www/html/public /var/www/html/public
+#39 CACHED
+
+#40 [web] exporting to image
+#40 exporting layers done
+#40 exporting manifest sha256:4e6e933f75a426e3231ad2b8b7107531f044bf99f1bfd7c6d34e5df6e3182200 done
+#40 exporting config sha256:7f7b536f62edf005e61d7f627e734c037cb990e6013c8abe2f6f1c473f9797b6 done
+#40 exporting attestation manifest sha256:7aab1b0e88ad2ffd22ecb7c84f28389f2dd0d9e87212ed0d6654cb5af99a8dda 0.0s done
+#40 exporting manifest list sha256:75946c57c8f99e1c003050dc42887e45d8813e8cec627973dd4e0f18c16c5ff9 done
+#40 naming to docker.io/library/edns-scale-web:latest done
+#40 unpacking to docker.io/library/edns-scale-web:latest done
+#40 DONE 0.1s
+
+#37 [app] exporting to image
+#37 exporting manifest sha256:ee9f94919fd8c955e5a6448a17090d4cf03a3e06c755890c5d05fa07e8fd5ec0 done
+#37 exporting config sha256:db92da0f2763f6fca4d81e819840483df01601e4a7914a959d8e9a4abecc387a 0.0s done
+#37 exporting attestation manifest sha256:0d359264c69d41e23d4a0799e3aae041a73deb75e03637ff04ac041a025b76bb 0.0s done
+#37 exporting manifest list sha256:3e54d27786fe503c46b29d91c50f796fed1b4d4b10e7eb9826b5c0217b2a7777 done
+#37 naming to docker.io/library/edns-scale-app:latest done
+#37 unpacking to docker.io/library/edns-scale-app:latest
+#37 ...
+
+#41 [web] resolving provenance for metadata file
+#41 DONE 0.0s
+
+#37 [app] exporting to image
+#37 unpacking to docker.io/library/edns-scale-app:latest 0.4s done
+#37 DONE 0.5s
+
+#42 [init] exporting to image
+#42 exporting layers 0.1s done
+#42 exporting manifest sha256:5e1ab96c5aa1aabb564159b06061a34956d4ae93b930367e11d2d488a79d08d0 0.0s done
+#42 exporting config sha256:9a9b34f5b1e1a91559325e14e12b7144e368097ed26df46b1e5d5374ac0971da 0.0s done
+#42 exporting attestation manifest sha256:ea06fc99189ab60f1386291ed4871b8dd791bb22c3def0710bbaa9ec5701f33c 0.0s done
+#42 exporting manifest list sha256:b6e32a343e96ce28ac0cdfa8d9c59c96b8fc9006868153b691ead4a801524f97 done
+#42 naming to docker.io/library/edns-scale-app:latest done
+#42 unpacking to docker.io/library/edns-scale-app:latest 0.3s done
+#42 DONE 0.5s
+
+#43 [app] resolving provenance for metadata file
+#43 DONE 0.0s
+
+#44 [init] resolving provenance for metadata file
+#44 DONE 0.0s
+ Image edns-scale-app Built 
+ Image edns-scale-web Built 
+ Image edns-scale-app Built 
+ Container edns-scale-redis-1 Running 
+ Container edns-scale-postgres-1 Running 
+ Container edns-scale-web-1 Running 
+ Container edns-scale-init-1 Recreate 
+ Container edns-scale-init-1 Recreated 
+ Container edns-scale-app-1 Recreate 
+ Container edns-scale-app-1 Recreated 
+ Container edns-scale-redis-1 Waiting 
+ Container edns-scale-postgres-1 Waiting 
+ Container edns-scale-postgres-1 Healthy 
+ Container edns-scale-redis-1 Healthy 
+ Container edns-scale-init-1 Starting 
+ Container edns-scale-init-1 Started 
+ Container edns-scale-init-1 Waiting 
+ Container edns-scale-init-1 Exited 
+ Container edns-scale-app-1 Starting 
+ Container edns-scale-app-1 Started 
+ Container edns-scale-web-1 Waiting 
+ Container edns-scale-web-1 Healthy 
+ Container edns-scale-k6-run-b1780b12a2ca Creating 
+ Container edns-scale-k6-run-b1780b12a2ca Created 
+
+         /\      Grafana   /‾‾/  
+    /\  /  \     |\  __   /  /   
+   /  \/    \    | |/ /  /   ‾‾\ 
+  /          \   |   (  |  (‾)  |
+ / __________ \  |_|\_\  \_____/ 
+
+     execution: local
+        script: /scripts/scale.js
+        output: -
+
+     scenarios: (100.00%) 1 scenario, 10 max VUs, 3h0m30s max duration (incl. graceful stop):
+              * batches: 10 iterations shared among 10 VUs (maxDuration: 3h0m0s, gracefulStop: 30s)
+
+
+running (0h00m01.0s), 10/10 VUs, 0 complete and 0 interrupted iterations
+batches   [   0% ] 10 VUs  0h00m01.0s/3h0m0s  00/10 shared iters
+
+running (0h00m02.0s), 10/10 VUs, 0 complete and 0 interrupted iterations
+batches   [   0% ] 10 VUs  0h00m02.0s/3h0m0s  00/10 shared iters
+
+running (0h00m03.0s), 10/10 VUs, 0 complete and 0 interrupted iterations
+batches   [   0% ] 10 VUs  0h00m03.0s/3h0m0s  00/10 shared iters
+
+running (0h00m04.0s), 05/10 VUs, 5 complete and 0 interrupted iterations
+batches   [  50% ] 10 VUs  0h00m04.0s/3h0m0s  05/10 shared iters
+
+running (0h00m05.0s), 05/10 VUs, 5 complete and 0 interrupted iterations
+batches   [  50% ] 10 VUs  0h00m05.0s/3h0m0s  05/10 shared iters
+
+running (0h00m06.0s), 05/10 VUs, 5 complete and 0 interrupted iterations
+batches   [  50% ] 10 VUs  0h00m06.0s/3h0m0s  05/10 shared iters
+
+running (0h00m07.0s), 03/10 VUs, 7 complete and 0 interrupted iterations
+batches   [  70% ] 10 VUs  0h00m07.0s/3h0m0s  07/10 shared iters
+
+running (0h00m08.0s), 02/10 VUs, 8 complete and 0 interrupted iterations
+batches   [  80% ] 10 VUs  0h00m08.0s/3h0m0s  08/10 shared iters
+
+running (0h00m09.0s), 01/10 VUs, 9 complete and 0 interrupted iterations
+batches   [  90% ] 10 VUs  0h00m09.0s/3h0m0s  09/10 shared iters
+
+running (0h00m10.0s), 00/10 VUs, 10 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 10 VUs  0h00m09.2s/3h0m0s  10/10 shared iters
+
+running (0h00m11.0s), 00/10 VUs, 10 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 10 VUs  0h00m09.2s/3h0m0s  10/10 shared iters
+
+running (0h00m12.0s), 00/10 VUs, 10 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 10 VUs  0h00m09.2s/3h0m0s  10/10 shared iters
+
+running (0h00m13.0s), 00/10 VUs, 10 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 10 VUs  0h00m09.2s/3h0m0s  10/10 shared iters
+
+running (0h00m14.0s), 00/10 VUs, 10 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 10 VUs  0h00m09.2s/3h0m0s  10/10 shared iters
+
+running (0h00m15.0s), 00/10 VUs, 10 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 10 VUs  0h00m09.2s/3h0m0s  10/10 shared iters
+
+running (0h00m16.0s), 00/10 VUs, 10 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 10 VUs  0h00m09.2s/3h0m0s  10/10 shared iters
+
+running (0h00m17.0s), 00/10 VUs, 10 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 10 VUs  0h00m09.2s/3h0m0s  10/10 shared iters
+
+running (0h00m18.0s), 00/10 VUs, 10 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 10 VUs  0h00m09.2s/3h0m0s  10/10 shared iters
+
+running (0h00m19.0s), 00/10 VUs, 10 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 10 VUs  0h00m09.2s/3h0m0s  10/10 shared iters
+
+running (0h00m20.0s), 00/10 VUs, 10 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 10 VUs  0h00m09.2s/3h0m0s  10/10 shared iters
+
+running (0h00m21.0s), 00/10 VUs, 10 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 10 VUs  0h00m09.2s/3h0m0s  10/10 shared iters
+
+running (0h00m22.0s), 00/10 VUs, 10 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 10 VUs  0h00m09.2s/3h0m0s  10/10 shared iters
+
+running (0h00m23.0s), 00/10 VUs, 10 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 10 VUs  0h00m09.2s/3h0m0s  10/10 shared iters
+
+running (0h00m24.0s), 00/10 VUs, 10 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 10 VUs  0h00m09.2s/3h0m0s  10/10 shared iters
+
+running (0h00m25.0s), 00/10 VUs, 10 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 10 VUs  0h00m09.2s/3h0m0s  10/10 shared iters
+
+running (0h00m26.0s), 00/10 VUs, 10 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 10 VUs  0h00m09.2s/3h0m0s  10/10 shared iters
+
+running (0h00m27.0s), 00/10 VUs, 10 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 10 VUs  0h00m09.2s/3h0m0s  10/10 shared iters
+
+running (0h00m28.0s), 00/10 VUs, 10 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 10 VUs  0h00m09.2s/3h0m0s  10/10 shared iters
+
+running (0h00m29.0s), 00/10 VUs, 10 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 10 VUs  0h00m09.2s/3h0m0s  10/10 shared iters
+
+running (0h00m30.0s), 00/10 VUs, 10 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 10 VUs  0h00m09.2s/3h0m0s  10/10 shared iters
+
+running (0h00m31.0s), 00/10 VUs, 10 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 10 VUs  0h00m09.2s/3h0m0s  10/10 shared iters
+
+running (0h00m32.0s), 00/10 VUs, 10 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 10 VUs  0h00m09.2s/3h0m0s  10/10 shared iters
+
+running (0h00m33.0s), 00/10 VUs, 10 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 10 VUs  0h00m09.2s/3h0m0s  10/10 shared iters
+
+running (0h00m34.0s), 00/10 VUs, 10 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 10 VUs  0h00m09.2s/3h0m0s  10/10 shared iters
+
+running (0h00m35.0s), 00/10 VUs, 10 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 10 VUs  0h00m09.2s/3h0m0s  10/10 shared iters
+
+running (0h00m36.0s), 00/10 VUs, 10 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 10 VUs  0h00m09.2s/3h0m0s  10/10 shared iters
+
+running (0h00m37.0s), 00/10 VUs, 10 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 10 VUs  0h00m09.2s/3h0m0s  10/10 shared iters
+
+running (0h00m38.0s), 00/10 VUs, 10 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 10 VUs  0h00m09.2s/3h0m0s  10/10 shared iters
+
+running (0h00m39.0s), 00/10 VUs, 10 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 10 VUs  0h00m09.2s/3h0m0s  10/10 shared iters
+
+running (0h00m40.0s), 00/10 VUs, 10 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 10 VUs  0h00m09.2s/3h0m0s  10/10 shared iters
+
+running (0h00m41.0s), 00/10 VUs, 10 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 10 VUs  0h00m09.2s/3h0m0s  10/10 shared iters
+
+running (0h00m42.0s), 00/10 VUs, 10 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 10 VUs  0h00m09.2s/3h0m0s  10/10 shared iters
+time="2026-11-16T04:12:04Z" level=info msg="SCALE_RESULT {\"total\":10000,\"batches\":10,\"concurrency\":10,\"accept_seconds\":9.168,\"total_seconds\":42.688,\"unfinished\":0,\"provider_received\":10000,\"provider_accepted\":10000,\"provider_duplicates\":0,\"provider_failed\":{},\"provider_peak_per_second\":{\"email\":101,\"push\":100,\"sms\":101}}" source=console
+
+
+  █ TOTAL RESULTS 
+
+    checks_total.......: 10      0.234045/s
+    checks_succeeded...: 100.00% 10 out of 10
+    checks_failed......: 0.00%   0 out of 10
+
+    ✓ batch accepted (202)
+
+    CUSTOM
+    batch_duration.................: p(50)=4.79s   p(95)=8.76s p(99)=9.06s max=9.14s
+    notifications_accepted.........: 10000  234.044787/s
+
+    HTTP
+    http_req_duration..............: p(50)=62.63ms p(95)=7.57s p(99)=8.76s max=9.14s
+      { expected_response:true }...: p(50)=62.63ms p(95)=7.57s p(99)=8.76s max=9.14s
+    http_req_failed................: 0.00%  0 out of 45
+    http_reqs......................: 45     1.053202/s
+
+    EXECUTION
+    iteration_duration.............: p(50)=4.81s   p(95)=8.77s p(99)=9.08s max=9.16s
+    iterations.....................: 10     0.234045/s
+    vus............................: 0      min=0        max=10
+    vus_max........................: 10     min=10       max=10
+
+    NETWORK
+    data_received..................: 6.2 MB 145 kB/s
+    data_sent......................: 1.0 MB 24 kB/s
+
+
+
+
+running (0h00m42.7s), 00/10 VUs, 10 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 10 VUs  0h00m09.2s/3h0m0s  10/10 shared iters

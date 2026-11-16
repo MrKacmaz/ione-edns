@@ -1,0 +1,1560 @@
+ Image edns-scale-app Building 
+ Image edns-scale-web Building 
+ Image edns-scale-app Building 
+#1 [internal] load local bake definitions
+#1 reading from stdin 2.10kB done
+#1 DONE 0.0s
+
+#2 [init internal] load build definition from Dockerfile
+#2 transferring dockerfile: 4.77kB 0.0s done
+#2 DONE 0.0s
+
+#3 [app] resolve image config for docker-image://docker.io/docker/dockerfile:1
+#3 DONE 0.7s
+
+#4 [init] docker-image://docker.io/docker/dockerfile:1@sha256:4edf897a3ffa55b89f906fc8cc78afdb3f1834cc9c7083565e611a8a7d5fe99e
+#4 resolve docker.io/docker/dockerfile:1@sha256:4edf897a3ffa55b89f906fc8cc78afdb3f1834cc9c7083565e611a8a7d5fe99e done
+#4 CACHED
+
+#5 [init internal] load metadata for docker.io/mlocati/php-extension-installer:2
+#5 ...
+
+#6 [web internal] load metadata for docker.io/library/nginx:1.31.7-alpine
+#6 DONE 0.5s
+
+#7 [app internal] load metadata for docker.io/library/composer:2
+#7 DONE 0.5s
+
+#8 [web internal] load metadata for docker.io/library/node:22.23.5-slim
+#8 DONE 0.5s
+
+#9 [init internal] load metadata for docker.io/library/php:8.5-fpm
+#9 DONE 0.5s
+
+#5 [init internal] load metadata for docker.io/mlocati/php-extension-installer:2
+#5 DONE 0.5s
+
+#10 [init internal] load .dockerignore
+#10 transferring context: 629B done
+#10 DONE 0.0s
+
+#11 [app] FROM docker.io/mlocati/php-extension-installer:2@sha256:4fd45396c16685266d32bf147a24ecd5e81029d3820295895bf4a90131190ac9
+#11 resolve docker.io/mlocati/php-extension-installer:2@sha256:4fd45396c16685266d32bf147a24ecd5e81029d3820295895bf4a90131190ac9 0.0s done
+#11 DONE 0.0s
+
+#12 [app base 1/5] FROM docker.io/library/php:8.5-fpm@sha256:baf3ea13a8207fa18e1011bad1016e8b5e59fc974c6966d0efa6f36a16f875f0
+#12 resolve docker.io/library/php:8.5-fpm@sha256:baf3ea13a8207fa18e1011bad1016e8b5e59fc974c6966d0efa6f36a16f875f0 0.0s done
+#12 DONE 0.0s
+
+#13 [app] FROM docker.io/library/composer:2@sha256:ca11f643d7791ebdd90a34fc20caf11380d434007ae539a9ea75cd9212e13dca
+#13 resolve docker.io/library/composer:2@sha256:ca11f643d7791ebdd90a34fc20caf11380d434007ae539a9ea75cd9212e13dca 0.0s done
+#13 DONE 0.0s
+
+#14 [web web 1/3] FROM docker.io/library/nginx:1.31.7-alpine@sha256:892bb2152464f0c5d8972593a5f5afaf8054552580b699d95f8ff4af08c2d33d
+#14 resolve docker.io/library/nginx:1.31.7-alpine@sha256:892bb2152464f0c5d8972593a5f5afaf8054552580b699d95f8ff4af08c2d33d 0.0s done
+#14 DONE 0.0s
+
+#15 [app] FROM docker.io/library/node:22.23.5-slim@sha256:e9f565d32859f0cbfb52125eafe8be39390f24dac302dc3cdf566e8ba3ab21ee
+#15 resolve docker.io/library/node:22.23.5-slim@sha256:e9f565d32859f0cbfb52125eafe8be39390f24dac302dc3cdf566e8ba3ab21ee 0.0s done
+#15 DONE 0.0s
+
+#16 [init internal] load build context
+#16 transferring context: 87.94kB 0.1s done
+#16 transferring context: 87.94kB 0.1s done
+#16 DONE 0.1s
+
+#17 [app app 2/7] COPY docker/php/php-fpm.d/zz-pool.conf /usr/local/etc/php-fpm.d/zz-pool.conf
+#17 CACHED
+
+#18 [app base 5/5] WORKDIR /var/www/html
+#18 CACHED
+
+#19 [app app 3/7] COPY docker/entrypoint.sh docker/init.sh /usr/local/bin/
+#19 CACHED
+
+#20 [app base 4/5] RUN install-php-extensions         intl         opcache         opentelemetry         pcntl         pdo_pgsql         redis         zip
+#20 CACHED
+
+#21 [app app 1/7] COPY docker/php/conf.d/app.ini /usr/local/etc/php/conf.d/zz-app.ini
+#21 CACHED
+
+#22 [app vendor 2/2] RUN composer install --no-dev --no-interaction --no-scripts --no-autoloader --prefer-dist
+#22 CACHED
+
+#23 [app vendor 1/2] COPY composer.json composer.lock ./
+#23 CACHED
+
+#24 [app base 3/5] COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+#24 CACHED
+
+#25 [app base 2/5] COPY --from=mlocati/php-extension-installer:2 /usr/bin/install-php-extensions /usr/local/bin/
+#25 CACHED
+
+#26 [app app 4/7] COPY --from=vendor /var/www/html/vendor ./vendor
+#26 CACHED
+
+#27 [app assets 2/7] COPY --from=node:22.23.5-slim /usr/local/lib/node_modules /usr/local/lib/node_modules
+#27 CACHED
+
+#28 [app assets 4/7] COPY package.json package-lock.json ./
+#28 CACHED
+
+#29 [app assets 1/7] COPY --from=node:22.23.5-slim /usr/local/bin/node /usr/local/bin/node
+#29 CACHED
+
+#30 [app assets 3/7] RUN ln -s ../lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm
+#30 CACHED
+
+#31 [app assets 5/7] RUN npm ci --no-audit --no-fund
+#31 CACHED
+
+#32 [web assets 6/7] COPY . .
+#32 DONE 0.3s
+
+#33 [app app 5/7] COPY . .
+#33 DONE 0.3s
+
+#34 [app assets 7/7] RUN composer dump-autoload --no-dev     && npm run build
+#34 0.387 Generating optimized autoload files
+#34 2.080 > Illuminate\Foundation\ComposerScripts::postAutoloadDump
+#34 2.089 > @php artisan package:discover --ansi
+#34 2.186 
+#34 2.186   [37;44m INFO [39;49m Discovering packages.  
+#34 2.186 
+#34 2.188   dedoc/scramble [90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m [32;1mDONE[39;22m
+#34 2.188   inertiajs/inertia-laravel [90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m [32;1mDONE[39;22m
+#34 2.188   laravel/horizon [90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m [32;1mDONE[39;22m
+#34 2.188   laravel/reverb [90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m [32;1mDONE[39;22m
+#34 2.189   laravel/sanctum [90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m [32;1mDONE[39;22m
+#34 2.189   laravel/sentinel [90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m [32;1mDONE[39;22m
+#34 2.190   laravel/tinker [90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m [32;1mDONE[39;22m
+#34 2.191   laravel/wayfinder [90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m [32;1mDONE[39;22m
+#34 2.191   nesbot/carbon [90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m [32;1mDONE[39;22m
+#34 2.191   nunomaduro/termwind [90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m [32;1mDONE[39;22m
+#34 2.192 
+#34 2.200 Generated optimized autoload files containing 7019 classes
+#34 2.299 
+#34 2.299 > build
+#34 2.299 > vp build
+#34 2.299 
+#34 2.903 [plugin @laravel/vite-plugin-wayfinder] Types generated for actions, routes, form variants
+#34 3.195 [plugin laravel:fonts] Optimized font fallbacks require the optional "fontaine" package. Install it, or set "optimizedFallbacks: false" on your fonts to disable the feature.
+#34 3.201 transforming...
+#34 4.230 ✓ 596 modules transformed.
+#34 4.281 rendering chunks...
+#34 4.349 computing gzip size...
+#34 4.355 public/build/manifest.json                                       2.23 kB │ gzip:  0.48 kB
+#34 4.355 public/build/fonts-manifest.json                                 5.74 kB │ gzip:  0.71 kB
+#34 4.355 public/build/assets/instrument-sans-400-normal-DRC__1Mx.woff2   16.86 kB
+#34 4.355 public/build/assets/instrument-sans-500-normal-Dk9ku72i.woff2   17.23 kB
+#34 4.355 public/build/assets/instrument-sans-600-normal-B7fBEWYG.woff2   17.40 kB
+#34 4.355 public/build/assets/instrument-sans-400-normal-D1W7dsQl.woff    21.24 kB
+#34 4.355 public/build/assets/instrument-sans-500-normal-Z6ESRlEs.woff    21.65 kB
+#34 4.355 public/build/assets/instrument-sans-600-normal-B9e8oLYv.woff    21.67 kB
+#34 4.355 public/build/assets/fonts-C9MNnjVw.css                           2.35 kB │ gzip:  0.38 kB
+#34 4.355 public/build/assets/app-BL-nkNL9.css                            25.21 kB │ gzip:  5.86 kB
+#34 4.355 public/build/assets/wayfinder-DtHkmodj.js                        0.78 kB │ gzip:  0.48 kB
+#34 4.355 public/build/assets/Login-CLSFBSmz.js                            2.64 kB │ gzip:  1.13 kB
+#34 4.355 public/build/assets/Dashboard-DH8qOGQc.js                       49.71 kB │ gzip: 15.43 kB
+#34 4.355 public/build/assets/app-cEBO_wqk.js                            298.97 kB │ gzip: 94.53 kB
+#34 4.355 
+#34 4.356 ✓ built in 1.62s
+#34 DONE 4.5s
+
+#35 [web app 6/7] COPY --from=assets /var/www/html/public/build ./public/build
+#35 DONE 0.0s
+
+#36 [app app 7/7] RUN composer dump-autoload --no-dev --optimize --classmap-authoritative     && touch .env     && mkdir -p /var/www/secrets     && chown -R www-data:www-data storage bootstrap/cache /var/www/secrets
+#36 0.355 Generating optimized autoload files (authoritative)
+#36 1.359 > Illuminate\Foundation\ComposerScripts::postAutoloadDump
+#36 1.368 > @php artisan package:discover --ansi
+#36 1.482 
+#36 1.482   [37;44m INFO [39;49m Discovering packages.  
+#36 1.482 
+#36 1.484   dedoc/scramble [90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m [32;1mDONE[39;22m
+#36 1.484   inertiajs/inertia-laravel [90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m [32;1mDONE[39;22m
+#36 1.484   laravel/horizon [90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m [32;1mDONE[39;22m
+#36 1.485   laravel/reverb [90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m [32;1mDONE[39;22m
+#36 1.485   laravel/sanctum [90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m [32;1mDONE[39;22m
+#36 1.486   laravel/sentinel [90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m [32;1mDONE[39;22m
+#36 1.486   laravel/tinker [90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m [32;1mDONE[39;22m
+#36 1.487   laravel/wayfinder [90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m [32;1mDONE[39;22m
+#36 1.488   nesbot/carbon [90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m [32;1mDONE[39;22m
+#36 1.488   nunomaduro/termwind [90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m[90m.[39m [32;1mDONE[39;22m
+#36 1.488 
+#36 1.493 Generated optimized autoload files (authoritative) containing 7019 classes
+#36 DONE 1.8s
+
+#37 [app] exporting to image
+#37 exporting layers
+#37 ...
+
+#38 [web web 2/3] COPY docker/nginx/default.conf /etc/nginx/conf.d/default.conf
+#38 CACHED
+
+#39 [web web 3/3] COPY --from=app /var/www/html/public /var/www/html/public
+#39 CACHED
+
+#40 [web] exporting to image
+#40 exporting layers done
+#40 exporting manifest sha256:4e6e933f75a426e3231ad2b8b7107531f044bf99f1bfd7c6d34e5df6e3182200 done
+#40 exporting config sha256:7f7b536f62edf005e61d7f627e734c037cb990e6013c8abe2f6f1c473f9797b6 done
+#40 exporting attestation manifest sha256:2eb5d391e3ce5bc60d08a0eb43e5a712db8550de190c9070a887eef23666148f 0.1s done
+#40 exporting manifest list sha256:f29bcc989c861b6f2268e45663b884559e8b99266775e2f0576fa5299d9d72a4
+#40 exporting manifest list sha256:f29bcc989c861b6f2268e45663b884559e8b99266775e2f0576fa5299d9d72a4 0.1s done
+#40 naming to docker.io/library/edns-scale-web:latest 0.0s done
+#40 unpacking to docker.io/library/edns-scale-web:latest 0.0s done
+#40 DONE 0.2s
+
+#37 [app] exporting to image
+#37 exporting layers 0.2s done
+#37 exporting manifest sha256:b84daf670968f2cef2ca70f42fa145b6c3eb565f286b43513ed5235dff461fff 0.0s done
+#37 exporting config sha256:c8e03f1836c7bf8a6ae3fdbce7b2414791ee7cb095edb7fc94b4ff0a82e3769d 0.0s done
+#37 exporting attestation manifest sha256:fb43246d3e9b8f5bc0cc4c4b572a0ad5779ef99b50321eccf99d1626b9c1144c 0.0s done
+#37 exporting manifest list sha256:bcc7cfa54c7d6ab4c5aa66c3b59bb9d7a21ed3a2d2a1d7ff17aca2309d02a30a
+#37 exporting manifest list sha256:bcc7cfa54c7d6ab4c5aa66c3b59bb9d7a21ed3a2d2a1d7ff17aca2309d02a30a 0.1s done
+#37 naming to docker.io/library/edns-scale-app:latest 0.0s done
+#37 unpacking to docker.io/library/edns-scale-app:latest
+#37 ...
+
+#41 [web] resolving provenance for metadata file
+#41 DONE 0.0s
+
+#37 [app] exporting to image
+#37 unpacking to docker.io/library/edns-scale-app:latest 0.3s done
+#37 DONE 0.8s
+
+#42 [init] exporting to image
+#42 exporting layers 0.2s done
+#42 exporting manifest sha256:0456b84def22659c3829b273c70aaa58c7134a44f8582bbab83fd39763ab1e19 0.0s done
+#42 exporting config sha256:5e48655860e7381b8cca4535d6abac4dc3cfad4f1331c81a1dfd6ef83c2854ed 0.0s done
+#42 exporting attestation manifest sha256:df7300f3a5933431e75334d9e09739e3971fbb147b477cd303f5c73656fb91f1 0.0s done
+#42 exporting manifest list sha256:86a6948bc471dbfab4eb16d548f329e15176a99abaff3120e01af5d981c271e6 0.1s done
+#42 naming to docker.io/library/edns-scale-app:latest done
+#42 unpacking to docker.io/library/edns-scale-app:latest 0.3s done
+#42 DONE 0.8s
+
+#43 [app] resolving provenance for metadata file
+#43 DONE 0.0s
+
+#44 [init] resolving provenance for metadata file
+#44 DONE 0.0s
+ Image edns-scale-app Built 
+ Image edns-scale-web Built 
+ Image edns-scale-app Built 
+ Container edns-scale-web-1 Running 
+ Container edns-scale-redis-1 Running 
+ Container edns-scale-postgres-1 Running 
+ Container edns-scale-init-1 Recreate 
+ Container edns-scale-init-1 Recreated 
+ Container edns-scale-app-1 Recreate 
+ Container edns-scale-app-1 Recreated 
+ Container edns-scale-redis-1 Waiting 
+ Container edns-scale-postgres-1 Waiting 
+ Container edns-scale-redis-1 Healthy 
+ Container edns-scale-postgres-1 Healthy 
+ Container edns-scale-init-1 Starting 
+ Container edns-scale-init-1 Started 
+ Container edns-scale-init-1 Waiting 
+ Container edns-scale-init-1 Exited 
+ Container edns-scale-app-1 Starting 
+ Container edns-scale-app-1 Started 
+ Container edns-scale-web-1 Waiting 
+ Container edns-scale-web-1 Healthy 
+ Container edns-scale-k6-run-d8a6f855b0ec Creating 
+ Container edns-scale-k6-run-d8a6f855b0ec Created 
+
+         /\      Grafana   /‾‾/  
+    /\  /  \     |\  __   /  /   
+   /  \/    \    | |/ /  /   ‾‾\ 
+  /          \   |   (  |  (‾)  |
+ / __________ \  |_|\_\  \_____/ 
+
+     execution: local
+        script: /scripts/scale.js
+        output: -
+
+     scenarios: (100.00%) 1 scenario, 20 max VUs, 3h0m30s max duration (incl. graceful stop):
+              * batches: 100 iterations shared among 20 VUs (maxDuration: 3h0m0s, gracefulStop: 30s)
+
+
+running (0h00m01.0s), 20/20 VUs, 0 complete and 0 interrupted iterations
+batches   [   0% ] 20 VUs  0h00m00.8s/3h0m0s  000/100 shared iters
+
+running (0h00m02.0s), 20/20 VUs, 0 complete and 0 interrupted iterations
+batches   [   0% ] 20 VUs  0h00m01.8s/3h0m0s  000/100 shared iters
+
+running (0h00m03.0s), 20/20 VUs, 0 complete and 0 interrupted iterations
+batches   [   0% ] 20 VUs  0h00m02.8s/3h0m0s  000/100 shared iters
+
+running (0h00m04.0s), 20/20 VUs, 0 complete and 0 interrupted iterations
+batches   [   0% ] 20 VUs  0h00m03.8s/3h0m0s  000/100 shared iters
+
+running (0h00m05.0s), 20/20 VUs, 0 complete and 0 interrupted iterations
+batches   [   0% ] 20 VUs  0h00m04.8s/3h0m0s  000/100 shared iters
+
+running (0h00m06.0s), 20/20 VUs, 0 complete and 0 interrupted iterations
+batches   [   0% ] 20 VUs  0h00m05.8s/3h0m0s  000/100 shared iters
+
+running (0h00m07.0s), 20/20 VUs, 1 complete and 0 interrupted iterations
+batches   [   1% ] 20 VUs  0h00m06.9s/3h0m0s  001/100 shared iters
+
+running (0h00m08.0s), 20/20 VUs, 1 complete and 0 interrupted iterations
+batches   [   1% ] 20 VUs  0h00m07.8s/3h0m0s  001/100 shared iters
+
+running (0h00m09.0s), 20/20 VUs, 3 complete and 0 interrupted iterations
+batches   [   3% ] 20 VUs  0h00m08.9s/3h0m0s  003/100 shared iters
+
+running (0h00m10.0s), 20/20 VUs, 5 complete and 0 interrupted iterations
+batches   [   5% ] 20 VUs  0h00m09.8s/3h0m0s  005/100 shared iters
+
+running (0h00m11.0s), 20/20 VUs, 6 complete and 0 interrupted iterations
+batches   [   6% ] 20 VUs  0h00m10.8s/3h0m0s  006/100 shared iters
+
+running (0h00m12.0s), 20/20 VUs, 7 complete and 0 interrupted iterations
+batches   [   7% ] 20 VUs  0h00m11.8s/3h0m0s  007/100 shared iters
+
+running (0h00m13.0s), 20/20 VUs, 7 complete and 0 interrupted iterations
+batches   [   7% ] 20 VUs  0h00m12.8s/3h0m0s  007/100 shared iters
+
+running (0h00m14.0s), 20/20 VUs, 7 complete and 0 interrupted iterations
+batches   [   7% ] 20 VUs  0h00m13.8s/3h0m0s  007/100 shared iters
+
+running (0h00m15.0s), 20/20 VUs, 7 complete and 0 interrupted iterations
+batches   [   7% ] 20 VUs  0h00m14.8s/3h0m0s  007/100 shared iters
+
+running (0h00m16.0s), 20/20 VUs, 9 complete and 0 interrupted iterations
+batches   [   9% ] 20 VUs  0h00m15.8s/3h0m0s  009/100 shared iters
+
+running (0h00m17.0s), 20/20 VUs, 11 complete and 0 interrupted iterations
+batches   [  11% ] 20 VUs  0h00m16.8s/3h0m0s  011/100 shared iters
+
+running (0h00m18.0s), 20/20 VUs, 11 complete and 0 interrupted iterations
+batches   [  11% ] 20 VUs  0h00m17.8s/3h0m0s  011/100 shared iters
+
+running (0h00m19.0s), 20/20 VUs, 12 complete and 0 interrupted iterations
+batches   [  12% ] 20 VUs  0h00m18.8s/3h0m0s  012/100 shared iters
+
+running (0h00m20.0s), 20/20 VUs, 16 complete and 0 interrupted iterations
+batches   [  16% ] 20 VUs  0h00m19.8s/3h0m0s  016/100 shared iters
+
+running (0h00m21.0s), 20/20 VUs, 18 complete and 0 interrupted iterations
+batches   [  18% ] 20 VUs  0h00m20.8s/3h0m0s  018/100 shared iters
+
+running (0h00m22.0s), 20/20 VUs, 21 complete and 0 interrupted iterations
+batches   [  21% ] 20 VUs  0h00m21.8s/3h0m0s  021/100 shared iters
+
+running (0h00m23.0s), 20/20 VUs, 24 complete and 0 interrupted iterations
+batches   [  24% ] 20 VUs  0h00m22.8s/3h0m0s  024/100 shared iters
+
+running (0h00m24.0s), 20/20 VUs, 25 complete and 0 interrupted iterations
+batches   [  25% ] 20 VUs  0h00m23.8s/3h0m0s  025/100 shared iters
+
+running (0h00m25.0s), 20/20 VUs, 25 complete and 0 interrupted iterations
+batches   [  25% ] 20 VUs  0h00m24.8s/3h0m0s  025/100 shared iters
+
+running (0h00m26.0s), 20/20 VUs, 27 complete and 0 interrupted iterations
+batches   [  27% ] 20 VUs  0h00m25.8s/3h0m0s  027/100 shared iters
+
+running (0h00m27.0s), 20/20 VUs, 27 complete and 0 interrupted iterations
+batches   [  27% ] 20 VUs  0h00m26.8s/3h0m0s  027/100 shared iters
+
+running (0h00m28.0s), 20/20 VUs, 27 complete and 0 interrupted iterations
+batches   [  27% ] 20 VUs  0h00m27.8s/3h0m0s  027/100 shared iters
+
+running (0h00m29.0s), 20/20 VUs, 27 complete and 0 interrupted iterations
+batches   [  27% ] 20 VUs  0h00m28.8s/3h0m0s  027/100 shared iters
+
+running (0h00m30.0s), 20/20 VUs, 27 complete and 0 interrupted iterations
+batches   [  27% ] 20 VUs  0h00m29.8s/3h0m0s  027/100 shared iters
+
+running (0h00m31.0s), 20/20 VUs, 28 complete and 0 interrupted iterations
+batches   [  28% ] 20 VUs  0h00m30.8s/3h0m0s  028/100 shared iters
+
+running (0h00m32.0s), 20/20 VUs, 30 complete and 0 interrupted iterations
+batches   [  30% ] 20 VUs  0h00m31.8s/3h0m0s  030/100 shared iters
+
+running (0h00m33.0s), 20/20 VUs, 32 complete and 0 interrupted iterations
+batches   [  32% ] 20 VUs  0h00m32.8s/3h0m0s  032/100 shared iters
+
+running (0h00m34.0s), 20/20 VUs, 33 complete and 0 interrupted iterations
+batches   [  33% ] 20 VUs  0h00m33.8s/3h0m0s  033/100 shared iters
+
+running (0h00m35.0s), 20/20 VUs, 36 complete and 0 interrupted iterations
+batches   [  36% ] 20 VUs  0h00m34.8s/3h0m0s  036/100 shared iters
+
+running (0h00m36.0s), 20/20 VUs, 38 complete and 0 interrupted iterations
+batches   [  38% ] 20 VUs  0h00m35.8s/3h0m0s  038/100 shared iters
+
+running (0h00m37.0s), 20/20 VUs, 42 complete and 0 interrupted iterations
+batches   [  42% ] 20 VUs  0h00m36.8s/3h0m0s  042/100 shared iters
+
+running (0h00m38.0s), 20/20 VUs, 45 complete and 0 interrupted iterations
+batches   [  45% ] 20 VUs  0h00m37.8s/3h0m0s  045/100 shared iters
+
+running (0h00m39.0s), 20/20 VUs, 45 complete and 0 interrupted iterations
+batches   [  45% ] 20 VUs  0h00m38.8s/3h0m0s  045/100 shared iters
+
+running (0h00m40.0s), 20/20 VUs, 45 complete and 0 interrupted iterations
+batches   [  45% ] 20 VUs  0h00m39.8s/3h0m0s  045/100 shared iters
+
+running (0h00m41.0s), 20/20 VUs, 47 complete and 0 interrupted iterations
+batches   [  47% ] 20 VUs  0h00m40.8s/3h0m0s  047/100 shared iters
+
+running (0h00m42.0s), 20/20 VUs, 47 complete and 0 interrupted iterations
+batches   [  47% ] 20 VUs  0h00m41.8s/3h0m0s  047/100 shared iters
+
+running (0h00m43.0s), 20/20 VUs, 47 complete and 0 interrupted iterations
+batches   [  47% ] 20 VUs  0h00m42.8s/3h0m0s  047/100 shared iters
+
+running (0h00m44.0s), 20/20 VUs, 48 complete and 0 interrupted iterations
+batches   [  48% ] 20 VUs  0h00m43.8s/3h0m0s  048/100 shared iters
+
+running (0h00m45.0s), 20/20 VUs, 49 complete and 0 interrupted iterations
+batches   [  49% ] 20 VUs  0h00m44.8s/3h0m0s  049/100 shared iters
+
+running (0h00m46.0s), 20/20 VUs, 49 complete and 0 interrupted iterations
+batches   [  49% ] 20 VUs  0h00m45.8s/3h0m0s  049/100 shared iters
+
+running (0h00m47.0s), 20/20 VUs, 50 complete and 0 interrupted iterations
+batches   [  50% ] 20 VUs  0h00m46.8s/3h0m0s  050/100 shared iters
+
+running (0h00m48.0s), 20/20 VUs, 52 complete and 0 interrupted iterations
+batches   [  52% ] 20 VUs  0h00m47.8s/3h0m0s  052/100 shared iters
+
+running (0h00m49.0s), 20/20 VUs, 55 complete and 0 interrupted iterations
+batches   [  55% ] 20 VUs  0h00m48.8s/3h0m0s  055/100 shared iters
+
+running (0h00m50.0s), 20/20 VUs, 56 complete and 0 interrupted iterations
+batches   [  56% ] 20 VUs  0h00m49.8s/3h0m0s  056/100 shared iters
+
+running (0h00m51.0s), 20/20 VUs, 59 complete and 0 interrupted iterations
+batches   [  59% ] 20 VUs  0h00m50.8s/3h0m0s  059/100 shared iters
+
+running (0h00m52.0s), 20/20 VUs, 59 complete and 0 interrupted iterations
+batches   [  59% ] 20 VUs  0h00m51.8s/3h0m0s  059/100 shared iters
+
+running (0h00m53.0s), 20/20 VUs, 61 complete and 0 interrupted iterations
+batches   [  61% ] 20 VUs  0h00m52.8s/3h0m0s  061/100 shared iters
+
+running (0h00m54.0s), 20/20 VUs, 63 complete and 0 interrupted iterations
+batches   [  63% ] 20 VUs  0h00m53.8s/3h0m0s  063/100 shared iters
+
+running (0h00m55.0s), 20/20 VUs, 65 complete and 0 interrupted iterations
+batches   [  65% ] 20 VUs  0h00m54.8s/3h0m0s  065/100 shared iters
+
+running (0h00m56.0s), 20/20 VUs, 65 complete and 0 interrupted iterations
+batches   [  65% ] 20 VUs  0h00m55.8s/3h0m0s  065/100 shared iters
+
+running (0h00m57.0s), 20/20 VUs, 66 complete and 0 interrupted iterations
+batches   [  66% ] 20 VUs  0h00m56.8s/3h0m0s  066/100 shared iters
+
+running (0h00m58.0s), 20/20 VUs, 67 complete and 0 interrupted iterations
+batches   [  67% ] 20 VUs  0h00m57.8s/3h0m0s  067/100 shared iters
+
+running (0h00m59.0s), 20/20 VUs, 67 complete and 0 interrupted iterations
+batches   [  67% ] 20 VUs  0h00m58.8s/3h0m0s  067/100 shared iters
+
+running (0h01m00.0s), 20/20 VUs, 67 complete and 0 interrupted iterations
+batches   [  67% ] 20 VUs  0h00m59.8s/3h0m0s  067/100 shared iters
+
+running (0h01m01.0s), 20/20 VUs, 68 complete and 0 interrupted iterations
+batches   [  68% ] 20 VUs  0h01m00.8s/3h0m0s  068/100 shared iters
+
+running (0h01m02.0s), 20/20 VUs, 69 complete and 0 interrupted iterations
+batches   [  69% ] 20 VUs  0h01m01.9s/3h0m0s  069/100 shared iters
+
+running (0h01m03.0s), 20/20 VUs, 69 complete and 0 interrupted iterations
+batches   [  69% ] 20 VUs  0h01m02.8s/3h0m0s  069/100 shared iters
+
+running (0h01m04.0s), 20/20 VUs, 70 complete and 0 interrupted iterations
+batches   [  70% ] 20 VUs  0h01m03.8s/3h0m0s  070/100 shared iters
+
+running (0h01m05.0s), 20/20 VUs, 72 complete and 0 interrupted iterations
+batches   [  72% ] 20 VUs  0h01m04.8s/3h0m0s  072/100 shared iters
+
+running (0h01m06.0s), 20/20 VUs, 74 complete and 0 interrupted iterations
+batches   [  74% ] 20 VUs  0h01m05.8s/3h0m0s  074/100 shared iters
+
+running (0h01m07.0s), 20/20 VUs, 77 complete and 0 interrupted iterations
+batches   [  77% ] 20 VUs  0h01m06.8s/3h0m0s  077/100 shared iters
+
+running (0h01m08.0s), 20/20 VUs, 79 complete and 0 interrupted iterations
+batches   [  79% ] 20 VUs  0h01m07.8s/3h0m0s  079/100 shared iters
+
+running (0h01m09.0s), 20/20 VUs, 79 complete and 0 interrupted iterations
+batches   [  79% ] 20 VUs  0h01m08.8s/3h0m0s  079/100 shared iters
+
+running (0h01m10.0s), 18/20 VUs, 82 complete and 0 interrupted iterations
+batches   [  82% ] 20 VUs  0h01m09.8s/3h0m0s  082/100 shared iters
+
+running (0h01m11.1s), 16/20 VUs, 84 complete and 0 interrupted iterations
+batches   [  84% ] 20 VUs  0h01m10.9s/3h0m0s  084/100 shared iters
+
+running (0h01m12.0s), 15/20 VUs, 85 complete and 0 interrupted iterations
+batches   [  85% ] 20 VUs  0h01m11.8s/3h0m0s  085/100 shared iters
+
+running (0h01m13.0s), 14/20 VUs, 86 complete and 0 interrupted iterations
+batches   [  86% ] 20 VUs  0h01m12.8s/3h0m0s  086/100 shared iters
+
+running (0h01m14.0s), 13/20 VUs, 87 complete and 0 interrupted iterations
+batches   [  87% ] 20 VUs  0h01m13.8s/3h0m0s  087/100 shared iters
+
+running (0h01m15.0s), 12/20 VUs, 88 complete and 0 interrupted iterations
+batches   [  88% ] 20 VUs  0h01m14.8s/3h0m0s  088/100 shared iters
+
+running (0h01m16.0s), 11/20 VUs, 89 complete and 0 interrupted iterations
+batches   [  89% ] 20 VUs  0h01m15.8s/3h0m0s  089/100 shared iters
+
+running (0h01m17.0s), 09/20 VUs, 91 complete and 0 interrupted iterations
+batches   [  91% ] 20 VUs  0h01m16.8s/3h0m0s  091/100 shared iters
+
+running (0h01m18.0s), 04/20 VUs, 96 complete and 0 interrupted iterations
+batches   [  96% ] 20 VUs  0h01m17.8s/3h0m0s  096/100 shared iters
+
+running (0h01m19.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h01m20.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h01m21.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h01m22.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h01m23.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h01m24.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h01m25.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h01m26.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h01m27.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h01m28.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h01m29.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h01m30.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h01m31.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h01m32.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h01m33.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h01m34.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h01m35.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h01m36.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h01m37.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h01m38.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h01m39.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h01m40.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h01m41.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h01m42.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h01m43.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h01m44.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h01m45.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h01m46.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h01m47.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h01m48.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h01m49.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h01m50.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h01m51.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h01m52.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h01m53.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h01m54.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h01m55.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h01m56.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h01m57.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h01m58.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h01m59.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h02m00.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h02m01.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h02m02.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h02m03.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h02m04.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h02m05.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h02m06.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h02m07.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h02m08.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h02m09.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h02m10.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h02m11.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h02m12.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h02m13.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h02m14.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h02m15.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h02m16.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h02m17.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h02m18.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h02m19.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h02m20.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h02m21.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h02m22.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h02m23.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h02m24.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h02m25.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h02m26.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h02m27.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h02m28.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h02m29.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h02m30.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h02m31.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h02m32.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h02m33.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h02m34.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h02m35.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h02m36.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h02m37.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h02m38.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h02m39.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h02m40.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h02m41.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h02m42.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h02m43.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h02m44.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h02m45.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h02m46.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h02m47.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h02m48.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h02m49.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h02m50.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h02m51.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h02m52.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h02m53.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h02m54.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h02m55.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h02m56.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h02m57.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h02m58.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h02m59.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h03m00.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h03m01.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h03m02.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h03m03.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h03m04.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h03m05.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h03m06.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h03m07.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h03m08.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h03m09.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h03m10.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h03m11.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h03m12.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h03m13.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h03m14.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h03m15.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h03m16.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h03m17.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h03m18.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h03m19.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h03m20.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h03m21.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h03m22.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h03m23.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h03m24.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h03m25.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h03m26.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h03m27.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h03m28.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h03m29.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h03m30.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h03m31.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h03m32.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h03m33.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h03m34.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h03m35.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h03m36.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h03m37.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h03m38.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h03m39.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h03m40.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h03m41.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h03m42.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h03m43.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h03m44.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h03m45.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h03m46.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h03m47.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h03m48.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h03m49.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h03m50.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h03m51.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h03m52.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h03m53.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h03m54.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h03m55.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h03m56.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h03m57.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h03m58.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h03m59.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h04m00.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h04m01.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h04m02.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h04m03.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h04m04.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h04m05.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h04m06.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h04m07.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h04m08.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h04m09.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h04m10.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h04m11.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h04m12.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h04m13.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h04m14.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h04m15.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h04m16.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h04m17.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h04m18.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h04m19.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h04m20.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h04m21.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h04m22.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h04m23.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h04m24.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h04m25.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h04m26.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h04m27.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h04m28.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h04m29.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h04m30.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h04m31.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h04m32.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h04m33.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h04m34.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h04m35.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h04m36.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h04m37.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h04m38.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h04m39.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h04m40.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h04m41.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h04m42.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h04m43.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h04m44.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h04m45.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h04m46.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h04m47.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h04m48.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h04m49.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h04m50.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h04m51.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h04m52.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h04m53.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h04m54.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h04m55.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h04m56.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h04m57.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h04m58.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h04m59.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h05m00.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h05m01.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h05m02.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h05m03.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h05m04.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h05m05.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h05m06.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h05m07.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h05m08.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h05m09.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h05m10.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h05m11.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h05m12.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h05m13.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h05m14.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h05m15.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h05m16.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h05m17.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h05m18.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h05m19.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h05m20.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h05m21.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h05m22.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h05m23.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h05m24.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h05m25.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h05m26.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h05m27.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h05m28.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h05m29.1s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h05m30.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h05m31.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h05m32.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h05m33.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h05m34.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h05m35.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h05m36.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h05m37.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h05m38.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h05m39.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h05m40.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h05m41.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h05m42.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h05m43.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h05m44.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h05m45.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h05m46.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h05m47.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h05m48.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h05m49.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h05m50.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h05m51.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h05m52.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h05m53.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h05m54.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h05m55.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h05m56.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h05m57.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h05m58.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h05m59.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h06m00.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h06m01.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h06m02.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h06m03.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h06m04.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h06m05.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h06m06.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h06m07.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h06m08.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h06m09.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h06m10.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h06m11.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h06m12.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h06m13.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h06m14.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h06m15.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h06m16.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h06m17.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h06m18.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h06m19.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h06m20.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h06m21.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h06m22.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h06m23.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h06m24.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h06m25.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h06m26.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h06m27.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h06m28.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h06m29.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h06m30.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h06m31.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h06m32.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h06m33.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h06m34.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h06m35.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h06m36.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h06m37.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h06m38.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h06m39.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h06m40.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h06m41.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h06m42.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h06m43.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h06m44.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h06m45.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h06m46.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h06m47.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h06m48.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h06m49.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h06m50.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h06m51.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h06m52.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h06m53.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h06m54.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+
+running (0h06m55.0s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters
+time="2026-11-16T04:19:13Z" level=info msg="SCALE_RESULT {\"total\":100000,\"batches\":100,\"concurrency\":20,\"accept_seconds\":78.72,\"total_seconds\":414.903,\"unfinished\":0,\"provider_received\":100000,\"provider_accepted\":100000,\"provider_duplicates\":0,\"provider_failed\":{},\"provider_peak_per_second\":{\"push\":101,\"email\":101,\"sms\":101}}" source=console
+
+
+  █ TOTAL RESULTS 
+
+    checks_total.......: 100     0.240927/s
+    checks_succeeded...: 100.00% 100 out of 100
+    checks_failed......: 0.00%   0 out of 100
+
+    ✓ batch accepted (202)
+
+    CUSTOM
+    batch_duration.................: p(50)=15.03s  p(95)=19.4s  p(99)=21.4s  max=22.33s
+    notifications_accepted.........: 100000 240.927458/s
+
+    HTTP
+    http_req_duration..............: p(50)=41.62ms p(95)=16.76s p(99)=19.6s  max=22.33s
+      { expected_response:true }...: p(50)=41.62ms p(95)=16.76s p(99)=19.6s  max=22.33s
+    http_req_failed................: 0.00%  0 out of 415
+    http_reqs......................: 415    0.999849/s
+
+    EXECUTION
+    iteration_duration.............: p(50)=15.04s  p(95)=19.43s p(99)=21.43s max=22.37s
+    iterations.....................: 100    0.240927/s
+    vus............................: 0      min=0        max=20
+    vus_max........................: 20     min=20       max=20
+
+    NETWORK
+    data_received..................: 64 MB  153 kB/s
+    data_sent......................: 10 MB  25 kB/s
+
+
+
+
+running (0h06m55.1s), 00/20 VUs, 100 complete and 0 interrupted iterations
+batches ✓ [ 100% ] 20 VUs  0h01m18.7s/3h0m0s  100/100 shared iters

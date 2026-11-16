@@ -1,0 +1,20 @@
+State after the 1,000,000 run stalled (2026-11-16T05:07:33Z), Redis capped at 3 GB (maxmemory, noeviction)
+
+Notifications in PostgreSQL by status:
+  processing|45
+  queued|185878
+  sent|21077
+  waiting|102000
+
+Redis:
+  used_memory_human:3.00G
+  maxmemory_human:3.00G
+  errorstat_OOM:count=68499
+  broadcast jobs waiting: 435167
+  Horizon job records: 663088
+
+API now:
+  POST /api/v1/notifications -> 503
+  GET /health -> 503
+
+Log lines with 'OOM command not allowed' in the last hour: horizon 36936, app 2128

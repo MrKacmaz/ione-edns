@@ -1,0 +1,12 @@
+Machine: Apple M5, 24 GB, macOS 27.0.1
+Docker: 29.9.3; the Docker VM has 10 CPUs and 7.7 GB of memory
+Stack: docker-compose.yml as committed, as the separate project edns-scale, with
+  - the mock provider (no NOTIFICATIONS_GATEWAY_URL)
+  - OTEL_TRACES_SAMPLER=parentbased_traceidratio, OTEL_TRACES_SAMPLER_ARG=0.01,
+    so that Jaeger's in-memory store does not hold millions of traces
+  - for the 1,000,000 run only: Redis started with --maxmemory 3gb
+    --maxmemory-policy noeviction, so that a full Redis fails inside the stack
+    instead of exhausting the Docker VM
+Load: tests/k6/scale.js, batches of 1000, 20 requests at a time, the demo account
+Each size from 100 to 100,000 ran on one fresh stack in that order; the
+1,000,000 run started on another fresh stack.
