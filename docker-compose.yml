@@ -204,7 +204,7 @@ services:
     # is not set. It accepts deliveries with 202 and a messageId, and fails or slows
     # them on request (docker/mock-provider/server.php): control it on the host port.
     provider:
-        image: php:8.5.12-cli-alpine
+        image: php:8.6.0RC5-cli-alpine
         command: ['php', '-q', '-S', '0.0.0.0:80', '/srv/server.php']
         environment:
             # Requests are served in parallel, so a slow answer holds up only its own worker.
@@ -225,7 +225,7 @@ services:
 
     # Load test against the running stack and its mock provider: docker compose --profile loadtest run --rm k6
     k6:
-        image: grafana/k6:1.3.0
+        image: grafana/k6:2.4.0
         profiles: ['loadtest']
         command: ['run', '/scripts/load.js']
         volumes:
