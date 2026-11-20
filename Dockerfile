@@ -94,7 +94,7 @@ CMD ["php-fpm"]
 # ---------------------------------------------------------------------------
 # web: nginx serving the public directory and passing PHP to the app service.
 # ---------------------------------------------------------------------------
-FROM nginx:1.31.7-alpine AS web
+FROM nginx:1.31.8-alpine AS web
 
 COPY docker/nginx/default.conf /etc/nginx/conf.d/default.conf
 COPY --from=app /var/www/html/public /var/www/html/public
